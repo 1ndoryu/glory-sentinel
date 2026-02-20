@@ -7,7 +7,7 @@
   "icon": "media/7599515f2b8981a49a057e0e9a75b8b6.jpg",
   "repository": {
     "type": "git",
-    "url": "https://github.com/1ndoryu/sentinel-glory-sentinel"
+    "url": "https://github.com/1ndoryu/glory-sentinel"
   },
   "engines": {
     "vscode": "^1.85.0"
