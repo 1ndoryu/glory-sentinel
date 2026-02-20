@@ -500,9 +500,9 @@ function verificarArchivosTemporalesSinFinally(texto: string, lineas: string[]):
       continue;
     }
 
-    /* Buscar bloque finally con unlink en las siguientes 50 lineas */
+    /* Buscar bloque finally con unlink en las siguientes 150 lineas (metodos con sideload pueden ser largos) */
     let tieneFinally = false;
-    const bloqueRelevante = lineas.slice(i, Math.min(lineas.length, i + 50)).join('\n');
+    const bloqueRelevante = lineas.slice(i, Math.min(lineas.length, i + 150)).join('\n');
     if (/finally\s*\{[\s\S]*unlink/.test(bloqueRelevante)) {
       tieneFinally = true;
     }
