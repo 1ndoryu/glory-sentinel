@@ -14,7 +14,7 @@ import {
 import { SentinelCodeActionProvider } from './providers/codeActionProvider';
 import { cargarConfiguracion, verificarArchivosReglas } from './services/ruleLoader';
 import { categoriasRegla } from './config/ruleCategories';
-import { reglasEstaticas } from './config/defaultRules';
+import { obtenerTodasLasReglas } from './config/ruleRegistry';
 import { inicializarCanal, logInfo } from './utils/logger';
 
 /* Estado global de si la IA esta habilitada (para toggle rapido) */
@@ -32,7 +32,9 @@ export function activate(context: vscode.ExtensionContext): void {
   const config = cargarConfiguracion();
   iaHabilitada = config.aiAnalysisEnabled;
 
-  logInfo(`Code Sentinel activado. ${reglasEstaticas.length} reglas estaticas cargadas.`);
+  const todasLasReglas = obtenerTodasLasReglas();
+  const reglasActivas = todasLasReglas.filter(r => r.habilitada);
+  logInfo(`Code Sentinel activado. ${todasLasReglas.length} reglas registradas (${reglasActivas.length} activas, ${todasLasReglas.length - reglasActivas.length} deshabilitadas).`);
   const backendIA = config.aiBackend === 'gemini-cli'
     ? `Gemini CLI (modelo: ${config.geminiModel})`
     : `Copilot vscode.lm (modelo: ${config.aiModelFamily})`;
@@ -105,7 +107,7 @@ export function activate(context: vscode.ExtensionContext): void {
   });
 }
 
-/* Muestra un webview con el resumen de reglas activas */
+/* Muestra un webview con el resumen de reglas activas, incluyendo estado habilitada/deshabilitada */
 function mostrarResumenReglas(): void {
   const panel = vscode.window.createWebviewPanel(
     'codeSentinelRules',
@@ -113,6 +115,9 @@ function mostrarResumenReglas(): void {
     vscode.ViewColumn.Beside,
     {}
   );
+
+  const todasLasReglas = obtenerTodasLasReglas();
+  const reglasActivas = todasLasReglas.filter(r => r.habilitada);
 
   let html = `<!DOCTYPE html>
 <html>
@@ -127,31 +132,38 @@ function mostrarResumenReglas(): void {
     .error { color: var(--vscode-errorForeground); }
     .warning { color: var(--vscode-editorWarning-foreground); }
     .info { color: var(--vscode-editorInfo-foreground); }
+    .deshabilitada { opacity: 0.5; text-decoration: line-through; }
+    .badge-on { color: #4ec9b0; }
+    .badge-off { color: #f44747; }
   </style>
 </head>
 <body>
-  <h1>Code Sentinel - Reglas Activas</h1>
-  <p>${reglasEstaticas.length} reglas estaticas | IA: ${iaHabilitada ? 'Habilitada' : 'Deshabilitada'}</p>`;
+  <h1>Code Sentinel - Reglas</h1>
+  <p>${reglasActivas.length} reglas activas de ${todasLasReglas.length} | IA: ${iaHabilitada ? 'Habilitada' : 'Deshabilitada'}</p>
+  <p><em>Configura reglas en settings.json con <code>codeSentinel.rules</code>. Ejemplo: <code>{ "barras-decorativas": { "habilitada": false } }</code></em></p>`;
 
   for (const categoria of categoriasRegla) {
-    const reglasCategoria = reglasEstaticas.filter(r => r.categoria === categoria.id);
+    const reglasCategoria = todasLasReglas.filter(r => r.categoria === categoria.id);
     if (reglasCategoria.length === 0) { continue; }
 
     html += `
   <h2>${categoria.nombre} (${categoria.seccionProtocolo})</h2>
   <p>${categoria.descripcion}</p>
   <table>
-    <tr><th>ID</th><th>Nombre</th><th>Severidad</th><th>Aplica a</th></tr>`;
+    <tr><th>ID</th><th>Nombre</th><th>Severidad</th><th>Estado</th></tr>`;
 
     for (const regla of reglasCategoria) {
-      const clasesSeveridad = regla.severidad === 'error' ? 'error'
+      const claseSeveridad = regla.severidad === 'error' ? 'error'
         : regla.severidad === 'warning' ? 'warning' : 'info';
+      const claseEstado = regla.habilitada ? 'badge-on' : 'badge-off';
+      const textoEstado = regla.habilitada ? 'Activa' : 'Deshabilitada';
+      const claseRow = regla.habilitada ? '' : ' class="deshabilitada"';
       html += `
-    <tr>
+    <tr${claseRow}>
       <td><code>${regla.id}</code></td>
       <td>${regla.nombre}</td>
-      <td class="${clasesSeveridad}">${regla.severidad}</td>
-      <td>${regla.aplicaA.join(', ')}</td>
+      <td class="${claseSeveridad}">${regla.severidad}</td>
+      <td class="${claseEstado}">${textoEstado}</td>
     </tr>`;
     }
 

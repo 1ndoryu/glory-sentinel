@@ -84,30 +84,30 @@
           "default": "flash-min",
           "description": "Modelo o alias de Gemini a usar con Gemini CLI. Recomendado: flash-min (alias local con thinkingLevel minimal). Ejemplos: flash-min, gemini-3-flash-preview, gemini-3-pro-preview, gemini-2.5-flash"
         },
-        "codeSentinel.timing.staticDebounceMs": {
+        "codeSentinel.timing.staticDebounce": {
           "type": "number",
-          "default": 500,
-          "description": "Debounce en ms para analisis estatico al editar"
+          "default": 1,
+          "description": "Debounce en segundos para analisis estatico al editar"
         },
-        "codeSentinel.timing.aiDelayOnOpenMs": {
+        "codeSentinel.timing.aiDelayOnOpen": {
           "type": "number",
-          "default": 5000,
-          "description": "Delay en ms para analisis IA al abrir/ver un archivo"
+          "default": 5,
+          "description": "Delay en segundos para analisis IA al abrir/ver un archivo"
         },
-        "codeSentinel.timing.aiDelayOnEditMs": {
+        "codeSentinel.timing.aiDelayOnEdit": {
           "type": "number",
-          "default": 30000,
-          "description": "Delay en ms para analisis IA al editar"
+          "default": 30,
+          "description": "Delay en segundos para analisis IA al editar"
         },
-        "codeSentinel.timing.aiCooldownMs": {
+        "codeSentinel.timing.aiCooldown": {
           "type": "number",
-          "default": 300000,
-          "description": "Cooldown en ms tras analisis IA exitoso"
+          "default": 300,
+          "description": "Cooldown en segundos tras analisis IA exitoso"
         },
-        "codeSentinel.timing.aiTimeoutMs": {
+        "codeSentinel.timing.aiTimeout": {
           "type": "number",
-          "default": 45000,
-          "description": "Timeout en ms para request IA"
+          "default": 45,
+          "description": "Timeout en segundos para request IA"
         },
         "codeSentinel.limits.maxAiRequestsPerMinute": {
           "type": "number",
@@ -130,49 +130,15 @@
           "default": [],
           "description": "Array de paths relativos al workspace de archivos de reglas adicionales. Se combinan con rulesFile."
         },
-        "codeSentinel.severity.fileLimit": {
-          "type": "string",
-          "default": "warning",
-          "enum": [
-            "error",
-            "warning",
-            "information",
-            "hint"
-          ],
-          "description": "Severidad para limites de archivo"
+        "codeSentinel.rules": {
+          "type": "object",
+          "default": {},
+          "markdownDescription": "Configuracion por regla. Cada clave es un ID de regla, valor: `{ \"habilitada\": true/false, \"severidad\": \"error\"|\"warning\"|\"information\"|\"hint\" }`. Reglas no listadas usan defaults.\n\n**IDs disponibles:** `php-supresor-at`, `eval-prohibido`, `innerhtml-variable`, `css-inline-jsx`, `git-add-all`, `catch-vacio`, `hardcoded-secret`, `barras-decorativas`, `at-generico-php`, `limite-lineas`, `usestate-excesivo`, `import-muerto`, `controller-sin-trycatch`, `wpdb-sin-prepare`, `request-json-directo`, `json-decode-inseguro`, `exec-sin-escapeshellarg`, `curl-sin-verificacion`, `temp-sin-finally`, `useeffect-sin-cleanup`, `mutacion-directa-estado`, `zustand-sin-selector`, `console-generico-en-catch`, `css-color-hardcodeado`, `css-nomenclatura-ingles`\n\n**Ejemplo:** `{ \"barras-decorativas\": { \"habilitada\": false }, \"catch-vacio\": { \"severidad\": \"warning\" } }`"
         },
-        "codeSentinel.severity.suppressorAt": {
+        "codeSentinel.reportPath": {
           "type": "string",
-          "default": "error",
-          "enum": [
-            "error",
-            "warning",
-            "information",
-            "hint"
-          ],
-          "description": "Severidad para supresor @ en PHP"
-        },
-        "codeSentinel.severity.sqlWithoutPrepare": {
-          "type": "string",
-          "default": "error",
-          "enum": [
-            "error",
-            "warning",
-            "information",
-            "hint"
-          ],
-          "description": "Severidad para SQL sin prepare"
-        },
-        "codeSentinel.severity.cssInline": {
-          "type": "string",
-          "default": "warning",
-          "enum": [
-            "error",
-            "warning",
-            "information",
-            "hint"
-          ],
-          "description": "Severidad para CSS inline en JSX"
+          "default": ".sentinel-report.md",
+          "description": "Ruta relativa al workspace donde se genera el reporte al analizar workspace"
         },
         "codeSentinel.exclude": {
           "type": "array",

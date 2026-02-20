@@ -6,6 +6,7 @@
 
 import * as vscode from 'vscode';
 import { Violacion } from '../types';
+import { reglaHabilitada, obtenerSeveridadRegla } from '../config/ruleRegistry';
 
 /* Palabras comunes inglesas que no deberian aparecer en nombres de clase CSS */
 const PALABRAS_INGLES_COMUNES = new Set([
@@ -29,9 +30,16 @@ export function analizarCss(documento: vscode.TextDocument): Violacion[] {
   const lineas = texto.split('\n');
   const violaciones: Violacion[] = [];
 
-  violaciones.push(...verificarColoresHardcodeados(lineas));
-  violaciones.push(...verificarNomenclaturaIngles(lineas));
-  violaciones.push(...verificarBarrasDecorativas(lineas));
+  /* Solo ejecutar verificaciones cuyas reglas esten habilitadas */
+  if (reglaHabilitada('css-color-hardcodeado')) {
+    violaciones.push(...verificarColoresHardcodeados(lineas));
+  }
+  if (reglaHabilitada('css-nomenclatura-ingles')) {
+    violaciones.push(...verificarNomenclaturaIngles(lineas));
+  }
+  if (reglaHabilitada('barras-decorativas')) {
+    violaciones.push(...verificarBarrasDecorativas(lineas));
+  }
 
   return violaciones;
 }
@@ -64,7 +72,7 @@ function verificarColoresHardcodeados(lineas: string[]): Violacion[] {
         violaciones.push({
           reglaId: 'css-color-hardcodeado',
           mensaje: `Color hardcodeado "${matchHex[2]}" detectado. Usar variable CSS (var(--nombre)) en su lugar.`,
-          severidad: 'information',
+          severidad: obtenerSeveridadRegla('css-color-hardcodeado'),
           linea: i,
           fuente: 'estatico',
         });
@@ -77,7 +85,7 @@ function verificarColoresHardcodeados(lineas: string[]): Violacion[] {
       violaciones.push({
         reglaId: 'css-color-hardcodeado',
         mensaje: `Color hardcodeado "${matchRgb[2]}" detectado. Usar variable CSS.`,
-        severidad: 'information',
+        severidad: obtenerSeveridadRegla('css-color-hardcodeado'),
         linea: i,
         fuente: 'estatico',
       });
@@ -113,7 +121,7 @@ function verificarNomenclaturaIngles(lineas: string[]): Violacion[] {
           violaciones.push({
             reglaId: 'css-nomenclatura-ingles',
             mensaje: `Clase CSS ".${match[1]}" parece estar en ingles. Usar nombres en espanol y camelCase (.contenedorPrincipal).`,
-            severidad: 'information',
+            severidad: obtenerSeveridadRegla('css-nomenclatura-ingles'),
             linea: i,
             fuente: 'estatico',
           });
@@ -139,7 +147,7 @@ function verificarBarrasDecorativas(lineas: string[]): Violacion[] {
         violaciones.push({
           reglaId: 'barras-decorativas',
           mensaje: 'Barras decorativas en comentario. Usar formato limpio sin decoracion.',
-          severidad: 'information',
+          severidad: obtenerSeveridadRegla('barras-decorativas'),
           linea: i,
           fuente: 'estatico',
         });

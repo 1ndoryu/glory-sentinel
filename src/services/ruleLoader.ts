@@ -7,6 +7,7 @@
 import * as vscode from 'vscode';
 import { ConfiguracionSentinel } from '../types';
 import { logInfo, logWarn } from '../utils/logger';
+import { invalidarRegistroReglas } from '../config/ruleRegistry';
 
 /* Cache del contenido de reglas custom para no releer en cada recarga */
 let cacheReglasCustom: string = '';
@@ -36,11 +37,11 @@ export function cargarConfiguracion(): ConfiguracionSentinel {
     aiBackend: config.get<string>('ai.backend', 'copilot'),
     geminiModel: config.get<string>('ai.geminiModel', 'flash-min'),
     timing: {
-      staticDebounceMs: config.get<number>('timing.staticDebounceMs', 500),
-      aiDelayOnOpenMs: config.get<number>('timing.aiDelayOnOpenMs', 5000),
-      aiDelayOnEditMs: config.get<number>('timing.aiDelayOnEditMs', 30000),
-      aiCooldownMs: config.get<number>('timing.aiCooldownMs', 300000),
-      aiTimeoutMs: config.get<number>('timing.aiTimeoutMs', 45000),
+      staticDebounceMs: (config.get<number>('timing.staticDebounce', 1)) * 1000,
+      aiDelayOnOpenMs: (config.get<number>('timing.aiDelayOnOpen', 5)) * 1000,
+      aiDelayOnEditMs: (config.get<number>('timing.aiDelayOnEdit', 30)) * 1000,
+      aiCooldownMs: (config.get<number>('timing.aiCooldown', 300)) * 1000,
+      aiTimeoutMs: (config.get<number>('timing.aiTimeout', 45)) * 1000,
     },
     limits: {
       maxAiRequestsPerMinute: config.get<number>('limits.maxAiRequestsPerMinute', 30),
@@ -127,10 +128,11 @@ function extraerReglasDeMarkdown(texto: string): string {
   return limpio.trim();
 }
 
-/* Invalida el cache de reglas custom (al cambiar configuracion) */
+/* Invalida el cache de reglas custom y el registro de reglas (al cambiar configuracion) */
 export function invalidarCacheReglas(): void {
   cacheReglasCustom = '';
   cacheReglasHash = '';
+  invalidarRegistroReglas();
 }
 
 /*

@@ -6,6 +6,7 @@
 
 import * as vscode from 'vscode';
 import { Violacion } from '../types';
+import { reglaHabilitada, obtenerSeveridadRegla } from '../config/ruleRegistry';
 
 /*
  * Analiza un archivo React en busca de violaciones especificas.
@@ -16,10 +17,19 @@ export function analizarReact(documento: vscode.TextDocument): Violacion[] {
   const lineas = texto.split('\n');
   const violaciones: Violacion[] = [];
 
-  violaciones.push(...verificarUseEffectSinCleanup(lineas));
-  violaciones.push(...verificarMutacionDirectaEstado(lineas));
-  violaciones.push(...verificarZustandSinSelector(lineas));
-  violaciones.push(...verificarConsoleEnCatch(lineas));
+  /* Solo ejecutar verificaciones cuyas reglas esten habilitadas */
+  if (reglaHabilitada('useeffect-sin-cleanup')) {
+    violaciones.push(...verificarUseEffectSinCleanup(lineas));
+  }
+  if (reglaHabilitada('mutacion-directa-estado')) {
+    violaciones.push(...verificarMutacionDirectaEstado(lineas));
+  }
+  if (reglaHabilitada('zustand-sin-selector')) {
+    violaciones.push(...verificarZustandSinSelector(lineas));
+  }
+  if (reglaHabilitada('console-generico-en-catch')) {
+    violaciones.push(...verificarConsoleEnCatch(lineas));
+  }
 
   return violaciones;
 }
@@ -73,7 +83,7 @@ function verificarUseEffectSinCleanup(lineas: string[]): Violacion[] {
       violaciones.push({
         reglaId: 'useeffect-sin-cleanup',
         mensaje: 'useEffect con async/fetch sin AbortController en cleanup. Puede causar updates en componentes desmontados.',
-        severidad: 'warning',
+        severidad: obtenerSeveridadRegla('useeffect-sin-cleanup'),
         linea: i,
         fuente: 'estatico',
       });
@@ -114,7 +124,7 @@ function verificarMutacionDirectaEstado(lineas: string[]): Violacion[] {
         violaciones.push({
           reglaId: 'mutacion-directa-estado',
           mensaje: `Mutacion directa en estado "${nombre}" con .${RegExp.$1}(). Usar spread/map para inmutabilidad.`,
-          severidad: 'warning',
+          severidad: obtenerSeveridadRegla('mutacion-directa-estado'),
           linea: i,
           fuente: 'estatico',
         });
@@ -129,7 +139,7 @@ function verificarMutacionDirectaEstado(lineas: string[]): Violacion[] {
           violaciones.push({
             reglaId: 'mutacion-directa-estado',
             mensaje: `Asignacion directa a "${nombre}[i]". Usar map() + spread para inmutabilidad.`,
-            severidad: 'warning',
+            severidad: obtenerSeveridadRegla('mutacion-directa-estado'),
             linea: i,
             fuente: 'estatico',
           });
@@ -154,7 +164,7 @@ function verificarZustandSinSelector(lineas: string[]): Violacion[] {
       violaciones.push({
         reglaId: 'zustand-sin-selector',
         mensaje: `${match[0]} sin selector. Re-renderiza en CUALQUIER cambio del store. Usar useStore(s => s.campo).`,
-        severidad: 'warning',
+        severidad: obtenerSeveridadRegla('zustand-sin-selector'),
         linea: i,
         fuente: 'estatico',
       });
@@ -190,7 +200,7 @@ function verificarConsoleEnCatch(lineas: string[]): Violacion[] {
         violaciones.push({
           reglaId: 'console-generico-en-catch',
           mensaje: 'console.log/warn en catch. Usar console.error con contexto, o un sistema de logging apropiado.',
-          severidad: 'warning',
+          severidad: obtenerSeveridadRegla('console-generico-en-catch'),
           linea: i,
           fuente: 'estatico',
         });

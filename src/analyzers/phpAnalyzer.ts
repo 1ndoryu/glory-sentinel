@@ -6,6 +6,7 @@
 
 import * as vscode from 'vscode';
 import { Violacion } from '../types';
+import { reglaHabilitada, obtenerSeveridadRegla } from '../config/ruleRegistry';
 
 /*
  * Analiza un archivo PHP en busca de violaciones especificas de WordPress.
@@ -16,13 +17,28 @@ export function analizarPhp(documento: vscode.TextDocument): Violacion[] {
   const lineas = texto.split('\n');
   const violaciones: Violacion[] = [];
 
-  violaciones.push(...verificarControllerSinTryCatch(lineas));
-  violaciones.push(...verificarWpdbSinPrepareContextual(lineas));
-  violaciones.push(...verificarRequestJsonDirecto(lineas));
-  violaciones.push(...verificarJsonDecodeInseguro(lineas));
-  violaciones.push(...verificarExecSinEscape(lineas));
-  violaciones.push(...verificarCurlSinVerificacion(lineas));
-  violaciones.push(...verificarArchivosTemporalesSinFinally(texto, lineas));
+  /* Solo ejecutar verificaciones cuyas reglas esten habilitadas */
+  if (reglaHabilitada('controller-sin-trycatch')) {
+    violaciones.push(...verificarControllerSinTryCatch(lineas));
+  }
+  if (reglaHabilitada('wpdb-sin-prepare')) {
+    violaciones.push(...verificarWpdbSinPrepareContextual(lineas));
+  }
+  if (reglaHabilitada('request-json-directo')) {
+    violaciones.push(...verificarRequestJsonDirecto(lineas));
+  }
+  if (reglaHabilitada('json-decode-inseguro')) {
+    violaciones.push(...verificarJsonDecodeInseguro(lineas));
+  }
+  if (reglaHabilitada('exec-sin-escapeshellarg')) {
+    violaciones.push(...verificarExecSinEscape(lineas));
+  }
+  if (reglaHabilitada('curl-sin-verificacion')) {
+    violaciones.push(...verificarCurlSinVerificacion(lineas));
+  }
+  if (reglaHabilitada('temp-sin-finally')) {
+    violaciones.push(...verificarArchivosTemporalesSinFinally(texto, lineas));
+  }
 
   return violaciones;
 }
@@ -60,7 +76,7 @@ function verificarControllerSinTryCatch(lineas: string[]): Violacion[] {
         violaciones.push({
           reglaId: 'controller-sin-trycatch',
           mensaje: `Metodo publico "${nombreMetodo}" sin try-catch global. Envolver cuerpo completo en try { ... } catch (\\Throwable $e).`,
-          severidad: 'warning',
+          severidad: obtenerSeveridadRegla('controller-sin-trycatch'),
           linea: lineaMetodo,
           fuente: 'estatico',
         });
@@ -102,7 +118,7 @@ function verificarControllerSinTryCatch(lineas: string[]): Violacion[] {
           violaciones.push({
             reglaId: 'controller-sin-trycatch',
             mensaje: `Metodo publico "${nombreMetodo}" sin try-catch global. Envolver cuerpo completo en try { ... } catch (\\Throwable $e).`,
-            severidad: 'warning',
+            severidad: obtenerSeveridadRegla('controller-sin-trycatch'),
             linea: lineaMetodo,
             fuente: 'estatico',
           });
@@ -183,7 +199,7 @@ function verificarWpdbSinPrepareContextual(lineas: string[]): Violacion[] {
       violaciones.push({
         reglaId: 'wpdb-sin-prepare',
         mensaje: `$wpdb->${matchWpdb[1]}() sin $wpdb->prepare(). Usar prepare() obligatoriamente.`,
-        severidad: 'error',
+        severidad: obtenerSeveridadRegla('wpdb-sin-prepare'),
         linea: i,
         fuente: 'estatico',
       });
@@ -249,7 +265,7 @@ function verificarRequestJsonDirecto(lineas: string[]): Violacion[] {
       violaciones.push({
         reglaId: 'request-json-directo',
         mensaje: `${varNombre} de get_json_params() pasado directo como argumento. Filtrar campos esperados antes de pasar a la capa de datos.`,
-        severidad: 'warning',
+        severidad: obtenerSeveridadRegla('request-json-directo'),
         /* Marcar la linea donde la variable se usa como argumento bare, no donde se asigna */
         linea: lineaUso,
         fuente: 'estatico',
@@ -282,7 +298,7 @@ function verificarJsonDecodeInseguro(lineas: string[]): Violacion[] {
       violaciones.push({
         reglaId: 'json-decode-inseguro',
         mensaje: 'json_decode() sin verificar json_last_error(). Datos corruptos se propagan como null silencioso.',
-        severidad: 'warning',
+        severidad: obtenerSeveridadRegla('json-decode-inseguro'),
         linea: i,
         fuente: 'estatico',
       });
@@ -320,7 +336,7 @@ function verificarExecSinEscape(lineas: string[]): Violacion[] {
       violaciones.push({
         reglaId: 'exec-sin-escapeshellarg',
         mensaje: 'exec()/shell_exec() sin escapeshellarg(). Riesgo de inyeccion de comandos.',
-        severidad: 'error',
+        severidad: obtenerSeveridadRegla('exec-sin-escapeshellarg'),
         linea: i,
         fuente: 'estatico',
       });
@@ -352,7 +368,7 @@ function verificarCurlSinVerificacion(lineas: string[]): Violacion[] {
       violaciones.push({
         reglaId: 'curl-sin-verificacion',
         mensaje: 'curl_exec() sin verificar curl_error(). Un fallo de red no lanza excepcion automaticamente.',
-        severidad: 'warning',
+        severidad: obtenerSeveridadRegla('curl-sin-verificacion'),
         linea: i,
         fuente: 'estatico',
       });
@@ -382,7 +398,7 @@ function verificarArchivosTemporalesSinFinally(texto: string, lineas: string[]):
       violaciones.push({
         reglaId: 'temp-sin-finally',
         mensaje: 'Archivo temporal (tempnam) sin cleanup en bloque finally. Riesgo de acumulacion en /tmp.',
-        severidad: 'warning',
+        severidad: obtenerSeveridadRegla('temp-sin-finally'),
         linea: i,
         fuente: 'estatico',
       });

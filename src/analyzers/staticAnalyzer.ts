@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { ReglaEstatica, Violacion } from '../types';
 import { reglasEstaticas } from '../config/defaultRules';
 import { contarLineasEfectivas, obtenerLimiteArchivo } from '../utils/lineCounter';
+import { reglaHabilitada, obtenerSeveridadRegla } from '../config/ruleRegistry';
 
 /*
  * Ejecuta todas las reglas estaticas aplicables a un documento.
@@ -24,8 +25,13 @@ export function analizarEstatico(
 
   const reglas = reglasPersonalizadas || reglasEstaticas;
 
-  /* Ejecutar reglas regex por linea o por archivo completo */
+  /* Ejecutar reglas regex por linea o por archivo completo.
+   * Filtra reglas deshabilitadas via codeSentinel.rules en settings.json. */
   for (const regla of reglas) {
+    if (!reglaHabilitada(regla.id)) {
+      continue;
+    }
+
     if (!regla.aplicaA.some(ext => ext === extension || ext === 'todos')) {
       continue;
     }
@@ -40,17 +46,19 @@ export function analizarEstatico(
   }
 
   /* Verificar limites de lineas (seccion 3 del protocolo) */
-  const violacionesLimite = verificarLimiteLineas(documento, nombreArchivo);
-  violaciones.push(...violacionesLimite);
+  if (reglaHabilitada('limite-lineas')) {
+    const violacionesLimite = verificarLimiteLineas(documento, nombreArchivo);
+    violaciones.push(...violacionesLimite);
+  }
 
   /* Verificar conteo de useState (regla compuesta, no simple regex por linea) */
-  if (extension === '.tsx' || extension === '.jsx') {
+  if ((extension === '.tsx' || extension === '.jsx') && reglaHabilitada('usestate-excesivo')) {
     const violacionesUseState = verificarUseStateExcesivo(texto, documento);
     violaciones.push(...violacionesUseState);
   }
 
   /* Verificar imports muertos en JS/TS */
-  if (['.ts', '.tsx', '.js', '.jsx'].includes(extension)) {
+  if (['.ts', '.tsx', '.js', '.jsx'].includes(extension) && reglaHabilitada('import-muerto')) {
     const violacionesImports = verificarImportsMuertos(texto, documento);
     violaciones.push(...violacionesImports);
   }
@@ -95,7 +103,7 @@ function ejecutarReglaPorLinea(
       violaciones.push({
         reglaId: regla.id,
         mensaje,
-        severidad: regla.severidad,
+        severidad: obtenerSeveridadRegla(regla.id),
         linea: i,
         columna: match.index,
         columnaFin: match.index + match[0].length,
@@ -141,7 +149,7 @@ function ejecutarReglaCompleta(
     violaciones.push({
       reglaId: regla.id,
       mensaje,
-      severidad: regla.severidad,
+      severidad: obtenerSeveridadRegla(regla.id),
       linea: posicion.line,
       lineaFin: posicionFin.line,
       columna: posicion.character,
@@ -176,7 +184,7 @@ function verificarLimiteLineas(
   return [{
     reglaId: 'limite-lineas',
     mensaje: `Archivo excede limite de ${limite.limite} lineas para ${limite.tipo} (${lineasEfectivas} lineas efectivas). Dividir obligatoriamente.`,
-    severidad: 'warning',
+    severidad: obtenerSeveridadRegla('limite-lineas'),
     linea: ultimaLinea,
     quickFixId: 'mark-split-todo',
     fuente: 'estatico',
@@ -196,7 +204,7 @@ function verificarUseStateExcesivo(
   return [{
     reglaId: 'usestate-excesivo',
     mensaje: `${matches.length} useState detectados (max 3). Extraer logica a un hook personalizado.`,
-    severidad: 'warning',
+    severidad: obtenerSeveridadRegla('usestate-excesivo'),
     linea: 0,
     quickFixId: 'extract-to-hook',
     fuente: 'estatico',
@@ -246,7 +254,7 @@ function verificarImportsMuertos(
           violaciones.push({
             reglaId: 'import-muerto',
             mensaje: `Import "${nombre}" no se usa en el archivo. Eliminar.`,
-            severidad: 'warning',
+            severidad: obtenerSeveridadRegla('import-muerto'),
             linea: i,
             quickFixId: 'remove-dead-import',
             fuente: 'estatico',
@@ -266,7 +274,7 @@ function verificarImportsMuertos(
         violaciones.push({
           reglaId: 'import-muerto',
           mensaje: `Import "${nombre}" no se usa en el archivo. Eliminar.`,
-          severidad: 'warning',
+          severidad: obtenerSeveridadRegla('import-muerto'),
           linea: i,
           quickFixId: 'remove-dead-import',
           fuente: 'estatico',
