@@ -79,8 +79,9 @@ function verificarControllerSinTryCatch(lineas: string[]): Violacion[] {
   /* Nombres de metodos que son de configuracion o permission callbacks,
    * no handlers de endpoint. No necesitan try-catch propio. */
   const esMetodoExcluido = (nombre: string): boolean => {
-    /* Metodos de registro de rutas */
+    /* Metodos de registro de rutas (ingles y espanol) */
     if (/^register(Routes)?$/i.test(nombre)) { return true; }
+    if (/^registrar(Rutas)?$/i.test(nombre)) { return true; }
     /* Permission callbacks: can*, verificar*, checkPermission */
     if (/^(can[A-Z]|verificar|checkPermission)/i.test(nombre)) { return true; }
     return false;
@@ -210,6 +211,23 @@ function verificarWpdbSinPrepareContextual(lineas: string[]): Violacion[] {
     /* Verificar si la misma linea contiene prepare (incluyendo anidado como argumento).
      * Esto cubre el patron $wpdb->get_row($wpdb->prepare(...)) */
     if (/\$wpdb\s*->\s*prepare\s*\(/.test(linea)) {
+      continue;
+    }
+
+    /* Verificar si prepare() esta en las 1-3 lineas siguientes (argumento multi-linea).
+     * Cubre el patron:
+     *   $wpdb->get_row(
+     *       $wpdb->prepare(...),
+     *       ARRAY_A
+     *   ); */
+    let prepareEnLineaSiguiente = false;
+    for (let k = i + 1; k <= Math.min(lineas.length - 1, i + 3); k++) {
+      if (/\$wpdb\s*->\s*prepare\s*\(/.test(lineas[k])) {
+        prepareEnLineaSiguiente = true;
+        break;
+      }
+    }
+    if (prepareEnLineaSiguiente) {
       continue;
     }
 
