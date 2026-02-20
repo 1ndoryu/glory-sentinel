@@ -89,6 +89,15 @@ function ejecutarReglaPorLinea(
       continue;
     }
 
+    /* Saltar lineas dentro de doc comments PHP para reglas que buscan codigo,
+     * no comentarios. Evita falsos positivos como @author matcheando at-generico-php */
+    if (regla.id === 'at-generico-php') {
+      const lineaTrimmed = linea.trim();
+      if (lineaTrimmed.startsWith('*') || lineaTrimmed.startsWith('/**') || lineaTrimmed.startsWith('//') || lineaTrimmed.startsWith('#')) {
+        continue;
+      }
+    }
+
     /* Resetear lastIndex para regex con flag g */
     const patron = new RegExp(regla.patron.source, regla.patron.flags.replace('g', ''));
     const match = patron.exec(linea);
@@ -162,17 +171,26 @@ function ejecutarReglaCompleta(
   return violaciones;
 }
 
-/* Verifica si el archivo excede los limites de lineas del protocolo */
+/* Verifica si el archivo excede los limites de lineas del protocolo.
+ * Soporta excepciones a nivel de archivo con sentinel-disable-file limite-lineas */
 function verificarLimiteLineas(
   documento: vscode.TextDocument,
   nombreArchivo: string
 ): Violacion[] {
+  const texto = documento.getText();
+
+  /* Permitir excepciones documentadas a nivel de archivo.
+   * El comentario debe incluir justificacion para evitar abusos. */
+  if (texto.includes('sentinel-disable-file limite-lineas')) {
+    return [];
+  }
+
   const limite = obtenerLimiteArchivo(nombreArchivo, documento.fileName);
   if (!limite) {
     return [];
   }
 
-  const lineasEfectivas = contarLineasEfectivas(documento.getText());
+  const lineasEfectivas = contarLineasEfectivas(texto);
   if (lineasEfectivas <= limite.limite) {
     return [];
   }

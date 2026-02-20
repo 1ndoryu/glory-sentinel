@@ -66,6 +66,15 @@ function verificarControllerSinTryCatch(lineas: string[]): Violacion[] {
     return [];
   }
 
+  /* Si el archivo no registra rutas REST (register_rest_route, WP_REST_Response, WP_REST_Request),
+   * no es un controller REST — puede ser un controller de admin hooks (ej: OpcionPanelController).
+   * En ese caso, no aplicar la regla controller-sin-trycatch. */
+  const textoCompleto = lineas.join('\n');
+  const esControllerRest = /register_rest_route|WP_REST_Response|WP_REST_Request/.test(textoCompleto);
+  if (!esControllerRest) {
+    return [];
+  }
+
   /* Si la clase usa un trait que centraliza try-catch (ConCallbackSeguro),
    * no reportar falta de try-catch en metodos individuales */
   const usaTraitSeguro = lineas.some(l =>
@@ -84,6 +93,8 @@ function verificarControllerSinTryCatch(lineas: string[]): Violacion[] {
     if (/^registrar(Rutas)?$/i.test(nombre)) { return true; }
     /* Permission callbacks: can*, verificar*, checkPermission */
     if (/^(can[A-Z]|verificar|checkPermission)/i.test(nombre)) { return true; }
+    /* Metodos de setup de BD y hooks de WordPress admin */
+    if (/^(crearTabla|enqueue)/i.test(nombre)) { return true; }
     return false;
   };
 
@@ -371,12 +382,30 @@ function verificarJsonDecodeInseguro(lineas: string[]): Violacion[] {
       continue;
     }
 
-    /* Buscar json_last_error en las siguientes 5 lineas */
+    /* Buscar json_last_error o is_array (guard contra null) en las siguientes 5 lineas.
+     * is_array() sobre el resultado es equivalente: json_decode retorna null en error
+     * y is_array(null) === false, protegiendo contra datos corruptos. */
     let tieneVerificacion = false;
     for (let j = i; j < Math.min(lineas.length, i + 6); j++) {
-      if (/json_last_error/.test(lineas[j])) {
+      if (/json_last_error|is_array/.test(lineas[j])) {
         tieneVerificacion = true;
         break;
+      }
+    }
+
+    /* Verificaciones inline: ternario con falsy check (ej: $x ? json_decode($x) : null)
+     * o negacion del resultado (!$resultado)  */
+    if (!tieneVerificacion) {
+      const lineaActual = lineas[i];
+      /* Patron: condicion ternaria que ya valida antes de decodificar */
+      if (/\?\s*json_decode/.test(lineaActual) || /!\s*\$\w+/.test(lineas[i + 1] || '')) {
+        /* Solo aceptar si la siguiente linea hace check del resultado */
+        for (let j = i + 1; j < Math.min(lineas.length, i + 3); j++) {
+          if (/if\s*\(\s*!\s*\$/.test(lineas[j]) || /\?\s*:/.test(lineas[j])) {
+            tieneVerificacion = true;
+            break;
+          }
+        }
       }
     }
 

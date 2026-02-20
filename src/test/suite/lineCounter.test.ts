@@ -83,4 +83,40 @@ suite('lineCounter', () => {
     const limite = obtenerLimiteArchivo('README.md', '/README.md');
     assert.strictEqual(limite, null);
   });
+
+  test('obtenerLimiteArchivo - PHP controller/endpoint', () => {
+    const limite = obtenerLimiteArchivo('CapEndpoints.php', '/App/Api/CapEndpoints.php');
+    assert.notStrictEqual(limite, null);
+    assert.strictEqual(limite?.tipo, 'controlador');
+    assert.strictEqual(limite?.limite, 300);
+  });
+
+  test('obtenerLimiteArchivo - PHP service', () => {
+    const limite = obtenerLimiteArchivo('StripeService.php', '/App/Services/StripeService.php');
+    assert.notStrictEqual(limite, null);
+    assert.strictEqual(limite?.tipo, 'servicio');
+    assert.strictEqual(limite?.limite, 400);
+  });
+
+  test('obtenerLimiteArchivo - PHP model', () => {
+    const limite = obtenerLimiteArchivo('Alumno.php', '/App/Models/Alumno.php');
+    assert.notStrictEqual(limite, null);
+    assert.strictEqual(limite?.tipo, 'servicio');
+    assert.strictEqual(limite?.limite, 400);
+  });
+
+  test('obtenerLimiteArchivo - PHP seeder sin limite', () => {
+    const limite = obtenerLimiteArchivo('CapSeeder.php', '/App/Database/CapSeeder.php');
+    assert.strictEqual(limite, null);
+  });
+
+  test('obtenerLimiteArchivo - PHP schema sin limite', () => {
+    const limite = obtenerLimiteArchivo('CapSchema.php', '/App/Database/CapSchema.php');
+    assert.strictEqual(limite, null);
+  });
+
+  test('obtenerLimiteArchivo - PHP config sin limite', () => {
+    const limite = obtenerLimiteArchivo('config.php', '/App/Config/config.php');
+    assert.strictEqual(limite, null);
+  });
 });

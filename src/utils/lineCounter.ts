@@ -46,7 +46,7 @@ export function contarLineasEfectivas(texto: string): number {
  * Retorna null si no aplica ningun limite especial.
  */
 export interface LimiteArchivo {
-  tipo: 'componente' | 'hook' | 'util' | 'estilo';
+  tipo: 'componente' | 'hook' | 'util' | 'estilo' | 'controlador' | 'servicio';
   limite: number;
 }
 
@@ -74,8 +74,32 @@ export function obtenerLimiteArchivo(nombreArchivo: string, rutaArchivo: string)
     return { tipo: 'componente', limite: 300 };
   }
 
-  /* PHP: archivos .php (controladores, servicios, etc.) */
+  /* PHP: categorizar segun ubicacion en el proyecto.
+   * El protocolo (Seccion 3) define limites para componentes/estilos/hooks/utils
+   * del frontend. Para PHP se usan limites razonables segun la capa. */
   if (nombreLower.endsWith('.php')) {
+    /* Seeders, migraciones, schemas y config no tienen limite estricto
+     * ya que su longitud depende de la cantidad de datos/tablas */
+    if (rutaLower.includes('/database/') || rutaLower.includes('/config/') ||
+        rutaLower.includes('/schema/') || nombreLower.includes('seeder') ||
+        nombreLower.includes('migration') || nombreLower.includes('schema')) {
+      return null;
+    }
+
+    /* Controladores/Endpoints: deben ser delgados (300 lineas) */
+    if (rutaLower.includes('/api/') || rutaLower.includes('/endpoints/') ||
+        rutaLower.includes('/controllers/') || nombreLower.includes('endpoint') ||
+        nombreLower.includes('controller')) {
+      return { tipo: 'controlador', limite: 300 };
+    }
+
+    /* Servicios y modelos: logica de negocio permite mas extensión (400 lineas) */
+    if (rutaLower.includes('/services/') || rutaLower.includes('/models/') ||
+        nombreLower.includes('service') || nombreLower.includes('model')) {
+      return { tipo: 'servicio', limite: 400 };
+    }
+
+    /* PHP general: utilidades, helpers PHP, etc. */
     return { tipo: 'componente', limite: 300 };
   }
 
