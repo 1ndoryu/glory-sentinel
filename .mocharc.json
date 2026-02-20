@@ -1,0 +1,7 @@
+{
+  "ui": "tdd",
+  "color": true,
+  "timeout": 10000,
+  "require": ["out/test/registerMocks.js"],
+  "spec": "out/test/suite/*.test.js"
+}

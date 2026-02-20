@@ -1,0 +1,226 @@
+{
+  "name": "glory-sentinel",
+  "displayName": "Glory Sentinel",
+  "description": "Analiza automaticamente el codigo del workspace con reglas estaticas y analisis IA para detectar problemas de arquitectura, seguridad y calidad.",
+  "version": "0.1.0",
+  "publisher": "1ndoryu",
+  "icon": "media/7599515f2b8981a49a057e0e9a75b8b6.jpg",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/1ndoryu/glory-sentinel"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters",
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:php",
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact",
+    "onLanguage:javascript",
+    "onLanguage:javascriptreact",
+    "onLanguage:css"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "codeSentinel.analyzeFile",
+        "title": "Glory Sentinel: Analizar Archivo Actual"
+      },
+      {
+        "command": "codeSentinel.analyzeWorkspace",
+        "title": "Glory Sentinel: Analizar Workspace"
+      },
+      {
+        "command": "codeSentinel.clearDiagnostics",
+        "title": "Glory Sentinel: Limpiar Diagnosticos"
+      },
+      {
+        "command": "codeSentinel.toggleAI",
+        "title": "Glory Sentinel: Activar/Desactivar IA"
+      },
+      {
+        "command": "codeSentinel.showRulesSummary",
+        "title": "Glory Sentinel: Ver Resumen de Reglas"
+      }
+    ],
+    "configuration": {
+      "title": "Glory Sentinel",
+      "properties": {
+        "codeSentinel.staticAnalysis.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Habilitar analisis estatico (regex/conteo)"
+        },
+        "codeSentinel.aiAnalysis.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Habilitar analisis con IA (vscode.lm)"
+        },
+        "codeSentinel.ai.modelFamily": {
+          "type": "string",
+          "default": "gpt-5-mini",
+          "description": "Familia del modelo de IA a usar (para vscode.lm API)"
+        },
+        "codeSentinel.ai.backend": {
+          "type": "string",
+          "default": "copilot",
+          "enum": [
+            "copilot",
+            "gemini-cli"
+          ],
+          "enumDescriptions": [
+            "Usar GitHub Copilot (vscode.lm API) como backend de IA",
+            "Usar Gemini CLI instalado localmente como backend de IA"
+          ],
+          "description": "Backend de IA a usar para el analisis semantico"
+        },
+        "codeSentinel.ai.geminiModel": {
+          "type": "string",
+          "default": "flash-min",
+          "description": "Modelo o alias de Gemini a usar con Gemini CLI. Recomendado: flash-min (alias local con thinkingLevel minimal). Ejemplos: flash-min, gemini-3-flash-preview, gemini-3-pro-preview, gemini-2.5-flash"
+        },
+        "codeSentinel.timing.staticDebounceMs": {
+          "type": "number",
+          "default": 500,
+          "description": "Debounce en ms para analisis estatico al editar"
+        },
+        "codeSentinel.timing.aiDelayOnOpenMs": {
+          "type": "number",
+          "default": 5000,
+          "description": "Delay en ms para analisis IA al abrir/ver un archivo"
+        },
+        "codeSentinel.timing.aiDelayOnEditMs": {
+          "type": "number",
+          "default": 30000,
+          "description": "Delay en ms para analisis IA al editar"
+        },
+        "codeSentinel.timing.aiCooldownMs": {
+          "type": "number",
+          "default": 300000,
+          "description": "Cooldown en ms tras analisis IA exitoso"
+        },
+        "codeSentinel.timing.aiTimeoutMs": {
+          "type": "number",
+          "default": 45000,
+          "description": "Timeout en ms para request IA"
+        },
+        "codeSentinel.limits.maxAiRequestsPerMinute": {
+          "type": "number",
+          "default": 10,
+          "description": "Maximo de requests IA por minuto"
+        },
+        "codeSentinel.limits.maxFileSizeForAiKb": {
+          "type": "number",
+          "default": 100,
+          "description": "Tamano maximo de archivo en KB para analisis IA"
+        },
+        "codeSentinel.rulesFile": {
+          "type": "string",
+          "default": ".github/instructions/test.instructions.md",
+          "description": "Path relativo al workspace del archivo de reglas principal (backward compat)"
+        },
+        "codeSentinel.rulesFiles": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Array de paths relativos al workspace de archivos de reglas adicionales. Se combinan con rulesFile."
+        },
+        "codeSentinel.severity.fileLimit": {
+          "type": "string",
+          "default": "warning",
+          "enum": [
+            "error",
+            "warning",
+            "information",
+            "hint"
+          ],
+          "description": "Severidad para limites de archivo"
+        },
+        "codeSentinel.severity.suppressorAt": {
+          "type": "string",
+          "default": "error",
+          "enum": [
+            "error",
+            "warning",
+            "information",
+            "hint"
+          ],
+          "description": "Severidad para supresor @ en PHP"
+        },
+        "codeSentinel.severity.sqlWithoutPrepare": {
+          "type": "string",
+          "default": "error",
+          "enum": [
+            "error",
+            "warning",
+            "information",
+            "hint"
+          ],
+          "description": "Severidad para SQL sin prepare"
+        },
+        "codeSentinel.severity.cssInline": {
+          "type": "string",
+          "default": "warning",
+          "enum": [
+            "error",
+            "warning",
+            "information",
+            "hint"
+          ],
+          "description": "Severidad para CSS inline en JSX"
+        },
+        "codeSentinel.exclude": {
+          "type": "array",
+          "default": [
+            "**/node_modules/**",
+            "**/vendor/**",
+            "**/dist/**",
+            "**/_generated/**",
+            "**/out/**",
+            "**/.agent/code-sentinel/**"
+          ],
+          "description": "Globs de exclusion para analisis"
+        },
+        "codeSentinel.languages": {
+          "type": "array",
+          "default": [
+            "php",
+            "typescript",
+            "typescriptreact",
+            "javascript",
+            "javascriptreact",
+            "css"
+          ],
+          "description": "Lenguajes donde se activa el analisis"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "test:unit": "npm run compile && mocha"
+  },
+  "devDependencies": {
+    "@types/glob": "^8.1.0",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/test-electron": "^2.3.8",
+    "glob": "^13.0.6",
+    "minimatch": "^9.0.3",
+    "mocha": "^10.2.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "minimatch": "^9.0.3"
+  }
+}
