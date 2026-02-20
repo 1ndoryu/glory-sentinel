@@ -9,7 +9,6 @@ import { Violacion, severidadADiagnostic, obtenerTipoArchivo, ConfiguracionSenti
 import { analizarEstatico } from '../analyzers/staticAnalyzer';
 import { analizarPhp } from '../analyzers/phpAnalyzer';
 import { analizarReact } from '../analyzers/reactAnalyzer';
-import { analizarCss } from '../analyzers/cssAnalyzer';
 import { analizarConIA, invalidarCacheModelo, OpcionesIA } from '../analyzers/aiAnalyzer';
 import { guardarEnCache, obtenerDelCache, limpiarCacheCompleto } from '../services/cacheService';
 import { logInfo, logWarn } from '../utils/logger';
@@ -110,8 +109,6 @@ function ejecutarAnalisisEstatico(uri: vscode.Uri): void {
     violaciones.push(...analizarPhp(doc));
   } else if (tipo === 'tsx' || tipo === 'jsx') {
     violaciones.push(...analizarReact(doc));
-  } else if (tipo === 'css') {
-    violaciones.push(...analizarCss(doc));
   }
 
   /* Convertir violaciones a diagnosticos */
@@ -374,7 +371,7 @@ export async function analizarWorkspace(): Promise<void> {
     : undefined;
 
   const archivos = await vscode.workspace.findFiles(
-    '**/*.{php,ts,tsx,js,jsx,css}',
+    '**/*.{php,ts,tsx,js,jsx}',
     patronExclusion
   );
 
@@ -406,7 +403,6 @@ export async function analizarWorkspace(): Promise<void> {
             const tipo = obtenerTipoArchivo(doc.languageId, doc.fileName);
             if (tipo === 'php') { violaciones.push(...analizarPhp(doc)); }
             else if (tipo === 'tsx' || tipo === 'jsx') { violaciones.push(...analizarReact(doc)); }
-            else if (tipo === 'css') { violaciones.push(...analizarCss(doc)); }
 
             const diagnosticos = violaciones.map(v => crearDiagnostico(doc, v));
             coleccionDiagnosticos.set(archivos[i], diagnosticos);

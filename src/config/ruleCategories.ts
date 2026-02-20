@@ -50,12 +50,6 @@ export const categoriasRegla: MetadataCategoria[] = [
     seccionProtocolo: 'Seccion 7',
   },
   {
-    id: CategoriaRegla.CssEstilos,
-    nombre: 'CSS Estilos',
-    descripcion: 'No CSS inline, variables obligatorias, nomenclatura espanol',
-    seccionProtocolo: 'Seccion 5',
-  },
-  {
     id: CategoriaRegla.SemanticaIA,
     nombre: 'Semantica IA',
     descripcion: 'Separacion logica-vista, SRP, I/O sin proteccion',

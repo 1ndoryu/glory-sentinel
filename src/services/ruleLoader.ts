@@ -56,12 +56,15 @@ export function cargarConfiguracion(): ConfiguracionSentinel {
       '**/dist/**',
       '**/_generated/**',
       '**/out/**',
+      /* Caches de herramientas de build/docs que generan archivos automaticos */
+      '**/.vitepress/cache/**',
+      '**/build/**',
       /* La extension no debe analizarse a si misma */
       '**/.agent/code-sentinel/**',
     ]),
     languages: config.get<string[]>('languages', [
       'php', 'typescript', 'typescriptreact',
-      'javascript', 'javascriptreact', 'css',
+      'javascript', 'javascriptreact',
     ]),
   };
 }

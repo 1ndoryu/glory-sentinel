@@ -146,6 +146,10 @@ function contarLineasMetodo(lineas: string[], inicio: number, fin: number): numb
 /*
  * Verifica $wpdb sin prepare con mas contexto.
  * Detecta cuando la linea NO contiene prepare() pero si query/get_var, etc.
+ * Excluye falsos positivos:
+ * - prepare() anidado como argumento: $wpdb->get_row($wpdb->prepare(...))
+ * - Queries sin parametros de usuario (solo constantes de tabla, sin WHERE/placeholders)
+ * - Sentencias de control de transaccion y DDL
  */
 function verificarWpdbSinPrepareContextual(lineas: string[]): Violacion[] {
   const violaciones: Violacion[] = [];
@@ -175,18 +179,27 @@ function verificarWpdbSinPrepareContextual(lineas: string[]): Violacion[] {
       continue;
     }
 
-    /* Verificar si la misma linea contiene prepare */
+    /* Verificar si la misma linea contiene prepare (incluyendo anidado como argumento).
+     * Esto cubre el patron $wpdb->get_row($wpdb->prepare(...)) */
     if (/\$wpdb\s*->\s*prepare\s*\(/.test(linea)) {
       continue;
     }
 
-    /* Si el argumento es una variable (\$query, \$sql, etc.), la prepare() pudo
+    /* Queries sin parametros de usuario no necesitan prepare().
+     * WordPress 6.2+ genera un _doing_it_wrong si se llama prepare() sin placeholders.
+     * Patron: SELECT sin WHERE/JOIN/HAVING y sin placeholders (%d, %s, %f) */
+    const lineaCompleta = obtenerSentenciaMultilinea(lineas, i);
+    if (esSentenciaSinParametrosUsuario(lineaCompleta)) {
+      continue;
+    }
+
+    /* Si el argumento es una variable ($query, $sql, etc.), la prepare() pudo
      * haberse invocado muchas lineas antes para construir esa variable.
      * En ese caso ampliar la ventana de busqueda a 50 lineas hacia atras. */
     const matchVarArg = /^\$(\w+)/.exec(argumento);
     const ventanaLineas = matchVarArg ? 50 : 3;
 
-    /* Verificar lineas anteriores: buscar \$wpdb->prepare( en la ventana */
+    /* Verificar lineas anteriores: buscar $wpdb->prepare( en la ventana */
     let tienePrepareCercano = false;
     for (let j = Math.max(0, i - ventanaLineas); j < i; j++) {
       if (/\$wpdb\s*->\s*prepare\s*\(/.test(lineas[j])) {
@@ -207,6 +220,33 @@ function verificarWpdbSinPrepareContextual(lineas: string[]): Violacion[] {
   }
 
   return violaciones;
+}
+
+/*
+ * Reconstruye una sentencia SQL que puede estar partida en multiples lineas.
+ * Busca hacia adelante hasta encontrar ';' o un maximo de 10 lineas.
+ */
+function obtenerSentenciaMultilinea(lineas: string[], inicio: number): string {
+  let resultado = '';
+  for (let i = inicio; i < Math.min(lineas.length, inicio + 10); i++) {
+    resultado += ' ' + lineas[i];
+    if (lineas[i].includes(';')) { break; }
+  }
+  return resultado;
+}
+
+/*
+ * Determina si una sentencia SQL no tiene parametros de usuario.
+ * Una query sin WHERE, JOIN, HAVING, SET y sin placeholders (%d, %s, %f)
+ * es segura sin prepare() (ej: SELECT COUNT(*) FROM tabla, SHOW TABLES).
+ */
+function esSentenciaSinParametrosUsuario(sentencia: string): boolean {
+  const upper = sentencia.toUpperCase();
+  /* Si tiene placeholders de prepare(), claramente necesita prepare */
+  if (/%[dsf]/.test(sentencia)) { return false; }
+  /* Si no tiene clausulas que acepten input de usuario, es segura */
+  const tieneClausulaConInput = /\b(WHERE|JOIN|HAVING|SET|VALUES|IN\s*\()\b/i.test(sentencia);
+  return !tieneClausulaConInput;
 }
 
 /*
@@ -308,7 +348,9 @@ function verificarJsonDecodeInseguro(lineas: string[]): Violacion[] {
   return violaciones;
 }
 
-/* Detecta exec()/shell_exec() sin escapeshellarg() */
+/* Detecta exec()/shell_exec() sin escapeshellarg().
+ * Excluye proc_open() con array como primer argumento (seguro por diseno:
+ * PHP 7.4+ ejecuta cada elemento como argv separado, sin pasar por shell). */
 function verificarExecSinEscape(lineas: string[]): Violacion[] {
   const violaciones: Violacion[] = [];
 
@@ -316,6 +358,49 @@ function verificarExecSinEscape(lineas: string[]): Violacion[] {
     const linea = lineas[i];
     if (!/\b(exec|shell_exec|proc_open|system|passthru)\s*\(/.test(linea)) {
       continue;
+    }
+
+    /* proc_open con array como primer argumento es seguro: cada elemento
+     * se pasa como argv separado sin interpretacion del shell.
+     * Detectar: proc_open($arrayVar, ... o proc_open(['cmd', ...], ... */
+    const matchProcOpen = /\bproc_open\s*\(\s*(\$\w+|\[)/.exec(linea);
+    if (matchProcOpen) {
+      const primerArg = matchProcOpen[1];
+      /* Si el argumento es un array literal, es seguro */
+      if (primerArg === '[') {
+        continue;
+      }
+      /* Si es una variable, buscar si fue definida como array en lineas cercanas */
+      if (primerArg.startsWith('$')) {
+        let esArray = false;
+        for (let j = Math.max(0, i - 20); j < i; j++) {
+          const varEscapada = primerArg.replace('$', '\\$');
+          /* Buscar asignacion de array: $var = [...] o $var = array(...) */
+          if (new RegExp(`${varEscapada}\\s*=\\s*(\\[|array\\s*\\()`).test(lineas[j])) {
+            esArray = true;
+            break;
+          }
+          /* Buscar declaracion de tipo array: array $var */
+          if (new RegExp(`array\\s+${varEscapada.replace('\\$', '\\$')}`).test(lineas[j])) {
+            esArray = true;
+            break;
+          }
+        }
+        /* Tambien verificar parametros de la funcion actual con tipo array */
+        for (let j = Math.max(0, i - 30); j < i; j++) {
+          if (/function\s+\w+\s*\(/.test(lineas[j])) {
+            const firma = lineas.slice(j, Math.min(j + 5, lineas.length)).join(' ');
+            const varEscapada = primerArg.replace('$', '\\$');
+            if (new RegExp(`array\\s+${varEscapada}`).test(firma)) {
+              esArray = true;
+            }
+            break;
+          }
+        }
+        if (esArray) {
+          continue;
+        }
+      }
     }
 
     /* Si la linea contiene escapeshellarg, esta ok */

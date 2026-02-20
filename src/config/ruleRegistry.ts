@@ -42,7 +42,7 @@ const REGISTRO: DefinicionRegla[] = [
   { id: 'php-supresor-at', nombre: 'Supresor @ en PHP', severidadDefault: 'error', categoria: CategoriaRegla.PatronesProhibidos },
   { id: 'eval-prohibido', nombre: 'eval() prohibido', severidadDefault: 'error', categoria: CategoriaRegla.PatronesProhibidos },
   { id: 'innerhtml-variable', nombre: 'innerHTML con variable', severidadDefault: 'warning', categoria: CategoriaRegla.PatronesProhibidos },
-  { id: 'css-inline-jsx', nombre: 'CSS inline en JSX', severidadDefault: 'warning', categoria: CategoriaRegla.CssEstilos },
+  { id: 'css-inline-jsx', nombre: 'CSS inline en JSX', severidadDefault: 'warning', categoria: CategoriaRegla.PatronesProhibidos },
   { id: 'git-add-all', nombre: 'git add . / --all', severidadDefault: 'warning', categoria: CategoriaRegla.PatronesProhibidos },
   { id: 'catch-vacio', nombre: 'Catch vacio', severidadDefault: 'error', categoria: CategoriaRegla.PatronesProhibidos },
   { id: 'hardcoded-secret', nombre: 'Secret hardcodeado', severidadDefault: 'error', categoria: CategoriaRegla.PatronesProhibidos },
@@ -69,9 +69,6 @@ const REGISTRO: DefinicionRegla[] = [
   { id: 'zustand-sin-selector', nombre: 'Zustand sin selector', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
   { id: 'console-generico-en-catch', nombre: 'console.log en catch', severidadDefault: 'warning', categoria: CategoriaRegla.PatronesProhibidos },
 
-  /* --- CSS (cssAnalyzer.ts) --- */
-  { id: 'css-color-hardcodeado', nombre: 'Color CSS hardcodeado', severidadDefault: 'information', categoria: CategoriaRegla.CssEstilos },
-  { id: 'css-nomenclatura-ingles', nombre: 'CSS en ingles', severidadDefault: 'information', categoria: CategoriaRegla.CssEstilos },
 ];
 
 /* Cache de configuracion: se construye lazily al primer acceso */

@@ -39,6 +39,23 @@ function crearDocumento(lineas: string[]) {
 
 /* --- wpdb-sin-prepare contextual --- */
 
+/* Reconstruye sentencia multilinea para analisis de parametros */
+function obtenerSentenciaMultilinea(lineas: string[], inicio: number): string {
+  let resultado = '';
+  for (let i = inicio; i < Math.min(lineas.length, inicio + 10); i++) {
+    resultado += ' ' + lineas[i];
+    if (lineas[i].includes(';')) { break; }
+  }
+  return resultado;
+}
+
+/* Determina si la query no tiene parametros de usuario */
+function esSentenciaSinParametrosUsuario(sentencia: string): boolean {
+  if (/%[dsf]/.test(sentencia)) { return false; }
+  const tieneClausulaConInput = /\b(WHERE|JOIN|HAVING|SET|VALUES|IN\s*\()\b/i.test(sentencia);
+  return !tieneClausulaConInput;
+}
+
 function verificarWpdbSinPrepareContextual(lineas: string[]): Array<{ reglaId: string; linea: number }> {
   const violaciones: Array<{ reglaId: string; linea: number }> = [];
 
@@ -51,11 +68,27 @@ function verificarWpdbSinPrepareContextual(lineas: string[]): Array<{ reglaId: s
     if (/^['"](START\s+TRANSACTION|ROLLBACK|COMMIT|SAVEPOINT|RELEASE\s+SAVEPOINT)/i.test(argumento)) {
       continue;
     }
+    if (/^["']?\s*(ALTER\s+TABLE|CREATE\s+TABLE|DROP\s+TABLE|TRUNCATE|CREATE\s+INDEX|DROP\s+INDEX)/i.test(argumento)) {
+      continue;
+    }
+    if (/^\s*"(ALTER\s+TABLE|CREATE\s+TABLE|DROP\s+TABLE|TRUNCATE)/i.test(argumento)) {
+      continue;
+    }
 
+    /* Detectar prepare() anidado como argumento (ej: get_row(prepare(...))) */
     if (/\$wpdb\s*->\s*prepare\s*\(/.test(linea)) { continue; }
 
+    /* Queries sin parametros de usuario no necesitan prepare() */
+    const lineaCompleta = obtenerSentenciaMultilinea(lineas, i);
+    if (esSentenciaSinParametrosUsuario(lineaCompleta)) {
+      continue;
+    }
+
+    const matchVarArg = /^\$(\w+)/.exec(argumento);
+    const ventanaLineas = matchVarArg ? 50 : 3;
+
     let tienePrepareCercano = false;
-    for (let j = Math.max(0, i - 3); j < i; j++) {
+    for (let j = Math.max(0, i - ventanaLineas); j < i; j++) {
       if (/\$wpdb\s*->\s*prepare\s*\(/.test(lineas[j])) {
         tienePrepareCercano = true;
         break;
@@ -155,9 +188,29 @@ suite('phpAnalyzer - wpdb-sin-prepare contextual', () => {
   });
 
   test('detecta get_var sin prepare', () => {
-    const lineas = ['$n = $wpdb->get_var("SELECT COUNT(*) FROM t");'];
+    const lineas = ['$n = $wpdb->get_var("SELECT COUNT(*) FROM t WHERE id = 5");'];
     const v = verificarWpdbSinPrepareContextual(lineas);
     assert.strictEqual(v.length, 1);
+  });
+
+  test('no reporta get_var sin WHERE (query sin parametros de usuario)', () => {
+    const lineas = ['$n = $wpdb->get_var("SELECT COUNT(*) FROM t");'];
+    assert.strictEqual(verificarWpdbSinPrepareContextual(lineas).length, 0);
+  });
+
+  test('no reporta prepare anidado como argumento (get_row(prepare(...)))', () => {
+    const lineas = [
+      '$resultado = $wpdb->get_row(',
+      '    $wpdb->prepare("SELECT * FROM {$tabla} WHERE {$colId} = %d", $id),',
+      '    ARRAY_A',
+      ');',
+    ];
+    assert.strictEqual(verificarWpdbSinPrepareContextual(lineas).length, 0);
+  });
+
+  test('no reporta prepare anidado en una sola linea', () => {
+    const lineas = ['$wpdb->get_row($wpdb->prepare("SELECT * FROM t WHERE id = %d", $id), ARRAY_A);'];
+    assert.strictEqual(verificarWpdbSinPrepareContextual(lineas).length, 0);
   });
 
   test('patron de transaccion completo — ninguna de las 4 lineas se reporta', () => {
