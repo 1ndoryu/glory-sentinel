@@ -352,6 +352,14 @@ function verificarRequestJsonDirecto(lineas: string[]): Violacion[] {
         '__subscript__'
       );
 
+      /* Excluir funciones de filtrado PHP: si la variable es argumento de array_intersect_key,
+       * array_filter, array_map, array_keys, array_values o compact, es una operacion de
+       * transformacion/reduccion, no un "paso bare a capa de datos". */
+      const esFuncionFiltrado = /\b(array_intersect_key|array_filter|array_map|array_keys|array_values|array_diff_key|compact)\s*\(/.test(lineaJ);
+      if (esFuncionFiltrado) {
+        continue;
+      }
+
       if (patronBare.test(lineaSinSubscript)) {
         lineaUso = j;
         break;
