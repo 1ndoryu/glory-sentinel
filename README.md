@@ -105,7 +105,6 @@ Puedes deshabilitar reglas individualmente o cambiar su severidad:
 | `hardcoded-secret` | Password, API key o token en código fuente | PHP, JS, TS | error |
 | `git-add-all` | `git add .` o `git add --all` | `.sh`, `.md`, `.yml` | warning |
 | `barras-decorativas` | `====` o `----` en comentarios | PHP, JS, TS | information |
-| `css-inline-jsx` | `style={{}}` en JSX/TSX | `.tsx`, `.jsx` | warning |
 
 #### Estructura y tamaño
 
@@ -119,7 +118,7 @@ Puedes deshabilitar reglas individualmente o cambiar su severidad:
 
 | ID | Descripción | Default |
 |----|-------------|---------|
-| `controller-sin-trycatch` | Método público de un Controller/Endpoint sin try-catch global | warning |
+| `controller-sin-trycatch` | Metodo publico de un Controller/Endpoint sin try-catch global. Excluye: `registerRoutes`, permission callbacks (`can*`, `verificar*`), y clases que usan trait `ConCallbackSeguro` | warning |
 | `wpdb-sin-prepare` | `$wpdb->query/get_var/get_row/get_results/get_col` sin `prepare()`. Excluye: transacciones (`START TRANSACTION`, `ROLLBACK`, `COMMIT`), DDL, `prepare()` anidado como argumento y queries sin parámetros de usuario | error |
 | `request-json-directo` | `get_json_params()` pasado directo a otra capa sin filtrar campos | warning |
 | `json-decode-inseguro` | `json_decode()` sin verificar `json_last_error()` después | warning |
@@ -146,6 +145,12 @@ Las siguientes reglas usan análisis de ventana de líneas en lugar de regex pur
 - `$wpdb->get_row($wpdb->prepare(...))` — `prepare()` anidado como argumento
 - Queries sin cláusulas que acepten input de usuario (`WHERE`, `JOIN`, `HAVING`, `SET`, `VALUES`)
 - Variables construidas con `prepare()` hasta 50 líneas antes
+
+**`controller-sin-trycatch`** -- No reporta:
+- Metodos de registro de rutas: `registerRoutes()`, `register()`
+- Permission callbacks: metodos `can*`, `verificar*`, `checkPermission*` (WordPress gestiona sus errores)
+- Clases que usan `use ConCallbackSeguro` (el trait ya envuelve handlers en try-catch)
+- Metodos triviales con menos de 5 lineas efectivas
 
 **`exec-sin-escapeshellarg`** — No reporta:
 - `proc_open($array, ...)` — array literal como primer argumento

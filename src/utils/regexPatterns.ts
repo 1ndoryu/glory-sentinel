@@ -26,8 +26,7 @@ export const EVAL_CALL = /\beval\s*\(/g;
  */
 export const INNERHTML_VARIABLE = /\.innerHTML\s*=\s*[^'"\`\s]/g;
 
-/* JSX: CSS inline style={{}} */
-export const CSS_INLINE_JSX = /style\s*=\s*\{\{/g;
+/* CSS inline: eliminado — VarSense maneja esta deteccion */
 
 /*
  * Shell: git add . o git add --all.

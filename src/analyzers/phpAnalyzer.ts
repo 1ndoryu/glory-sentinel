@@ -47,6 +47,14 @@ export function analizarPhp(documento: vscode.TextDocument): Violacion[] {
  * Detecta metodos publicos de controllers sin try-catch global.
  * Un controller se identifica por: clase con sufijo Endpoints/Controller
  * y metodos publicos que no envuelven su cuerpo en try-catch.
+ *
+ * Exclusiones para evitar falsos positivos:
+ * - Metodos de configuracion: registerRoutes, register (solo registran rutas, no handlers).
+ * - Permission callbacks: metodos que retornan bool para verificar permisos
+ *   (can*, verificar*, checkPermission). WordPress maneja sus errores.
+ * - Clases que usan trait ConCallbackSeguro: el trait ya envuelve cada
+ *   handler en try-catch via callbackSeguro(), asi que el try-catch
+ *   individual es innecesario.
  */
 function verificarControllerSinTryCatch(lineas: string[]): Violacion[] {
   const violaciones: Violacion[] = [];
@@ -57,6 +65,26 @@ function verificarControllerSinTryCatch(lineas: string[]): Violacion[] {
   if (!esController) {
     return [];
   }
+
+  /* Si la clase usa un trait que centraliza try-catch (ConCallbackSeguro),
+   * no reportar falta de try-catch en metodos individuales */
+  const usaTraitSeguro = lineas.some(l =>
+    /use\s+ConCallbackSeguro\b/.test(l)
+  );
+
+  if (usaTraitSeguro) {
+    return [];
+  }
+
+  /* Nombres de metodos que son de configuracion o permission callbacks,
+   * no handlers de endpoint. No necesitan try-catch propio. */
+  const esMetodoExcluido = (nombre: string): boolean => {
+    /* Metodos de registro de rutas */
+    if (/^register(Routes)?$/i.test(nombre)) { return true; }
+    /* Permission callbacks: can*, verificar*, checkPermission */
+    if (/^(can[A-Z]|verificar|checkPermission)/i.test(nombre)) { return true; }
+    return false;
+  };
 
   let dentroDeMetodoPublico = false;
   let lineaMetodo = 0;
@@ -72,7 +100,7 @@ function verificarControllerSinTryCatch(lineas: string[]): Violacion[] {
     const matchMetodo = /public\s+(?:static\s+)?function\s+(\w+)\s*\(/.exec(linea);
     if (matchMetodo) {
       /* Si habia un metodo previo sin try-catch, reportar */
-      if (dentroDeMetodoPublico && !tieneTryCatch && nombreMetodo) {
+      if (dentroDeMetodoPublico && !tieneTryCatch && nombreMetodo && !esMetodoExcluido(nombreMetodo)) {
         violaciones.push({
           reglaId: 'controller-sin-trycatch',
           mensaje: `Metodo publico "${nombreMetodo}" sin try-catch global. Envolver cuerpo completo en try { ... } catch (\\Throwable $e).`,
@@ -111,8 +139,8 @@ function verificarControllerSinTryCatch(lineas: string[]): Violacion[] {
 
     /* Metodo terminado */
     if (llaves <= 0 && !primeraInstruccion) {
-      if (!tieneTryCatch && nombreMetodo) {
-        /* Excluir metodos triviales (getters, permission callbacks) */
+      if (!tieneTryCatch && nombreMetodo && !esMetodoExcluido(nombreMetodo)) {
+        /* Excluir metodos triviales (getters, <5 lineas efectivas) */
         const esMetodoTrivial = contarLineasMetodo(lineas, lineaMetodo, i) < 5;
         if (!esMetodoTrivial) {
           violaciones.push({

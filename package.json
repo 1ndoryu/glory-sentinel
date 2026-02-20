@@ -133,7 +133,7 @@
         "codeSentinel.rules": {
           "type": "object",
           "default": {},
-          "markdownDescription": "Configuracion por regla. Cada clave es un ID de regla, valor: `{ \"habilitada\": true/false, \"severidad\": \"error\"|\"warning\"|\"information\"|\"hint\" }`. Reglas no listadas usan defaults.\n\n**IDs disponibles:** `php-supresor-at`, `eval-prohibido`, `innerhtml-variable`, `css-inline-jsx`, `git-add-all`, `catch-vacio`, `hardcoded-secret`, `barras-decorativas`, `at-generico-php`, `limite-lineas`, `usestate-excesivo`, `import-muerto`, `controller-sin-trycatch`, `wpdb-sin-prepare`, `request-json-directo`, `json-decode-inseguro`, `exec-sin-escapeshellarg`, `curl-sin-verificacion`, `temp-sin-finally`, `useeffect-sin-cleanup`, `mutacion-directa-estado`, `zustand-sin-selector`, `console-generico-en-catch`, `css-color-hardcodeado`, `css-nomenclatura-ingles`\n\n**Ejemplo:** `{ \"barras-decorativas\": { \"habilitada\": false }, \"catch-vacio\": { \"severidad\": \"warning\" } }`"
+          "markdownDescription": "Configuracion por regla. Cada clave es un ID de regla, valor: `{ \"habilitada\": true/false, \"severidad\": \"error\"|\"warning\"|\"information\"|\"hint\" }`. Reglas no listadas usan defaults.\n\n**IDs disponibles:** `php-supresor-at`, `eval-prohibido`, `innerhtml-variable`, `git-add-all`, `catch-vacio`, `hardcoded-secret`, `barras-decorativas`, `at-generico-php`, `limite-lineas`, `usestate-excesivo`, `import-muerto`, `controller-sin-trycatch`, `wpdb-sin-prepare`, `request-json-directo`, `json-decode-inseguro`, `exec-sin-escapeshellarg`, `curl-sin-verificacion`, `temp-sin-finally`, `useeffect-sin-cleanup`, `mutacion-directa-estado`, `zustand-sin-selector`, `console-generico-en-catch`\n\n**Ejemplo:** `{ \"barras-decorativas\": { \"habilitada\": false }, \"catch-vacio\": { \"severidad\": \"warning\" } }`"
         },
         "codeSentinel.reportPath": {
           "type": "string",
@@ -148,6 +148,8 @@
             "**/dist/**",
             "**/_generated/**",
             "**/out/**",
+            "**/.vitepress/cache/**",
+            "**/build/**",
             "**/.agent/code-sentinel/**"
           ],
           "description": "Globs de exclusion para analisis"

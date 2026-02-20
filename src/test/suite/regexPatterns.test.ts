@@ -13,7 +13,6 @@ import {
   PHP_WPDB_CON_PREPARE,
   EVAL_CALL,
   INNERHTML_VARIABLE,
-  CSS_INLINE_JSX,
   GIT_ADD_ALL,
   CATCH_VACIO,
   HARDCODED_SECRET,
@@ -125,24 +124,7 @@ suite('regexPatterns - INNERHTML_VARIABLE', () => {
   });
 });
 
-suite('regexPatterns - CSS_INLINE_JSX', () => {
-
-  test('detecta style={{}}', () => {
-    assert.strictEqual(probar(CSS_INLINE_JSX, '<div style={{ color: "red" }}>'), true);
-  });
-
-  test('detecta style={{ con espacios', () => {
-    assert.strictEqual(probar(CSS_INLINE_JSX, 'style =  {{ margin: 0 }}'), true);
-  });
-
-  test('no detecta style={variable}', () => {
-    assert.strictEqual(probar(CSS_INLINE_JSX, 'style={claseEstilo}'), false);
-  });
-
-  test('no detecta style={getStyles()}', () => {
-    assert.strictEqual(probar(CSS_INLINE_JSX, 'style={getStyles()}'), false);
-  });
-});
+/* css-inline-jsx eliminada: VarSense maneja esta deteccion */
 
 suite('regexPatterns - GIT_ADD_ALL', () => {
 

@@ -54,18 +54,9 @@ export const reglasEstaticas: ReglaEstatica[] = [
     porLinea: true,
   },
 
-  {
-    id: 'css-inline-jsx',
-    nombre: 'CSS inline en JSX',
-    descripcion: 'PROHIBIDO CSS inline. Usar archivo .css separado.',
-    patron: /style\s*=\s*\{\{/,
-    severidad: 'warning',
-    aplicaA: ['.tsx', '.jsx'],
-    categoria: CategoriaRegla.PatronesProhibidos,
-    mensaje: 'CSS inline detectado (style={{}}). Mover estilos a archivo .css separado.',
-    porLinea: true,
-    quickFixId: 'extract-inline-css',
-  },
+  /* css-inline-jsx: eliminada. VarSense ya tiene deteccion de CSS inline
+   * en React (cssVarsValidator.inlineDetection) con auto-fix y sugerencias
+   * de variables. Mantener ambas duplicaria diagnosticos. */
 
   {
     id: 'git-add-all',

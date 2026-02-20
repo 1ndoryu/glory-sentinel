@@ -42,7 +42,7 @@ const REGISTRO: DefinicionRegla[] = [
   { id: 'php-supresor-at', nombre: 'Supresor @ en PHP', severidadDefault: 'error', categoria: CategoriaRegla.PatronesProhibidos },
   { id: 'eval-prohibido', nombre: 'eval() prohibido', severidadDefault: 'error', categoria: CategoriaRegla.PatronesProhibidos },
   { id: 'innerhtml-variable', nombre: 'innerHTML con variable', severidadDefault: 'warning', categoria: CategoriaRegla.PatronesProhibidos },
-  { id: 'css-inline-jsx', nombre: 'CSS inline en JSX', severidadDefault: 'warning', categoria: CategoriaRegla.PatronesProhibidos },
+  /* css-inline-jsx eliminada: VarSense ya maneja deteccion de CSS inline en React */
   { id: 'git-add-all', nombre: 'git add . / --all', severidadDefault: 'warning', categoria: CategoriaRegla.PatronesProhibidos },
   { id: 'catch-vacio', nombre: 'Catch vacio', severidadDefault: 'error', categoria: CategoriaRegla.PatronesProhibidos },
   { id: 'hardcoded-secret', nombre: 'Secret hardcodeado', severidadDefault: 'error', categoria: CategoriaRegla.PatronesProhibidos },
