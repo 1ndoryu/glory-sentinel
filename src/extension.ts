@@ -16,6 +16,7 @@ import { cargarConfiguracion, verificarArchivosReglas } from './services/ruleLoa
 import { categoriasRegla } from './config/ruleCategories';
 import { obtenerTodasLasReglas } from './config/ruleRegistry';
 import { inicializarCanal, logInfo } from './utils/logger';
+import { inicializarGloryAnalyzer } from './analyzers/gloryAnalyzer';
 
 /* Estado global de si la IA esta habilitada (para toggle rapido) */
 let iaHabilitada = true;
@@ -42,6 +43,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
   /* Inicializar provider de diagnosticos (corazon de la extension) */
   inicializarDiagnosticProvider(context);
+
+  /* Inicializar Glory analyzer (carga Schema Cols/Enums y watcher) */
+  inicializarGloryAnalyzer(context);
 
   /* Registrar CodeActionProvider para quick fixes */
   const selectorDocumentos: vscode.DocumentSelector = config.languages.map(lang => ({

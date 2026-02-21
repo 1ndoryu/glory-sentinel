@@ -43,6 +43,7 @@ export enum CategoriaRegla {
   SeguridadSql = 'seguridad-sql',
   ReactPatrones = 'react-patrones',
   SemanticaIA = 'semantica-ia',
+  GlorySchema = 'glory-schema',
 }
 
 /* Violacion detectada (formato intermedio antes de convertir a Diagnostic) */

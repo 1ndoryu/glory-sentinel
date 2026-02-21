@@ -73,6 +73,14 @@ const REGISTRO: DefinicionRegla[] = [
   /* --- PHP adicional (phpAnalyzer.ts) --- */
   { id: 'sanitizacion-faltante', nombre: 'Request sin sanitizar', severidadDefault: 'warning', categoria: CategoriaRegla.WordPressPhp },
 
+  /* --- Glory Schema (gloryAnalyzer.ts) — Sprint 1 --- */
+  { id: 'hardcoded-sql-column', nombre: 'Columna SQL hardcodeada', severidadDefault: 'warning', categoria: CategoriaRegla.GlorySchema },
+  { id: 'hardcoded-enum-value', nombre: 'Valor enum hardcodeado', severidadDefault: 'warning', categoria: CategoriaRegla.GlorySchema },
+  { id: 'endpoint-accede-bd', nombre: 'Controller accede a BD', severidadDefault: 'warning', categoria: CategoriaRegla.GlorySchema },
+  { id: 'interval-sin-whitelist', nombre: 'INTERVAL sin whitelist', severidadDefault: 'error', categoria: CategoriaRegla.GlorySchema },
+  { id: 'open-redirect', nombre: 'Redireccion insegura', severidadDefault: 'error', categoria: CategoriaRegla.GlorySchema },
+  { id: 'return-void-critico', nombre: 'Escritura retorna void', severidadDefault: 'warning', categoria: CategoriaRegla.GlorySchema },
+
 ];
 
 /* Cache de configuracion: se construye lazily al primer acceso */
