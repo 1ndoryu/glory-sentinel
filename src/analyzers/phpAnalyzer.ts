@@ -466,8 +466,13 @@ function verificarJsonDecodeInseguro(lineas: string[]): Violacion[] {
           tieneVerificacion = true;
           break;
         }
-        /* Null check del resultado: if (!$var), if ($var === null), if (empty($var)) */
+        /* Null check del resultado: if (!$var), if ($var === null), if (null === $var), if (empty($var)) */
         if (j > i && /if\s*\(\s*(!|\bnull\b|empty\s*\()/.test(lineas[j])) {
+          tieneVerificacion = true;
+          break;
+        }
+        /* Null check con variable primero: if ($json === null) */
+        if (j > i && /\$\w+\s*===?\s*null/.test(lineas[j])) {
           tieneVerificacion = true;
           break;
         }
@@ -563,12 +568,19 @@ function verificarExecSinEscape(lineas: string[]): Violacion[] {
       }
     }
 
+    /* --- Exclusion 4: Variable asignada desde literales en lineas cercanas ---
+     * Patron: $cmd = 'literal'; exec($cmd); o $cmd = $cond ? 'lit' : 'lit'; exec($cmd);
+     * Si la variable pasada a exec fue asignada un valor 100% literal, es seguro. */
+    if (esVariableDesdeComandoLiteral(lineas, i)) {
+      continue;
+    }
+
     /* Si la linea contiene escapeshellarg, esta ok */
     if (/escapeshellarg/.test(linea)) {
       continue;
     }
 
-    /* --- Exclusion 3: Variable construida con sprintf + escapeshellarg ---
+    /* --- Exclusion 5: Variable construida con sprintf + escapeshellarg ---
      * Patron comun: $cmd = sprintf('...%s...', escapeshellarg($x), ...); exec($cmd);
      * Buscar la asignacion de la variable en las 15 lineas anteriores y verificar
      * que todos los placeholders %s tienen escapeshellarg. */
@@ -609,6 +621,33 @@ function esComandoLiteral(linea: string): boolean {
   /* Patron: shell_exec($var ? 'literal' : 'literal') — ternario de literales */
   if (/\b(?:exec|shell_exec|system|passthru)\s*\([^)]*\?\s*['"][^$]*['"]\s*:\s*['"][^$]*['"]\s*\)/.test(linea)) {
     return true;
+  }
+  return false;
+}
+
+/* Verifica si exec/shell_exec recibe una variable que fue asignada desde strings literales
+ * (o ternario de literales) dentro de las 10 lineas anteriores.
+ * Ej: $cmd = 'where ffmpeg'; exec($cmd, ...) */
+function esVariableDesdeComandoLiteral(lineas: string[], lineaExec: number): boolean {
+  const lineaActual = lineas[lineaExec];
+  /* Extraer nombre de variable: exec($cmd, ...) o shell_exec($cmd) */
+  const matchVar = /\b(?:exec|shell_exec|system|passthru)\s*\(\s*(\$\w+)/.exec(lineaActual);
+  if (!matchVar) return false;
+
+  const varName = matchVar[1];
+  const varEscapada = varName.replace('$', '\\$');
+
+  /* Buscar asignacion en las 10 lineas anteriores */
+  for (let j = Math.max(0, lineaExec - 10); j < lineaExec; j++) {
+    const linea = lineas[j];
+    /* Asignacion directa a literal: $cmd = 'literal'; o $cmd = "literal"; */
+    if (new RegExp(`${varEscapada}\\s*=\\s*['"][^$]*['"]\\s*;`).test(linea)) {
+      return true;
+    }
+    /* Asignacion ternaria de literales: $cmd = $cond ? 'lit' : 'lit'; */
+    if (new RegExp(`${varEscapada}\\s*=\\s*.*\\?\\s*['"][^$]*['"]\\s*:\\s*['"][^$]*['"]\\s*;`).test(linea)) {
+      return true;
+    }
   }
   return false;
 }
@@ -741,13 +780,21 @@ function verificarSanitizacionFaltante(lineas: string[]): Violacion[] {
     /\$_REQUEST\s*\[/,
   ];
 
-  const funcionesSanitizacion = /sanitize_text_field|sanitize_email|sanitize_file_name|sanitize_key|sanitize_title|sanitize_user|sanitize_url|absint|intval|floatval|wp_kses|esc_html|esc_attr|esc_url|esc_sql|wp_unslash|array_map.*sanitize|filter_var|filter_input|htmlspecialchars/;
+  const funcionesSanitizacion = /sanitize_text_field|sanitize_email|sanitize_file_name|sanitize_key|sanitize_title|sanitize_user|sanitize_url|absint|intval|floatval|wp_kses|esc_html|esc_attr|esc_url|esc_sql|wp_unslash|array_map.*sanitize|filter_var|filter_input|htmlspecialchars|wp_verify_nonce|is_numeric|is_array|is_int|is_float|\(int\)|\(float\)|\(bool\)/;
 
   for (let i = 0; i < lineas.length; i++) {
     const linea = lineas[i];
 
     for (const patron of patronesInseguros) {
       if (!patron.test(linea)) {
+        continue;
+      }
+
+      const superGlobal = patron.source.includes('GET') ? '$_GET' :
+        patron.source.includes('POST') ? '$_POST' : '$_REQUEST';
+
+      /* Excluir si $_POST/$_GET aparece solo dentro de isset() o !empty() — es solo check de existencia */
+      if (esUsadoSoloEnExistencia(linea, superGlobal)) {
         continue;
       }
 
@@ -768,9 +815,6 @@ function verificarSanitizacionFaltante(lineas: string[]): Violacion[] {
         continue;
       }
 
-      const superGlobal = patron.source.includes('GET') ? '$_GET' :
-        patron.source.includes('POST') ? '$_POST' : '$_REQUEST';
-
       violaciones.push({
         reglaId: 'sanitizacion-faltante',
         mensaje: `${superGlobal} usado sin sanitizar. Aplicar sanitize_text_field(), intval() u otra funcion de sanitizacion.`,
@@ -782,4 +826,21 @@ function verificarSanitizacionFaltante(lineas: string[]): Violacion[] {
   }
 
   return violaciones;
+}
+
+/* Verifica si todas las ocurrencias de $_POST/$_GET en una linea estan
+ * exclusivamente dentro de isset() o !empty() — no hay uso real del valor. */
+function esUsadoSoloEnExistencia(linea: string, superGlobal: string): boolean {
+  /* Contar total de ocurrencias del superglobal */
+  const patronGlobal = superGlobal === '$_GET' ? /\$_GET\s*\[/g :
+    superGlobal === '$_POST' ? /\$_POST\s*\[/g : /\$_REQUEST\s*\[/g;
+  const totalOcurrencias = (linea.match(patronGlobal) || []).length;
+  if (totalOcurrencias === 0) return false;
+
+  /* Contar cuantas estan dentro de isset() o !empty() */
+  const escapedGlobal = superGlobal.replace('$', '\\$');
+  const dentroIsset = new RegExp(`(?:isset|!?empty)\\s*\\(\\s*${escapedGlobal}\\s*\\[`, 'g');
+  const ocurrenciasSeguras = (linea.match(dentroIsset) || []).length;
+
+  return ocurrenciasSeguras >= totalOcurrencias;
 }
