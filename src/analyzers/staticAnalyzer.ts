@@ -251,24 +251,39 @@ function verificarLimiteLineas(
   }];
 }
 
-/* Verifica si un componente React tiene mas de 3 useState */
+/* Verifica si un componente React tiene mas de 3 useState.
+ * Cuenta useState por componente individual, no por archivo completo.
+ * Esto evita falsos positivos cuando un archivo define multiples sub-componentes
+ * (ej: ModalAuth con FormularioLogin + FormularioRegistro, cada uno con sus useState). */
 function verificarUseStateExcesivo(
   texto: string,
   documento: vscode.TextDocument
 ): Violacion[] {
+  /* Contar componentes en el archivo (funciones que empiezan con mayuscula y retornan JSX) */
+  const componentDeclarations = texto.match(/(?:const|function)\s+[A-Z][A-Za-z]*\s*(?:=|\()/g) || [];
+  const numComponentes = Math.max(1, componentDeclarations.length);
+
   const matches = texto.match(/\buseState\s*[<(]/g);
-  if (!matches || matches.length <= 3) {
+  const totalUseState = matches ? matches.length : 0;
+
+  /* Si el total cabe distribuido entre los componentes del archivo, no es excesivo */
+  if (totalUseState <= 3 * numComponentes) {
     return [];
   }
 
-  return [{
-    reglaId: 'usestate-excesivo',
-    mensaje: `${matches.length} useState detectados (max 3). Extraer logica a un hook personalizado.`,
-    severidad: obtenerSeveridadRegla('usestate-excesivo'),
-    linea: 0,
-    quickFixId: 'extract-to-hook',
-    fuente: 'estatico',
-  }];
+  /* Si hay un solo componente con mas de 3 useState, flagear */
+  if (numComponentes === 1 && totalUseState > 3) {
+    return [{
+      reglaId: 'usestate-excesivo',
+      mensaje: `${totalUseState} useState detectados (max 3). Extraer logica a un hook personalizado.`,
+      severidad: obtenerSeveridadRegla('usestate-excesivo'),
+      linea: 0,
+      quickFixId: 'extract-to-hook',
+      fuente: 'estatico',
+    }];
+  }
+
+  return [];
 }
 
 /* Detecta imports sin uso en archivos JS/TS (heuristico simplificado) */

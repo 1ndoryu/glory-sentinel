@@ -318,7 +318,7 @@ export function analizarGlory(documento: vscode.TextDocument): Violacion[] {
   /* --- Reglas TSX/JSX --- */
   if (extension === '.tsx' || extension === '.jsx') {
     if (reglaHabilitada('isla-no-registrada')) {
-      violaciones.push(...verificarIslaNoRegistrada(rutaNormalizada));
+      violaciones.push(...verificarIslaNoRegistrada(rutaNormalizada, texto));
     }
     return violaciones;
   }
@@ -996,8 +996,11 @@ function verificarReturnVoidCritico(texto: string, lineas: string[]): Violacion[
  * Detecta archivos en islands/ que no estan registrados en appIslands.tsx.
  * ======================================================================= */
 
-function verificarIslaNoRegistrada(rutaArchivo: string): Violacion[] {
+function verificarIslaNoRegistrada(rutaArchivo: string, texto: string): Violacion[] {
   if (!cacheIslasRegistradas) { return []; }
+
+  /* Respetar sentinel-disable a nivel de archivo */
+  if (texto.includes('sentinel-disable isla-no-registrada')) { return []; }
 
   /* Solo verificar archivos dentro de islands/ */
   if (!rutaArchivo.includes('/islands/')) { return []; }
@@ -1258,12 +1261,37 @@ function verificarSelectStar(lineas: string[], rutaArchivo: string): Violacion[]
     return [];
   }
 
+  /* BaseRepository es infraestructura generica — sus SELECT * son intencionales */
+  if (rutaArchivo.includes('BaseRepository.php')) {
+    return [];
+  }
+
+  /* Detectar si el archivo tiene secciones auto-generadas.
+   * Los metodos entre SECCION AUTO-GENERADA y METODOS CUSTOM se regeneran
+   * automaticamente y usan SELECT * por diseno del Schema System. */
+  const textoCompleto = lineas.join('\n');
+  const tieneSeccionAutoGenerada = textoCompleto.includes('SECCION AUTO-GENERADA');
+  let enSeccionAutoGenerada = false;
+
   for (let i = 0; i < lineas.length; i++) {
     const lineaTrimmed = lineas[i].trim();
+
+    /* Rastrear inicio/fin de seccion auto-generada */
+    if (lineaTrimmed.includes('SECCION AUTO-GENERADA') && tieneSeccionAutoGenerada) {
+      enSeccionAutoGenerada = true;
+    }
+    if (lineaTrimmed.includes('METODOS CUSTOM') || lineaTrimmed.includes('=== CUSTOM')) {
+      enSeccionAutoGenerada = false;
+    }
 
     /* Saltar comentarios */
     if (lineaTrimmed.startsWith('*') || lineaTrimmed.startsWith('//') ||
         lineaTrimmed.startsWith('#') || lineaTrimmed.startsWith('/*')) {
+      continue;
+    }
+
+    /* Saltar lineas en seccion auto-generada */
+    if (enSeccionAutoGenerada) {
       continue;
     }
 
@@ -1273,6 +1301,19 @@ function verificarSelectStar(lineas: string[], rutaArchivo: string): Violacion[]
     }
 
     if (/SELECT\s+\*\s+FROM/i.test(lineas[i])) {
+      /* Excluir SELECT * FROM sobre CTEs (con nombre en minuscula o camelCase)
+       * Un CTE es un subquery nombrado con WITH alias AS (...), no una tabla real.
+       * Las tablas reales en este proyecto siempre tienen nombres en snake_case
+       * y estan registradas en el Schema System. Un CTE tipico: SELECT * FROM scored */
+      const lineaSelectStar = lineas[i].trim();
+      const matchCte = lineaSelectStar.match(/SELECT\s+\*\s+FROM\s+(\w+)/i);
+      if (matchCte) {
+        const nombreTabla = matchCte[1];
+        /* Si el nombre no contiene underscore y empieza en minuscula, es probablemente un CTE */
+        if (!nombreTabla.includes('_') && nombreTabla[0] === nombreTabla[0].toLowerCase()) {
+          continue;
+        }
+      }
       violaciones.push({
         reglaId: 'repository-sin-whitelist-columnas',
         mensaje: 'SELECT * FROM no lista columnas explicitas. Especificar columnas para eficiencia y evitar breaking changes.',
