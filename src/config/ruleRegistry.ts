@@ -68,6 +68,10 @@ const REGISTRO: DefinicionRegla[] = [
   { id: 'mutacion-directa-estado', nombre: 'Mutacion directa estado', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
   { id: 'zustand-sin-selector', nombre: 'Zustand sin selector', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
   { id: 'console-generico-en-catch', nombre: 'console.log en catch', severidadDefault: 'warning', categoria: CategoriaRegla.PatronesProhibidos },
+  { id: 'error-enmascarado', nombre: 'Error enmascarado como exito', severidadDefault: 'error', categoria: CategoriaRegla.ReactPatrones },
+
+  /* --- PHP adicional (phpAnalyzer.ts) --- */
+  { id: 'sanitizacion-faltante', nombre: 'Request sin sanitizar', severidadDefault: 'warning', categoria: CategoriaRegla.WordPressPhp },
 
 ];
 

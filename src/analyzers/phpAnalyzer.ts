@@ -39,6 +39,9 @@ export function analizarPhp(documento: vscode.TextDocument): Violacion[] {
   if (reglaHabilitada('temp-sin-finally')) {
     violaciones.push(...verificarArchivosTemporalesSinFinally(texto, lineas));
   }
+  if (reglaHabilitada('sanitizacion-faltante')) {
+    violaciones.push(...verificarSanitizacionFaltante(lineas));
+  }
 
   return violaciones;
 }
@@ -141,20 +144,27 @@ function verificarControllerSinTryCatch(lineas: string[]): Violacion[] {
       if (char === '}') { llaves--; }
     }
 
-    /* Buscar try como primera instruccion significativa */
+    /* Buscar try en cualquier parte del cuerpo del metodo.
+     * Un try-catch que envuelve el cuerpo principal (aunque no sea la primera
+     * instruccion) es suficiente para proteger el endpoint. */
+    if (linea.startsWith('try') || /\btry\s*\{/.test(linea)) {
+      tieneTryCatch = true;
+    }
+
+    /* Marcar fin de primera instruccion (para seguimiento de llaves) */
     if (primeraInstruccion && linea !== '' && linea !== '{') {
-      if (linea.startsWith('try')) {
-        tieneTryCatch = true;
-      }
       primeraInstruccion = false;
     }
 
     /* Metodo terminado */
     if (llaves <= 0 && !primeraInstruccion) {
       if (!tieneTryCatch && nombreMetodo && !esMetodoExcluido(nombreMetodo)) {
-        /* Excluir metodos triviales (getters, <5 lineas efectivas) */
-        const esMetodoTrivial = contarLineasMetodo(lineas, lineaMetodo, i) < 5;
-        if (!esMetodoTrivial) {
+        /* Excluir metodos triviales (<5 lineas efectivas) y metodos puros
+         * que solo retornan constantes/arrays sin operaciones I/O */
+        const lineasEfectivas = contarLineasMetodo(lineas, lineaMetodo, i);
+        const esMetodoTrivial = lineasEfectivas < 5;
+        const esMetodoPuro = esRetornoConstante(lineas, lineaMetodo, i);
+        if (!esMetodoTrivial && !esMetodoPuro) {
           violaciones.push({
             reglaId: 'controller-sin-trycatch',
             mensaje: `Metodo publico "${nombreMetodo}" sin try-catch global. Envolver cuerpo completo en try { ... } catch (\\Throwable $e).`,
@@ -181,6 +191,31 @@ function contarLineasMetodo(lineas: string[], inicio: number, fin: number): numb
     }
   }
   return cuenta;
+}
+
+/* Detecta metodos "puros" que solo retornan valores constantes (arrays, strings, numeros).
+ * Estos metodos no pueden lanzar excepciones y no necesitan try-catch.
+ * Ejemplo: public function listarPlanes() { return new WP_REST_Response([...]); } */
+function esRetornoConstante(lineas: string[], inicio: number, fin: number): boolean {
+  let tieneIO = false;
+  for (let i = inicio; i <= fin && i < lineas.length; i++) {
+    const trimmed = lineas[i].trim();
+    /* Ignorar lineas vacias, comentarios, llaves y la firma del metodo */
+    if (trimmed === '' || trimmed === '{' || trimmed === '}' ||
+        trimmed.startsWith('//') || trimmed.startsWith('/*') || trimmed.startsWith('*') ||
+        /^public\s+/.test(trimmed)) {
+      continue;
+    }
+    /* Si hay operaciones de I/O, BD, llamadas a servicios, no es puro */
+    if (/\$this\s*->|self::|static::|new\s+\w+(?!.*WP_REST_Response)|\$wpdb|\bquery\b|\bfetch\b|\bexec\b|\bcurl|\bfile_|\bfopen\b/.test(trimmed)) {
+      /* Permitir solo 'new WP_REST_Response' y 'return' */
+      if (!/^\s*return\s+new\s+\\?WP_REST_Response/.test(trimmed)) {
+        tieneIO = true;
+        break;
+      }
+    }
+  }
+  return !tieneIO;
 }
 
 /*
@@ -381,7 +416,14 @@ function verificarRequestJsonDirecto(lineas: string[]): Violacion[] {
   return violaciones;
 }
 
-/* Detecta json_decode() sin verificacion de errores */
+/* Detecta json_decode() sin verificacion de errores.
+ * Reconoce multiples formas validas de proteccion:
+ * - json_last_error() / json_last_error_msg() en lineas cercanas
+ * - is_array() / is_object() sobre el resultado
+ * - Null coalescing: json_decode(...) ?? [] o ?? default
+ * - Ternario pre-validador: $x ? json_decode($x) : null
+ * - Guard is_string/isset antes del decode (implica datos ya validados)
+ * - if (!$resultado) / if ($resultado === null) post-decode */
 function verificarJsonDecodeInseguro(lineas: string[]): Violacion[] {
   const violaciones: Violacion[] = [];
 
@@ -390,29 +432,49 @@ function verificarJsonDecodeInseguro(lineas: string[]): Violacion[] {
       continue;
     }
 
-    /* Buscar json_last_error o is_array (guard contra null) en las siguientes 5 lineas.
-     * is_array() sobre el resultado es equivalente: json_decode retorna null en error
-     * y is_array(null) === false, protegiendo contra datos corruptos. */
+    const lineaActual = lineas[i];
+
+    /* --- Proteccion inline en la misma linea --- */
+
+    /* Null coalescing: json_decode(...) ?? [] o ?? default */
+    if (/json_decode\s*\([^)]*\)\s*\?\?/.test(lineaActual)) {
+      continue;
+    }
+
+    /* Ternario pre-validador: $var ? json_decode($var) : default */
+    if (/\?\s*\\?json_decode/.test(lineaActual)) {
+      continue;
+    }
+
+    /* --- Proteccion en lineas cercanas (ventana +-5) --- */
+
     let tieneVerificacion = false;
-    for (let j = i; j < Math.min(lineas.length, i + 6); j++) {
-      if (/json_last_error|is_array/.test(lineas[j])) {
+
+    /* Buscar guards y verificaciones en las 5 lineas anteriores */
+    for (let j = Math.max(0, i - 5); j < i; j++) {
+      /* is_string() o isset() antes del json_decode — implica dato ya validado */
+      if (/\b(is_string|isset|!empty)\s*\(/.test(lineas[j])) {
         tieneVerificacion = true;
         break;
       }
     }
 
-    /* Verificaciones inline: ternario con falsy check (ej: $x ? json_decode($x) : null)
-     * o negacion del resultado (!$resultado)  */
+    /* Buscar verificaciones en las 6 lineas siguientes */
     if (!tieneVerificacion) {
-      const lineaActual = lineas[i];
-      /* Patron: condicion ternaria que ya valida antes de decodificar */
-      if (/\?\s*json_decode/.test(lineaActual) || /!\s*\$\w+/.test(lineas[i + 1] || '')) {
-        /* Solo aceptar si la siguiente linea hace check del resultado */
-        for (let j = i + 1; j < Math.min(lineas.length, i + 3); j++) {
-          if (/if\s*\(\s*!\s*\$/.test(lineas[j]) || /\?\s*:/.test(lineas[j])) {
-            tieneVerificacion = true;
-            break;
-          }
+      for (let j = i; j < Math.min(lineas.length, i + 7); j++) {
+        if (/json_last_error|json_last_error_msg|is_array|is_object/.test(lineas[j])) {
+          tieneVerificacion = true;
+          break;
+        }
+        /* Null check del resultado: if (!$var), if ($var === null), if (empty($var)) */
+        if (j > i && /if\s*\(\s*(!|\bnull\b|empty\s*\()/.test(lineas[j])) {
+          tieneVerificacion = true;
+          break;
+        }
+        /* Acceso condicional con ?? en la linea siguiente (ej: $data['campo'] ?? 'default') */
+        if (j > i && /\?\?/.test(lineas[j])) {
+          tieneVerificacion = true;
+          break;
         }
       }
     }
@@ -432,8 +494,13 @@ function verificarJsonDecodeInseguro(lineas: string[]): Violacion[] {
 }
 
 /* Detecta exec()/shell_exec() sin escapeshellarg().
- * Excluye proc_open() con array como primer argumento (seguro por diseno:
- * PHP 7.4+ ejecuta cada elemento como argv separado, sin pasar por shell). */
+ * Excluye:
+ * - proc_open() con array como primer argumento (seguro por diseno: PHP 7.4+
+ *   ejecuta cada elemento como argv separado, sin pasar por shell).
+ * - $objeto->exec() (metodo de instancia, ej: PDO::exec), no es shell exec.
+ * - Comandos 100% literales (strings hardcodeados o ternarios de literales).
+ * - exec($cmd) donde $cmd se construyo con sprintf + escapeshellarg en todas
+ *   las partes string (%s). Placeholders numericos (%d, %f, %.Nf) son seguros. */
 function verificarExecSinEscape(lineas: string[]): Violacion[] {
   const violaciones: Violacion[] = [];
 
@@ -443,33 +510,43 @@ function verificarExecSinEscape(lineas: string[]): Violacion[] {
       continue;
     }
 
+    /* --- Exclusion 1: $objeto->exec() es metodo de instancia (PDO, etc.), no shell ---
+     * Patron: ->exec( o ::exec( indica invocacion de metodo, no funcion global.
+     * self::$conexion->exec(), $pdo->exec(), static::exec() son todos PDO. */
+    if (/->exec\s*\(|::.*exec\s*\(/.test(linea)) {
+      continue;
+    }
+
+    /* --- Exclusion 2: Argumentos completamente literales ---
+     * Si exec/shell_exec recibe solo strings literales (o ternario de literales),
+     * no hay vector de inyeccion. Ej: shell_exec('which ffmpeg 2>/dev/null')
+     * o shell_exec($esWin ? 'where ffmpeg' : 'which ffmpeg') */
+    if (esComandoLiteral(linea)) {
+      continue;
+    }
+
     /* proc_open con array como primer argumento es seguro: cada elemento
      * se pasa como argv separado sin interpretacion del shell.
      * Detectar: proc_open($arrayVar, ... o proc_open(['cmd', ...], ... */
     const matchProcOpen = /\bproc_open\s*\(\s*(\$\w+|\[)/.exec(linea);
     if (matchProcOpen) {
       const primerArg = matchProcOpen[1];
-      /* Si el argumento es un array literal, es seguro */
       if (primerArg === '[') {
         continue;
       }
-      /* Si es una variable, buscar si fue definida como array en lineas cercanas */
       if (primerArg.startsWith('$')) {
         let esArray = false;
         for (let j = Math.max(0, i - 20); j < i; j++) {
           const varEscapada = primerArg.replace('$', '\\$');
-          /* Buscar asignacion de array: $var = [...] o $var = array(...) */
           if (new RegExp(`${varEscapada}\\s*=\\s*(\\[|array\\s*\\()`).test(lineas[j])) {
             esArray = true;
             break;
           }
-          /* Buscar declaracion de tipo array: array $var */
           if (new RegExp(`array\\s+${varEscapada.replace('\\$', '\\$')}`).test(lineas[j])) {
             esArray = true;
             break;
           }
         }
-        /* Tambien verificar parametros de la funcion actual con tipo array */
         for (let j = Math.max(0, i - 30); j < i; j++) {
           if (/function\s+\w+\s*\(/.test(lineas[j])) {
             const firma = lineas.slice(j, Math.min(j + 5, lineas.length)).join(' ');
@@ -491,7 +568,15 @@ function verificarExecSinEscape(lineas: string[]): Violacion[] {
       continue;
     }
 
-    /* Verificar surrounding lines */
+    /* --- Exclusion 3: Variable construida con sprintf + escapeshellarg ---
+     * Patron comun: $cmd = sprintf('...%s...', escapeshellarg($x), ...); exec($cmd);
+     * Buscar la asignacion de la variable en las 15 lineas anteriores y verificar
+     * que todos los placeholders %s tienen escapeshellarg. */
+    if (tieneEscapeEnSprintf(lineas, i)) {
+      continue;
+    }
+
+    /* Verificar surrounding lines (ventana de +-2 lineas) */
     let tieneEscape = false;
     for (let j = Math.max(0, i - 2); j <= Math.min(lineas.length - 1, i + 2); j++) {
       if (/escapeshellarg/.test(lineas[j])) {
@@ -512,6 +597,71 @@ function verificarExecSinEscape(lineas: string[]): Violacion[] {
   }
 
   return violaciones;
+}
+
+/* Verifica si el argumento de exec/shell_exec es un comando completamente literal
+ * (string hardcodeado o ternario de literales sin variables). */
+function esComandoLiteral(linea: string): boolean {
+  /* Patron: exec('literal') o shell_exec("literal") */
+  if (/\b(?:exec|shell_exec|system|passthru)\s*\(\s*['"][^$]*['"]\s*[,)]/.test(linea)) {
+    return true;
+  }
+  /* Patron: shell_exec($var ? 'literal' : 'literal') — ternario de literales */
+  if (/\b(?:exec|shell_exec|system|passthru)\s*\([^)]*\?\s*['"][^$]*['"]\s*:\s*['"][^$]*['"]\s*\)/.test(linea)) {
+    return true;
+  }
+  return false;
+}
+
+/* Verifica si la variable usada en exec() fue construida con sprintf + escapeshellarg
+ * para todos los placeholders de tipo string (%s). Busca la asignacion en lineas previas. */
+function tieneEscapeEnSprintf(lineas: string[], lineaExec: number): boolean {
+  const lineaActual = lineas[lineaExec];
+
+  /* Extraer nombre de la variable pasada a exec: exec($cmd, ...) */
+  const matchVar = /\b(?:exec|shell_exec|system|passthru)\s*\(\s*(\$\w+)/.exec(lineaActual);
+  if (!matchVar) {
+    return false;
+  }
+  const varNombre = matchVar[1];
+  const varEscapada = varNombre.replace('$', '\\$');
+
+  /* Buscar la linea de asignacion: $cmd = sprintf(...) o $cmd = \sprintf(...) */
+  for (let j = Math.max(0, lineaExec - 15); j < lineaExec; j++) {
+    const patron = new RegExp(`${varEscapada}\\s*=\\s*\\\\?sprintf\\s*\\(`);
+    if (!patron.test(lineas[j])) {
+      continue;
+    }
+
+    /* Reconstruir el bloque completo del sprintf (puede ser multilinea) */
+    let bloqueSprintf = '';
+    for (let k = j; k < Math.min(lineas.length, j + 20); k++) {
+      bloqueSprintf += lineas[k] + '\n';
+      if (/;\s*$/.test(lineas[k].trim())) {
+        break;
+      }
+    }
+
+    /* Contar cuantos %s hay en el formato (requieren escapeshellarg) */
+    const formatMatch = /sprintf\s*\(\s*(['"])([\s\S]*?)\1/.exec(bloqueSprintf);
+    if (!formatMatch) {
+      /* Si no hay formato string visible, intentar con heredoc o variable */
+      continue;
+    }
+    const formato = formatMatch[2];
+    const contadorPorcentajeS = (formato.match(/%s/g) || []).length;
+
+    /* Contar cuantos escapeshellarg hay en los argumentos */
+    const contadorEscape = (bloqueSprintf.match(/escapeshellarg/g) || []).length;
+
+    /* Si todos los %s tienen escapeshellarg, es seguro.
+     * Los %d, %f, %.Nf no necesitan escape (fuerzan tipo numerico). */
+    if (contadorEscape >= contadorPorcentajeS) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /* Detecta curl_exec sin verificacion de curl_error */
@@ -567,6 +717,64 @@ function verificarArchivosTemporalesSinFinally(texto: string, lineas: string[]):
         reglaId: 'temp-sin-finally',
         mensaje: 'Archivo temporal (tempnam) sin cleanup en bloque finally. Riesgo de acumulacion en /tmp.',
         severidad: obtenerSeveridadRegla('temp-sin-finally'),
+        linea: i,
+        fuente: 'estatico',
+      });
+    }
+  }
+
+  return violaciones;
+}
+
+/*
+ * Detecta parametros de request HTTP usados sin sanitizar.
+ * Busca $_GET/$_POST/$_REQUEST y $request->get_param() sin que el resultado
+ * pase por sanitize_text_field, intval, absint, sanitize_email, etc.
+ * Exclusiones: si la linea o las 3 siguientes contienen una funcion de sanitizacion.
+ */
+function verificarSanitizacionFaltante(lineas: string[]): Violacion[] {
+  const violaciones: Violacion[] = [];
+
+  const patronesInseguros = [
+    /\$_GET\s*\[/,
+    /\$_POST\s*\[/,
+    /\$_REQUEST\s*\[/,
+  ];
+
+  const funcionesSanitizacion = /sanitize_text_field|sanitize_email|sanitize_file_name|sanitize_key|sanitize_title|sanitize_user|sanitize_url|absint|intval|floatval|wp_kses|esc_html|esc_attr|esc_url|esc_sql|wp_unslash|array_map.*sanitize|filter_var|filter_input|htmlspecialchars/;
+
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i];
+
+    for (const patron of patronesInseguros) {
+      if (!patron.test(linea)) {
+        continue;
+      }
+
+      /* Verificar si la misma linea ya tiene sanitizacion */
+      if (funcionesSanitizacion.test(linea)) {
+        continue;
+      }
+
+      /* Verificar en las 3 lineas siguientes por sanitizacion del valor asignado */
+      const contextoSiguiente = lineas.slice(i + 1, Math.min(lineas.length, i + 4)).join('\n');
+      if (funcionesSanitizacion.test(contextoSiguiente)) {
+        continue;
+      }
+
+      /* Excluir si esta dentro de un comentario */
+      const lineaTrimmed = linea.trim();
+      if (lineaTrimmed.startsWith('//') || lineaTrimmed.startsWith('*') || lineaTrimmed.startsWith('/*')) {
+        continue;
+      }
+
+      const superGlobal = patron.source.includes('GET') ? '$_GET' :
+        patron.source.includes('POST') ? '$_POST' : '$_REQUEST';
+
+      violaciones.push({
+        reglaId: 'sanitizacion-faltante',
+        mensaje: `${superGlobal} usado sin sanitizar. Aplicar sanitize_text_field(), intval() u otra funcion de sanitizacion.`,
+        severidad: obtenerSeveridadRegla('sanitizacion-faltante'),
         linea: i,
         fuente: 'estatico',
       });

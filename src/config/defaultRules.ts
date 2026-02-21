@@ -108,9 +108,11 @@ export const reglasEstaticas: ReglaEstatica[] = [
     id: 'barras-decorativas',
     nombre: 'Barras decorativas en comentarios',
     descripcion: 'Prohibido usar barras decorativas (====, ----) en comentarios.',
-    patron: /[=]{4,}/,
+    /* Solo matchear si la linea es parte de un comentario (empieza con *, // o /*).
+     * Evita falsos positivos con codigo como 'id === 0 ? ...' */
+    patron: /^\s*(?:\/\*|\*|\/\/).*[=]{4,}/,
     severidad: 'information',
-    aplicaA: ['.php', '.ts', '.tsx', '.js', '.jsx'],
+    aplicaA: ['.php', '.ts', '.tsx', '.js', '.jsx', '.css'],
     categoria: CategoriaRegla.EstructuraNomenclatura,
     mensaje: 'Barras decorativas en comentario. Usar formato limpio /* ... */ sin decoracion.',
     porLinea: true,

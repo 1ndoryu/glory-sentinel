@@ -30,6 +30,9 @@ export function analizarReact(documento: vscode.TextDocument): Violacion[] {
   if (reglaHabilitada('console-generico-en-catch')) {
     violaciones.push(...verificarConsoleEnCatch(lineas));
   }
+  if (reglaHabilitada('error-enmascarado')) {
+    violaciones.push(...verificarErrorEnmascarado(lineas));
+  }
 
   return violaciones;
 }
@@ -201,6 +204,64 @@ function verificarConsoleEnCatch(lineas: string[]): Violacion[] {
           reglaId: 'console-generico-en-catch',
           mensaje: 'console.log/warn en catch. Usar console.error con contexto, o un sistema de logging apropiado.',
           severidad: obtenerSeveridadRegla('console-generico-en-catch'),
+          linea: i,
+          fuente: 'estatico',
+        });
+      }
+
+      if (profundidadCatch <= 0) {
+        dentroDeCatch = false;
+      }
+    }
+  }
+
+  return violaciones;
+}
+
+/*
+ * Detecta error enmascarado: retornar ok:true o data vacia dentro de catch.
+ * Patron P0 del protocolo: "Si un service catch retorna { ok: true, data: [] },
+ * el caller no puede distinguir error de resultado vacio real."
+ */
+function verificarErrorEnmascarado(lineas: string[]): Violacion[] {
+  const violaciones: Violacion[] = [];
+  let dentroDeCatch = false;
+  let profundidadCatch = 0;
+
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i].trim();
+
+    if (/catch\s*\(/.test(linea)) {
+      dentroDeCatch = true;
+      profundidadCatch = 0;
+    }
+
+    if (dentroDeCatch) {
+      for (const char of lineas[i]) {
+        if (char === '{') { profundidadCatch++; }
+        if (char === '}') { profundidadCatch--; }
+      }
+
+      /* Detectar return con ok: true dentro de catch */
+      if (/return\s*\{[^}]*ok\s*:\s*true/.test(linea) ||
+          /return\s*\{[^}]*success\s*:\s*true/.test(linea)) {
+        violaciones.push({
+          reglaId: 'error-enmascarado',
+          mensaje: 'return { ok: true } dentro de catch enmascara el error como exito. Usar ok: false.',
+          severidad: obtenerSeveridadRegla('error-enmascarado'),
+          linea: i,
+          fuente: 'estatico',
+        });
+      }
+
+      /* Detectar return con data vacia fingiendo exito en catch */
+      if (/return\s*\{[^}]*data\s*:\s*\[\s*\]/.test(linea) &&
+          !/ok\s*:\s*false/.test(linea) &&
+          !/error/.test(linea)) {
+        violaciones.push({
+          reglaId: 'error-enmascarado',
+          mensaje: 'return { data: [] } en catch sin indicar error. El caller no distingue error de resultado vacio.',
+          severidad: obtenerSeveridadRegla('error-enmascarado'),
           linea: i,
           fuente: 'estatico',
         });
