@@ -71,9 +71,14 @@ function verificarUseEffectSinCleanup(lineas: string[]): Violacion[] {
       }
 
       if (/\basync\b/.test(l)) { tieneAsync = true; }
-      if (/\bfetch\s*\(|\baxios\b|\bapiCliente\b|\.get\s*\(|\.post\s*\(/.test(l)) { tieneFetch = true; }
+      if (/\bfetch\s*\(|\baxios\b|\bapiCliente\b|\bapiKamples\b|\bwretch\b/.test(l)) { tieneFetch = true; }
       if (/AbortController/.test(l)) { tieneAbortController = true; }
+      /* Reconocer multiples patrones de cleanup validos:
+       * - return () => { ... } (arrow cleanup)
+       * - return function (named cleanup)
+       * - activo = false / cancelled = true (flag-based cleanup en el return) */
       if (/return\s*\(\s*\)\s*=>|return\s+function/.test(l)) { tieneCleanup = true; }
+      if (/\bactivo\s*=\s*false\b|\bcancelled\s*=\s*true\b|\bcancelado\s*=\s*true\b/.test(l)) { tieneCleanup = true; }
 
       if (llaves <= 0 && j > i) {
         bloqueFin = j;
