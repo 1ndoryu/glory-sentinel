@@ -23,6 +23,12 @@ export function analizarEstatico(
   const extension = '.' + nombreArchivo.split('.').pop();
   const violaciones: Violacion[] = [];
 
+  /* Excluir prototipos de referencia — no son codigo de produccion */
+  const nombreBase = nombreArchivo.replace(/\.[^.]+$/, '');
+  if (nombreBase === 'ejemplo' || nombreBase === 'example') {
+    return violaciones;
+  }
+
   const reglas = reglasPersonalizadas || reglasEstaticas;
 
   /* Ejecutar reglas regex por linea o por archivo completo.
@@ -76,9 +82,12 @@ export function analizarEstatico(
     if (reglaHabilitada('nomenclatura-css-ingles')) {
       violaciones.push(...verificarNomenclaturaCssIngles(texto, documento, nombreArchivo));
     }
-    if (reglaHabilitada('css-hardcoded-value')) {
-      violaciones.push(...verificarCssHardcoded(texto, documento, nombreArchivo));
-    }
+    /* css-hardcoded-value: desactivada por decision de producto.
+     * Demasiados falsos positivos en variables CSS con valores literales validos.
+     * Re-activar cambiando este bloque cuando se refine la heuristica. */
+    // if (reglaHabilitada('css-hardcoded-value')) {
+    //   violaciones.push(...verificarCssHardcoded(texto, documento, nombreArchivo));
+    // }
   }
 
   return violaciones;

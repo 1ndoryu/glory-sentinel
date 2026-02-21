@@ -102,7 +102,8 @@ const REGISTRO: DefinicionRegla[] = [
 
   /* --- Sprint 3: CSS (staticAnalyzer.ts) --- */
   { id: 'nomenclatura-css-ingles', nombre: 'CSS en ingles', severidadDefault: 'hint', categoria: CategoriaRegla.EstructuraNomenclatura },
-  { id: 'css-hardcoded-value', nombre: 'Color CSS hardcodeado', severidadDefault: 'warning', categoria: CategoriaRegla.EstructuraNomenclatura },
+  /* css-hardcoded-value: desactivada. Descomentar para re-activar. */
+  // { id: 'css-hardcoded-value', nombre: 'Color CSS hardcodeado', severidadDefault: 'warning', categoria: CategoriaRegla.EstructuraNomenclatura },
 
 ];
 

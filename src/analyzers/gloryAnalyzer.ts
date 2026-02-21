@@ -251,23 +251,31 @@ function cargarIslasRegistradas(): void {
         const contenido = fs.readFileSync(rutaApp, 'utf-8');
         cacheIslasRegistradas = new Set<string>();
 
-        /* Imports directos: import X from './islands/X' */
-        const regexImport = /import.*from\s+['"]\.\/islands\/(\w+)['"]/g;
+        /* Imports: import {X} from './islands/X' o './islands/sub/X'
+         * Captura el ULTIMO segmento de la ruta (el nombre del componente).
+         * Soporta imports con/sin llaves y rutas con subdirectorios. */
+        const regexImport = /import\s+.*from\s+['"]\.\/islands\/(?:[\w/]+\/)?(\w+)['"]/g;
         let match: RegExpExecArray | null;
         while ((match = regexImport.exec(contenido)) !== null) {
           cacheIslasRegistradas.add(match[1]);
         }
 
-        /* Lazy imports: lazy(() => import('./islands/X')) */
-        const regexLazy = /import\s*\(\s*['"]\.\/islands\/(\w+)['"]\s*\)/g;
+        /* Lazy imports: lazy(() => import('./islands/sub/X')) */
+        const regexLazy = /import\s*\(\s*['"]\.\/islands\/(?:[\w/]+\/)?(\w+)['"]\s*\)/g;
         while ((match = regexLazy.exec(contenido)) !== null) {
           cacheIslasRegistradas.add(match[1]);
         }
 
-        /* String references en registros: 'X': component o "X": component */
-        const regexRegistro = /['"](\w+Island)['"]\s*:/g;
+        /* Registros en el objeto appIslands:
+         * Con quotes: 'X': component o "X": component
+         * Sin quotes: X: component (identifier key) */
+        const regexRegistro = /(?:['"](\w+)['"]|(\w+))\s*:\s*\w+/g;
         while ((match = regexRegistro.exec(contenido)) !== null) {
-          cacheIslasRegistradas.add(match[1]);
+          const nombre = match[1] || match[2];
+          /* Solo agregar si parece un nombre de isla (PascalCase) */
+          if (nombre && /^[A-Z]/.test(nombre)) {
+            cacheIslasRegistradas.add(nombre);
+          }
         }
 
         logInfo(`GloryAnalyzer: ${cacheIslasRegistradas.size} islas registradas en appIslands.tsx.`);
@@ -295,9 +303,13 @@ export function analizarGlory(documento: vscode.TextDocument): Violacion[] {
   const rutaArchivo = documento.fileName;
   const violaciones: Violacion[] = [];
 
-  /* Excluir archivos auto-generados */
+  /* Excluir archivos auto-generados y prototipos de referencia */
   const rutaNormalizada = rutaArchivo.replace(/\\/g, '/');
   if (rutaNormalizada.includes('_generated/') || rutaNormalizada.includes('_generated\\')) {
+    return [];
+  }
+  const nombreBase = path.basename(rutaArchivo, path.extname(rutaArchivo));
+  if (nombreBase === 'ejemplo' || nombreBase === 'example') {
     return [];
   }
 
@@ -346,7 +358,7 @@ export function analizarGlory(documento: vscode.TextDocument): Violacion[] {
 
   /* Sprint 3 */
   if (reglaHabilitada('n-plus-1-query')) {
-    violaciones.push(...verificarNPlus1Query(lineas));
+    violaciones.push(...verificarNPlus1Query(lineas, rutaNormalizada));
   }
 
   if (reglaHabilitada('controller-fqn-inline')) {
@@ -378,8 +390,16 @@ function verificarHardcodedSqlColumn(lineas: string[], rutaArchivo: string): Vio
   const violaciones: Violacion[] = [];
   if (!cacheMapaCols) { return violaciones; }
 
-  /* Excluir archivos de migraccion y el propio schema */
-  if (rutaArchivo.includes('/migrations/') || rutaArchivo.includes('/Schema/')) {
+  /* Excluir archivos de migraciones, seeders y el propio schema.
+   * Los seeders son datos de inicializacion — sus arrays PHP de datos
+   * no son contexto SQL aunque usen la misma sintaxis de claves.
+   * Excluir archivos del framework Glory/ — el schema solo cubre tablas
+   * del modulo App (cap_*), las tablas glory_* son independientes.
+   * Excluir Config/ — archivos de configuracion usan claves como 'email'
+   * en arrays PHP de props/settings, no en contexto SQL. */
+  if (rutaArchivo.includes('/migrations/') || rutaArchivo.includes('/Schema/') ||
+      rutaArchivo.includes('Seeder') || rutaArchivo.includes('/seeders/') ||
+      rutaArchivo.includes('/Glory/') || rutaArchivo.includes('/Config/')) {
     return violaciones;
   }
 
@@ -811,6 +831,37 @@ function verificarOpenRedirect(lineas: string[]): Violacion[] {
     const esRedirectInseguro = regexWpRedirect.test(linea) || regexHeaderLocation.test(linea);
 
     if (esRedirectInseguro) {
+      /* Si la linea usa wp_safe_redirect en vez de wp_redirect, es seguro */
+      if (/\bwp_safe_redirect\b/.test(linea)) {
+        continue;
+      }
+
+      /* Excluir cuando la URL viene de funciones WordPress internas seguras.
+       * wp_login_url(), home_url(), admin_url(), get_permalink(), site_url()
+       * generan URLs internas del sitio — no son open redirect. */
+      const regexUrlInterna = /\b(wp_login_url|home_url|admin_url|get_permalink|site_url|network_site_url|get_post_permalink|wp_logout_url)\s*\(/;
+      if (regexUrlInterna.test(linea)) {
+        continue;
+      }
+
+      /* Buscar la variable usada en el redirect para verificar su origen
+       * en las 5 lineas anteriores */
+      const matchVar = /wp_redirect\s*\(\s*(\$\w+)/.exec(linea);
+      if (matchVar) {
+        const nombreVar = matchVar[1].replace('$', '\\$');
+        const regexAsignacionSegura = new RegExp(
+          `${nombreVar}\\s*=\\s*(wp_login_url|home_url|admin_url|get_permalink|site_url|network_site_url|wp_logout_url)\\s*\\(`
+        );
+        let origenSeguro = false;
+        for (let j = Math.max(0, i - 8); j < i; j++) {
+          if (regexAsignacionSegura.test(lineas[j])) {
+            origenSeguro = true;
+            break;
+          }
+        }
+        if (origenSeguro) { continue; }
+      }
+
       /* Verificar si hay validacion en lineas cercanas (antes y despues) */
       let tieneValidacion = false;
       const inicioVentana = Math.max(0, i - VENTANA_VALIDACION);
@@ -821,11 +872,6 @@ function verificarOpenRedirect(lineas: string[]): Violacion[] {
           tieneValidacion = true;
           break;
         }
-      }
-
-      /* Si la linea usa wp_safe_redirect en vez de wp_redirect, es seguro */
-      if (/\bwp_safe_redirect\b/.test(linea)) {
-        tieneValidacion = true;
       }
 
       if (!tieneValidacion) {
@@ -934,6 +980,19 @@ function verificarIslaNoRegistrada(rutaArchivo: string): Violacion[] {
     return [];
   }
 
+  /* Excluir sub-componentes: archivos dentro de subdirectorios como
+   * components/, hooks/, stores/, utils/, styles/, types/, constants/
+   * NO son islas — son modulos internos importados por las islas.
+   * Solo los archivos directamente en islands/ o islands/NombreIsla/
+   * son candidatos a ser islas top-level. */
+  const despuesIslands = rutaArchivo.split('/islands/')[1] || '';
+  const segmentos = despuesIslands.split('/').filter(Boolean);
+  /* Si hay mas de 2 segmentos (carpeta-isla/subcarpeta/archivo.tsx)
+   * es un sub-componente, no una isla. Ej: cap/components/Modal.tsx → 3 segs */
+  if (segmentos.length > 2) {
+    return [];
+  }
+
   if (!cacheIslasRegistradas.has(nombreArchivo)) {
     return [{
       reglaId: 'isla-no-registrada',
@@ -954,12 +1013,21 @@ function verificarIslaNoRegistrada(rutaArchivo: string): Violacion[] {
  * El patron N+1 causa overhead de multiples roundtrips a BD.
  * ======================================================================= */
 
-function verificarNPlus1Query(lineas: string[]): Violacion[] {
+function verificarNPlus1Query(lineas: string[], rutaArchivo?: string): Violacion[] {
   const violaciones: Violacion[] = [];
 
   const regexLoop = /\b(foreach|for|while)\s*\(/;
   const regexQuery = /(\$this->pg|\$wpdb->|->ejecutar\(|->buscarPorId\(|->get_results\(|->get_var\(|->get_row\(|->query\()/;
   const regexCache = /(\$cache|wp_cache_get|cache_get|Redis::|Memcached::|static\s+\$cache)/;
+
+  /* Set para evitar reportar la misma linea de query multiples veces.
+   * Un loop anidado puede ser detectado tanto por el loop externo como el interno. */
+  const lineasYaReportadas = new Set<number>();
+
+  /* Excluir seeders: se ejecutan una sola vez en inicializacion,
+   * N+1 es aceptable y esperable en ese contexto. */
+  const nombreArchivo = path.basename(rutaArchivo || '');
+  if (/Seeder/i.test(nombreArchivo)) { return violaciones; }
 
   for (let i = 0; i < lineas.length; i++) {
     const lineaTrimmed = lineas[i].trim();
@@ -983,6 +1051,7 @@ function verificarNPlus1Query(lineas: string[]): Violacion[] {
     let tieneCache = false;
     let lineaQuery = -1;
     let encontroCuerpo = false;
+    let finBloque = i;
 
     for (let j = i; j < Math.min(lineas.length, i + 60); j++) {
       for (const char of lineas[j]) {
@@ -1000,10 +1069,14 @@ function verificarNPlus1Query(lineas: string[]): Violacion[] {
         }
       }
 
-      if (encontroCuerpo && llaves <= 0) { break; }
+      if (encontroCuerpo && llaves <= 0) {
+        finBloque = j;
+        break;
+      }
     }
 
-    if (tieneQuery && !tieneCache) {
+    if (tieneQuery && !tieneCache && lineaQuery !== -1 && !lineasYaReportadas.has(lineaQuery)) {
+      lineasYaReportadas.add(lineaQuery);
       violaciones.push({
         reglaId: 'n-plus-1-query',
         mensaje: 'Query dentro de loop (N+1). Usar batch query, JOIN o cache para evitar overhead de red.',
@@ -1012,6 +1085,12 @@ function verificarNPlus1Query(lineas: string[]): Violacion[] {
         sugerencia: 'Extraer la query fuera del loop: obtener todos los registros de una vez y filtrar en memoria.',
         fuente: 'estatico',
       });
+    }
+
+    /* Avanzar al fin del bloque para no re-analizar loops internos
+     * como si fueran loops independientes (causaba duplicados). */
+    if (finBloque > i) {
+      i = finBloque;
     }
   }
 
@@ -1037,10 +1116,15 @@ function verificarFqnInline(lineas: string[]): Violacion[] {
       continue;
     }
 
-    /* Despues de class/function/namespace, ya estamos fuera de la zona de use */
+    /* Despues de class/function/namespace, ya estamos fuera de la zona de use.
+     * NOTA: namespace declaration contiene \App\ en proyectos cuyo namespace es
+     * App\..., pero NO es FQN inline — es la identidad del archivo. Se excluye. */
     if (/^(class |abstract\s+class |final\s+class |function |namespace )/.test(lineaTrimmed)) {
       pasadoUseStatements = true;
     }
+
+    /* Excluir la propia namespace declaration */
+    if (/^namespace\s+/.test(lineaTrimmed)) { continue; }
 
     /* Solo aplicar dentro del cuerpo de la clase/funcion */
     if (!pasadoUseStatements) { continue; }

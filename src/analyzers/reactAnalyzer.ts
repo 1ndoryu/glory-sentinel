@@ -23,6 +23,12 @@ export function analizarReact(documento: vscode.TextDocument): Violacion[] {
   const nombreArchivo = path.basename(documento.fileName);
   const violaciones: Violacion[] = [];
 
+  /* Excluir prototipos de referencia — no son codigo de produccion */
+  const nombreBase = nombreArchivo.replace(/\.[^.]+$/, '');
+  if (nombreBase === 'ejemplo' || nombreBase === 'example') {
+    return violaciones;
+  }
+
   /* Sprint 1 */
   if (reglaHabilitada('useeffect-sin-cleanup')) {
     violaciones.push(...verificarUseEffectSinCleanup(lineas));
