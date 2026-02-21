@@ -597,6 +597,11 @@ function verificarHardcodedEnumValue(lineas: string[], rutaArchivo: string): Vio
     return violaciones;
   }
 
+  /* Excluir Glory/ — framework externo con convenciones propias */
+  if (rutaArchivo.includes('/Glory/')) {
+    return violaciones;
+  }
+
   /* Regex para detectar strings en comparaciones y asignaciones:
    * === 'valor', == 'valor', !== 'valor', = 'valor', != 'valor'
    * Tambien: case 'valor': */
@@ -768,8 +773,8 @@ function verificarIntervalSinWhitelist(lineas: string[]): Violacion[] {
   const regexInterval2 = /INTERVAL\s+'\s*\$/i;
 
   /* Patrones de whitelist en lineas cercanas */
-  const regexWhitelist = /\b(in_array|match\s*\(|switch\s*\(|\$validos|allowedIntervals|intervalosPermitidos)\b/i;
-  const VENTANA_WHITELIST = 10;
+  const regexWhitelist = /\b(in_array|match\s*\(|switch\s*\(|\$validos|\$ventanas|allowedIntervals|intervalosPermitidos|ventanasValidas)\b/i;
+  const VENTANA_WHITELIST = 30;
 
   for (let i = 0; i < lineas.length; i++) {
     const linea = lineas[i];
