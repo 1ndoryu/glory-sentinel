@@ -54,9 +54,12 @@ export function obtenerLimiteArchivo(nombreArchivo: string, rutaArchivo: string)
   const nombreLower = nombreArchivo.toLowerCase();
   const rutaLower = rutaArchivo.toLowerCase().replace(/\\/g, '/');
 
-  /* Hooks: archivos use*.ts o use*.tsx */
+  /* Hooks: archivos use*.ts o use*.tsx.
+   * Feature hooks (extraidos de islands/componentes) necesitan mas espacio
+   * que small reusable hooks. Limite ajustado a 200 (protocolo base: 120,
+   * pero la extraccion SRP inherentemente agrupa logica de pagina completa). */
   if (/^use[A-Z]/.test(nombreArchivo) && (nombreLower.endsWith('.ts') || nombreLower.endsWith('.tsx'))) {
-    return { tipo: 'hook', limite: 120 };
+    return { tipo: 'hook', limite: 200 };
   }
 
   /* Utils: archivos dentro de carpetas utils/ o helpers/ */

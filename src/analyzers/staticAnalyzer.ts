@@ -51,8 +51,11 @@ export function analizarEstatico(
     violaciones.push(...violacionesLimite);
   }
 
-  /* Verificar conteo de useState (regla compuesta, no simple regex por linea) */
-  if ((extension === '.tsx' || extension === '.jsx') && reglaHabilitada('usestate-excesivo')) {
+  /* Verificar conteo de useState (regla compuesta, no simple regex por linea).
+   * Excluir archivos de hooks (use*.ts/tsx) — los hooks SON el destino de la extraccion,
+   * pedirles "extraer a hook" es un falso positivo circular. */
+  const esArchivoHook = /^use[A-Z]/.test(nombreArchivo);
+  if ((extension === '.tsx' || extension === '.jsx') && !esArchivoHook && reglaHabilitada('usestate-excesivo')) {
     const violacionesUseState = verificarUseStateExcesivo(texto, documento);
     violaciones.push(...violacionesUseState);
   }
