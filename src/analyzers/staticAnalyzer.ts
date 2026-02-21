@@ -422,7 +422,8 @@ function verificarNomenclaturaCssIngles(
    * Se excluyen clases de estado (active, disabled, hidden, visible, selected, focused,
    * checked) porque son clases de estado toggled por JS/WordPress/frameworks y no
    * representan nomenclatura que el desarrollador pueda renombrar. */
-  const regexIngles = /\.(main|container|wrapper|button|header|footer|sidebar|content|card|item|input|form|modal|dropdown|toggle|alert|tooltip|carousel|slider|pagination|breadcrumb|accordion|spinner|loader|overlay|backdrop|divider|grid|column|flex|stack|box|title|subtitle|heading|label|caption|description|link|icon|thumbnail|table|checkbox|radio|select|textarea|switch|progress|dialog|drawer|menu|toolbar|tag|chip|step|timeline|tree|upload|download|search|filter|sort|block|primary|secondary|dark|light|small|medium|large)\b(?!-)/;
+  /* sidebar excluido: termino fundamental de layout usado en toda la app */
+  const regexIngles = /\.(main|container|wrapper|button|header|footer|content|card|item|input|form|modal|dropdown|toggle|alert|tooltip|carousel|slider|pagination|breadcrumb|accordion|spinner|loader|overlay|backdrop|divider|grid|column|flex|stack|box|title|subtitle|heading|label|caption|description|link|icon|thumbnail|table|checkbox|radio|select|textarea|switch|progress|dialog|drawer|menu|toolbar|tag|chip|step|timeline|tree|upload|download|search|filter|sort|block|primary|secondary|dark|light|small|medium|large)\b(?!-)/;
 
   for (let i = 0; i < lineas.length; i++) {
     const linea = lineas[i].trim();

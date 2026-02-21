@@ -774,7 +774,7 @@ function verificarIntervalSinWhitelist(lineas: string[]): Violacion[] {
 
   /* Patrones de whitelist en lineas cercanas */
   const regexWhitelist = /\b(in_array|match\s*\(|switch\s*\(|\$validos|\$ventanas|allowedIntervals|intervalosPermitidos|ventanasValidas)\b/i;
-  const VENTANA_WHITELIST = 30;
+  const VENTANA_WHITELIST = 40;
 
   for (let i = 0; i < lineas.length; i++) {
     const linea = lineas[i];

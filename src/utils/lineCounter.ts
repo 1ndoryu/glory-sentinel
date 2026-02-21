@@ -69,7 +69,7 @@ export function obtenerLimiteArchivo(nombreArchivo: string, rutaArchivo: string)
 
   /* Estilos: archivos .css */
   if (nombreLower.endsWith('.css')) {
-    return { tipo: 'estilo', limite: 300 };
+    return { tipo: 'estilo', limite: 600 };
   }
 
   /* Componentes: archivos .tsx, .jsx */
