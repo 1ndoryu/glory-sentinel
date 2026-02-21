@@ -2,9 +2,14 @@
  * Analyzer especializado para archivos React (TSX/JSX).
  * Detecta patrones especificos del ecosistema React
  * que son dificiles de detectar con regex simples.
+ *
+ * Sprint 1: useEffect, mutacion, zustand, console, error-enmascarado
+ * Sprint 2: zustand-objeto, key-index, componente-sin-hook,
+ *           promise-sin-catch, useeffect-dep-inestable
  */
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { Violacion } from '../types';
 import { reglaHabilitada, obtenerSeveridadRegla } from '../config/ruleRegistry';
 
@@ -15,9 +20,10 @@ import { reglaHabilitada, obtenerSeveridadRegla } from '../config/ruleRegistry';
 export function analizarReact(documento: vscode.TextDocument): Violacion[] {
   const texto = documento.getText();
   const lineas = texto.split('\n');
+  const nombreArchivo = path.basename(documento.fileName);
   const violaciones: Violacion[] = [];
 
-  /* Solo ejecutar verificaciones cuyas reglas esten habilitadas */
+  /* Sprint 1 */
   if (reglaHabilitada('useeffect-sin-cleanup')) {
     violaciones.push(...verificarUseEffectSinCleanup(lineas));
   }
@@ -32,6 +38,23 @@ export function analizarReact(documento: vscode.TextDocument): Violacion[] {
   }
   if (reglaHabilitada('error-enmascarado')) {
     violaciones.push(...verificarErrorEnmascarado(lineas));
+  }
+
+  /* Sprint 2 */
+  if (reglaHabilitada('zustand-objeto-selector')) {
+    violaciones.push(...verificarZustandObjetoSelector(lineas));
+  }
+  if (reglaHabilitada('key-index-lista')) {
+    violaciones.push(...verificarKeyIndexLista(lineas));
+  }
+  if (reglaHabilitada('componente-sin-hook-glory')) {
+    violaciones.push(...verificarComponenteSinHook(lineas, nombreArchivo));
+  }
+  if (reglaHabilitada('promise-sin-catch')) {
+    violaciones.push(...verificarPromiseSinCatch(lineas));
+  }
+  if (reglaHabilitada('useeffect-dep-inestable')) {
+    violaciones.push(...verificarUseEffectDepInestable(lineas));
   }
 
   return violaciones;
@@ -274,6 +297,281 @@ function verificarErrorEnmascarado(lineas: string[]): Violacion[] {
 
       if (profundidadCatch <= 0) {
         dentroDeCatch = false;
+      }
+    }
+  }
+
+  return violaciones;
+}
+
+/* =======================================================================
+ * SPRINT 2 — REGLAS NUEVAS
+ * ======================================================================= */
+
+/*
+ * 2.1 Detecta selector de Zustand que retorna objeto/array nuevo.
+ * useStore(s => ({ x: s.x, y: s.y })) crea un objeto nuevo cada render,
+ * lo que anula la memoizacion y causa re-renders. Usar useShallow()
+ * o selectores individuales: useStore(s => s.x).
+ */
+function verificarZustandObjetoSelector(lineas: string[]): Violacion[] {
+  const violaciones: Violacion[] = [];
+
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i];
+
+    /* Patron: useStore(s => ({ ... })) — retorna objeto literal */
+    if (/use\w*Store\s*\(\s*\w+\s*=>\s*\(\s*\{/.test(linea)) {
+      violaciones.push({
+        reglaId: 'zustand-objeto-selector',
+        mensaje: 'Selector de Zustand retorna objeto nuevo cada render. Usar useShallow() o selectores individuales.',
+        severidad: obtenerSeveridadRegla('zustand-objeto-selector'),
+        linea: i,
+        fuente: 'estatico',
+      });
+      continue;
+    }
+
+    /* Patron: useStore(s => [s.x, s.y]) — retorna array literal */
+    if (/use\w*Store\s*\(\s*\w+\s*=>\s*\[/.test(linea)) {
+      violaciones.push({
+        reglaId: 'zustand-objeto-selector',
+        mensaje: 'Selector de Zustand retorna array nuevo cada render. Usar useShallow() o selectores individuales.',
+        severidad: obtenerSeveridadRegla('zustand-objeto-selector'),
+        linea: i,
+        fuente: 'estatico',
+      });
+    }
+  }
+
+  return violaciones;
+}
+
+/*
+ * 2.2 Detecta key={index} en callbacks de .map().
+ * Usar el indice como key causa reconciliacion incorrecta cuando items
+ * se agregan, eliminan o reordenan. Usar un ID unico del item.
+ */
+function verificarKeyIndexLista(lineas: string[]): Violacion[] {
+  const violaciones: Violacion[] = [];
+  let dentroDeMap = false;
+  let profundidadMap = 0;
+
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i];
+
+    /* Detectar inicio de .map( callback */
+    if (/\.map\s*\(/.test(linea)) {
+      dentroDeMap = true;
+      profundidadMap = 0;
+    }
+
+    if (dentroDeMap) {
+      for (const char of linea) {
+        if (char === '(') { profundidadMap++; }
+        if (char === ')') { profundidadMap--; }
+      }
+
+      /* key={index} o key={i} o key={idx} o key={indice} */
+      if (/key\s*=\s*\{\s*(index|i|idx|indice)\s*\}/.test(linea)) {
+        violaciones.push({
+          reglaId: 'key-index-lista',
+          mensaje: 'key={index} causa reconciliacion incorrecta en listas dinamicas. Usar ID unico del item.',
+          severidad: obtenerSeveridadRegla('key-index-lista'),
+          linea: i,
+          fuente: 'estatico',
+        });
+      }
+
+      if (profundidadMap <= 0) {
+        dentroDeMap = false;
+      }
+    }
+  }
+
+  return violaciones;
+}
+
+/*
+ * 2.3 Detecta componentes con logica excesiva que deberia extraerse a un hook.
+ * Glory requiere estrictamente: Componente.tsx (solo JSX) + useComponente.ts (logica).
+ * Si hay >5 lineas de logica (useEffect, fetch, if/else, etc.) entre imports
+ * y el JSX return, reportar.
+ */
+function verificarComponenteSinHook(lineas: string[], nombreArchivo: string): Violacion[] {
+  /* Excluir archivos que ya son hooks */
+  if (/^use[A-Z]/.test(nombreArchivo)) { return []; }
+  /* Excluir tests y archivos generados */
+  if (nombreArchivo.includes('.test.') || nombreArchivo.includes('.spec.') ||
+      nombreArchivo.includes('_generated')) {
+    return [];
+  }
+
+  const violaciones: Violacion[] = [];
+
+  /* Encontrar la zona entre el ultimo import y el primer JSX return */
+  let finImports = 0;
+  let lineaReturn = -1;
+
+  for (let i = 0; i < lineas.length; i++) {
+    const lineaTrimmed = lineas[i].trim();
+    if (/^import\s/.test(lineaTrimmed)) {
+      finImports = i + 1;
+    }
+    /* Detectar return con JSX: return ( <..., return <... */
+    if (/\breturn\s*\(\s*$|\breturn\s*</.test(lineaTrimmed)) {
+      lineaReturn = i;
+      break;
+    }
+  }
+
+  if (lineaReturn <= finImports) { return violaciones; }
+
+  /* Contar lineas con logica significativa entre imports y return.
+   * Excluir destructuring de hooks/props (eso es aceptable). */
+  let lineasLogica = 0;
+  const regexLogica = /\b(useEffect|useState|useMemo|useCallback|useRef|fetch\s*\(|await\s|try\s*\{|if\s*\(|for\s*\(|while\s*\(|switch\s*\(|\.then\s*\()/;
+
+  for (let i = finImports; i < lineaReturn; i++) {
+    const lineaTrimmed = lineas[i].trim();
+
+    /* Saltar vacias, comentarios */
+    if (lineaTrimmed === '' || lineaTrimmed.startsWith('//') ||
+        lineaTrimmed.startsWith('/*') || lineaTrimmed.startsWith('*')) {
+      continue;
+    }
+
+    /* Saltar destructuring de hook: const { ... } = useHook() */
+    if (/^(?:const|let)\s+\{.*\}\s*=\s*use\w+/.test(lineaTrimmed)) { continue; }
+    /* Saltar destructuring de array de hook: const [...] = useState() */
+    if (/^(?:const|let)\s+\[.*\]\s*=\s*use\w+/.test(lineaTrimmed)) { continue; }
+    /* Saltar destructuring de props */
+    if (/^(?:const|let)\s+\{.*\}\s*=\s*props/.test(lineaTrimmed)) { continue; }
+    /* Saltar firma del componente (export function, const Component) */
+    if (/^(?:export\s+)?(?:default\s+)?(?:function|const)\s+\w+/.test(lineaTrimmed) && !/useEffect|useState/.test(lineaTrimmed)) { continue; }
+
+    if (regexLogica.test(lineaTrimmed)) {
+      lineasLogica++;
+    }
+  }
+
+  if (lineasLogica > 5) {
+    const nombreComponente = nombreArchivo.replace(/\.(tsx|jsx)$/, '');
+    violaciones.push({
+      reglaId: 'componente-sin-hook-glory',
+      mensaje: `Componente con ${lineasLogica} lineas de logica. Extraer a hook dedicado (use${nombreComponente}).`,
+      severidad: obtenerSeveridadRegla('componente-sin-hook-glory'),
+      linea: finImports,
+      sugerencia: `Crear use${nombreComponente}.ts con la logica y mantener solo JSX en el componente.`,
+      fuente: 'estatico',
+    });
+  }
+
+  return violaciones;
+}
+
+/*
+ * 2.4 Detecta .then() sin .catch() y fuera de try-catch.
+ * Los errores de la Promise se pierden silenciosamente.
+ */
+function verificarPromiseSinCatch(lineas: string[]): Violacion[] {
+  const violaciones: Violacion[] = [];
+
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i];
+
+    if (!/\.then\s*\(/.test(linea)) { continue; }
+
+    /* Verificar si estamos dentro de un bloque try */
+    let dentroTryCatch = false;
+    for (let j = Math.max(0, i - 20); j < i; j++) {
+      if (/\btry\s*\{/.test(lineas[j])) { dentroTryCatch = true; }
+      /* Si cerramos un catch antes de nuestra linea, el try-catch previo ya termino */
+      if (dentroTryCatch && /\bcatch\s*\(/.test(lineas[j])) { dentroTryCatch = false; }
+    }
+
+    if (dentroTryCatch) { continue; }
+
+    /* Buscar .catch( en la misma linea o las 5 siguientes */
+    let tieneCatch = false;
+    for (let j = i; j < Math.min(lineas.length, i + 6); j++) {
+      if (/\.catch\s*\(/.test(lineas[j])) {
+        tieneCatch = true;
+        break;
+      }
+    }
+
+    if (!tieneCatch) {
+      violaciones.push({
+        reglaId: 'promise-sin-catch',
+        mensaje: '.then() sin .catch() y fuera de try-catch. Los errores de la Promise se pierden.',
+        severidad: obtenerSeveridadRegla('promise-sin-catch'),
+        linea: i,
+        fuente: 'estatico',
+      });
+    }
+  }
+
+  return violaciones;
+}
+
+/*
+ * 2.7 Detecta useEffect con dependencia que se crea inline cada render.
+ * Un objeto, array o funcion creado inline cambia su referencia cada render,
+ * causando que el useEffect se ejecute infinitamente.
+ */
+function verificarUseEffectDepInestable(lineas: string[]): Violacion[] {
+  const violaciones: Violacion[] = [];
+
+  /* Recolectar variables declaradas inline (sin memoizar) */
+  const declaracionesInline = new Set<string>();
+
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i];
+
+    /* const obj = { ... } sin useMemo */
+    const matchObj = /(?:const|let)\s+(\w+)\s*=\s*\{/.exec(linea);
+    if (matchObj && !/useMemo|useCallback/.test(linea)) {
+      declaracionesInline.add(matchObj[1]);
+    }
+
+    /* const arr = [...] sin useMemo */
+    const matchArr = /(?:const|let)\s+(\w+)\s*=\s*\[/.exec(linea);
+    if (matchArr && !/useMemo/.test(linea)) {
+      declaracionesInline.add(matchArr[1]);
+    }
+
+    /* const fn = () => ... sin useCallback */
+    const matchFn = /(?:const|let)\s+(\w+)\s*=\s*(?:\([^)]*\)|[a-zA-Z_]\w*)\s*=>/.exec(linea);
+    if (matchFn && !/useCallback/.test(linea)) {
+      declaracionesInline.add(matchFn[1]);
+    }
+  }
+
+  if (declaracionesInline.size === 0) { return violaciones; }
+
+  /* Buscar useEffect y sus dependencias */
+  for (let i = 0; i < lineas.length; i++) {
+    if (!/useEffect\s*\(/.test(lineas[i])) { continue; }
+
+    /* Buscar el array de dependencias en las lineas siguientes */
+    for (let j = i; j < Math.min(lineas.length, i + 50); j++) {
+      /* Patron: ], [dep1, dep2]) — la linea con el cierre del useEffect */
+      const matchDeps = /\[\s*([^\]]+)\s*\]\s*\)/.exec(lineas[j]);
+      if (matchDeps) {
+        const deps = matchDeps[1].split(',').map(d => d.trim());
+        for (const dep of deps) {
+          if (declaracionesInline.has(dep)) {
+            violaciones.push({
+              reglaId: 'useeffect-dep-inestable',
+              mensaje: `'${dep}' se crea inline cada render. useEffect se re-ejecutara infinitamente. Memoizar con useMemo/useCallback.`,
+              severidad: obtenerSeveridadRegla('useeffect-dep-inestable'),
+              linea: j,
+              fuente: 'estatico',
+            });
+          }
+        }
+        break;
       }
     }
   }

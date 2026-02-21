@@ -66,6 +66,21 @@ export function analizarEstatico(
     violaciones.push(...violacionesImports);
   }
 
+  /* Sprint 2: any-type-explicito en TS/TSX */
+  if (['.ts', '.tsx'].includes(extension) && !nombreArchivo.endsWith('.d.ts') && reglaHabilitada('any-type-explicito')) {
+    violaciones.push(...verificarAnyType(texto, documento));
+  }
+
+  /* Sprint 3: Reglas CSS */
+  if (['.css', '.scss'].includes(extension)) {
+    if (reglaHabilitada('nomenclatura-css-ingles')) {
+      violaciones.push(...verificarNomenclaturaCssIngles(texto, documento, nombreArchivo));
+    }
+    if (reglaHabilitada('css-hardcoded-value')) {
+      violaciones.push(...verificarCssHardcoded(texto, documento, nombreArchivo));
+    }
+  }
+
   return violaciones;
 }
 
@@ -310,4 +325,183 @@ function verificarImportsMuertos(
 /* Escapa caracteres especiales para usar en regex */
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/* =======================================================================
+ * SPRINT 2 — any-type-explicito
+ * Detecta uso de `: any` o `as any` en archivos TS/TSX.
+ * ======================================================================= */
+
+function verificarAnyType(texto: string, documento: vscode.TextDocument): Violacion[] {
+  const violaciones: Violacion[] = [];
+  const lineas = texto.split('\n');
+
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i];
+    const lineaTrimmed = linea.trim();
+
+    /* Saltar comentarios */
+    if (lineaTrimmed.startsWith('//') || lineaTrimmed.startsWith('*') ||
+        lineaTrimmed.startsWith('/*') || lineaTrimmed.startsWith('#')) {
+      continue;
+    }
+
+    /* Saltar sentinel-disable */
+    if (i > 0 && lineas[i - 1].includes('sentinel-disable-next-line any-type-explicito')) {
+      continue;
+    }
+    if (linea.includes('sentinel-disable any-type-explicito')) {
+      continue;
+    }
+
+    /* Detectar : any o as any (palabra completa, no 'analyze' etc.) */
+    if (/:\s*any\b|as\s+any\b/.test(linea)) {
+      /* Excluir lineas que son eslint-disable o type comments de tools */
+      if (/eslint-disable|@ts-/.test(linea)) { continue; }
+
+      violaciones.push({
+        reglaId: 'any-type-explicito',
+        mensaje: 'Tipo "any" explicito. Usar un tipo especifico o "unknown" si el tipo es desconocido.',
+        severidad: obtenerSeveridadRegla('any-type-explicito'),
+        linea: i,
+        fuente: 'estatico',
+      });
+    }
+  }
+
+  return violaciones;
+}
+
+/* =======================================================================
+ * SPRINT 3 — nomenclatura-css-ingles
+ * Detecta clases CSS con nombres en ingles. El protocolo requiere espanol.
+ * ======================================================================= */
+
+function verificarNomenclaturaCssIngles(
+  texto: string,
+  documento: vscode.TextDocument,
+  nombreArchivo: string
+): Violacion[] {
+  /* Excluir archivos de librerias */
+  const rutaNorm = documento.fileName.replace(/\\/g, '/');
+  if (rutaNorm.includes('node_modules') || rutaNorm.includes('vendor') ||
+      rutaNorm.includes('shadcn') || rutaNorm.includes('tailwind')) {
+    return [];
+  }
+
+  const violaciones: Violacion[] = [];
+  const lineas = texto.split('\n');
+
+  /* Diccionario de palabras inglesas muy comunes en selectores CSS.
+   * Solo se detectan como clase CSS (precedidas de . en selector). */
+  const regexIngles = /\.(main|container|wrapper|button|header|footer|sidebar|content|card|item|input|form|modal|dropdown|toggle|badge|alert|tooltip|carousel|slider|pagination|breadcrumb|accordion|spinner|loader|overlay|backdrop|divider|grid|column|flex|stack|box|title|subtitle|heading|label|caption|description|link|icon|avatar|thumbnail|table|checkbox|radio|select|textarea|switch|progress|dialog|drawer|menu|toolbar|tag|chip|step|timeline|tree|upload|download|search|filter|sort|block|hidden|visible|active|disabled|selected|focused|checked|primary|secondary|dark|light|small|medium|large)\b/;
+
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i].trim();
+
+    /* Saltar comentarios */
+    if (linea.startsWith('/*') || linea.startsWith('*') || linea.startsWith('//')) {
+      continue;
+    }
+
+    /* Saltar sentinel-disable */
+    if (i > 0 && lineas[i - 1]?.includes('sentinel-disable-next-line nomenclatura-css-ingles')) {
+      continue;
+    }
+
+    const match = regexIngles.exec(linea);
+    if (match) {
+      violaciones.push({
+        reglaId: 'nomenclatura-css-ingles',
+        mensaje: `Clase CSS en ingles ".${match[1]}". El protocolo requiere nombres en espanol (ej: .contenedor, .boton).`,
+        severidad: obtenerSeveridadRegla('nomenclatura-css-ingles'),
+        linea: i,
+        fuente: 'estatico',
+      });
+    }
+  }
+
+  return violaciones;
+}
+
+/* =======================================================================
+ * SPRINT 3 — css-hardcoded-value
+ * Detecta colores y valores hardcodeados en CSS que deberian usar variables.
+ * ======================================================================= */
+
+function verificarCssHardcoded(
+  texto: string,
+  documento: vscode.TextDocument,
+  nombreArchivo: string
+): Violacion[] {
+  /* Excluir archivos de definicion de variables */
+  const nombreLower = nombreArchivo.toLowerCase();
+  if (/variables\.css|init\.css|theme\.css|tokens\.css/.test(nombreLower)) {
+    return [];
+  }
+
+  /* Excluir librerias */
+  const rutaNorm = documento.fileName.replace(/\\/g, '/');
+  if (rutaNorm.includes('node_modules') || rutaNorm.includes('vendor')) {
+    return [];
+  }
+
+  const violaciones: Violacion[] = [];
+  const lineas = texto.split('\n');
+  let dentroRoot = false;
+
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i].trim();
+
+    /* Saltar comentarios */
+    if (linea.startsWith('/*') || linea.startsWith('*') || linea.startsWith('//')) {
+      continue;
+    }
+
+    /* Saltar sentinel-disable */
+    if (i > 0 && lineas[i - 1]?.includes('sentinel-disable-next-line css-hardcoded-value')) {
+      continue;
+    }
+
+    /* Rastrear bloque :root (definiciones de variables son aceptables) */
+    if (/:root\s*\{/.test(linea)) { dentroRoot = true; }
+    if (dentroRoot && /\}/.test(linea)) { dentroRoot = false; }
+    if (dentroRoot) { continue; }
+
+    /* Saltar definiciones de variables CSS (--variable: valor) */
+    if (/^\s*--/.test(lineas[i])) { continue; }
+
+    /* Saltar lineas que ya usan var() */
+    if (/var\s*\(/.test(linea)) { continue; }
+
+    /* Detectar colores hex: #fff, #ffffff, #ffffffaa */
+    if (/#[0-9a-fA-F]{3,8}\b/.test(linea)) {
+      /* Excluir comentarios inline */
+      const antesHash = linea.indexOf('#');
+      const antesComentario = linea.indexOf('//');
+      if (antesComentario >= 0 && antesComentario < antesHash) { continue; }
+
+      violaciones.push({
+        reglaId: 'css-hardcoded-value',
+        mensaje: 'Color hex hardcodeado. Usar variable CSS: var(--color-nombre).',
+        severidad: obtenerSeveridadRegla('css-hardcoded-value'),
+        linea: i,
+        fuente: 'estatico',
+      });
+      continue;
+    }
+
+    /* Detectar rgb/rgba/hsl/hsla */
+    if (/\b(rgba?|hsla?)\s*\(/.test(linea)) {
+      violaciones.push({
+        reglaId: 'css-hardcoded-value',
+        mensaje: 'Color rgb/hsl hardcodeado. Usar variable CSS: var(--color-nombre).',
+        severidad: obtenerSeveridadRegla('css-hardcoded-value'),
+        linea: i,
+        fuente: 'estatico',
+      });
+    }
+  }
+
+  return violaciones;
 }

@@ -111,6 +111,7 @@ function ejecutarAnalisisEstatico(uri: vscode.Uri): void {
     violaciones.push(...analizarGlory(doc));
   } else if (tipo === 'tsx' || tipo === 'jsx') {
     violaciones.push(...analizarReact(doc));
+    violaciones.push(...analizarGlory(doc));
   }
 
   /* Convertir violaciones a diagnosticos */
@@ -373,7 +374,7 @@ export async function analizarWorkspace(): Promise<void> {
     : undefined;
 
   const archivos = await vscode.workspace.findFiles(
-    '**/*.{php,ts,tsx,js,jsx}',
+    '**/*.{php,ts,tsx,js,jsx,css}',
     patronExclusion
   );
 
@@ -403,8 +404,13 @@ export async function analizarWorkspace(): Promise<void> {
             /* Solo analisis estatico para scan completo del workspace */
             const violaciones = analizarEstatico(doc);
             const tipo = obtenerTipoArchivo(doc.languageId, doc.fileName);
-            if (tipo === 'php') { violaciones.push(...analizarPhp(doc)); }
-            else if (tipo === 'tsx' || tipo === 'jsx') { violaciones.push(...analizarReact(doc)); }
+            if (tipo === 'php') {
+              violaciones.push(...analizarPhp(doc));
+              violaciones.push(...analizarGlory(doc));
+            } else if (tipo === 'tsx' || tipo === 'jsx') {
+              violaciones.push(...analizarReact(doc));
+              violaciones.push(...analizarGlory(doc));
+            }
 
             const diagnosticos = violaciones.map(v => crearDiagnostico(doc, v));
             coleccionDiagnosticos.set(archivos[i], diagnosticos);

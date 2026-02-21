@@ -65,6 +65,13 @@
 > **Completado:** 21/02/2026. Implementado en `gloryAnalyzer.ts` (nuevo analyzer).
 > 6 reglas nuevas registradas en ruleRegistry, categoria GlorySchema agregada.
 > Schema se carga al activar con FileSystemWatcher para invalidar cache automaticamente.
+>
+> **Fix post-auditoria:** Gaps de deteccion corregidos:
+> - hardcoded-sql-column: Ahora detecta arrays planos de whitelists (`$permitidos = ['col1', ...]`)
+> - endpoint-accede-bd: Ahora cubre `Service` files (no solo Controller/Endpoints)
+> - endpoint-accede-bd: Exclusion de servicios de infraestructura (CacheService, LogService)
+> - return-void-critico: DDL (ALTER TABLE, CREATE TABLE, DROP TABLE, TRUNCATE) incluido
+> - endpoint-accede-bd: Mejor regex para $wpdb (solo metodos especificos, no generico)
 
 #### 1.1 `[hardcoded-sql-column]` — Strings de columnas que deberian usar Cols (NUEVO)
 
@@ -161,9 +168,14 @@ y signature `: void` o sin return type.
 
 ---
 
-### Sprint 2 — Rendimiento React/TS + Patrones Glory (Prioridad ALTA)
+### Sprint 2 — Rendimiento React/TS + Patrones Glory (Prioridad ALTA) ✅ COMPLETADO
 
-> Detecciones de performance que evitan problemas 60fps y enforce patrones Glory React.
+> **Completado:** Sprint 2. 7 reglas nuevas implementadas:
+> - reactAnalyzer.ts: zustand-objeto-selector, key-index-lista, componente-sin-hook-glory,
+>   promise-sin-catch, useeffect-dep-inestable (5 funciones nuevas)
+> - staticAnalyzer.ts: any-type-explicito (1 funcion nueva)
+> - gloryAnalyzer.ts: isla-no-registrada con carga de appIslands.tsx + watcher (1 funcion nueva)
+> Total: 43 reglas activas.
 
 #### 2.1 `[zustand-objeto-selector]` — Selector que crea nuevo objeto/array (NUEVO)
 
@@ -238,9 +250,15 @@ donde esas variables se crean inline (no memoizadas).
 
 ---
 
-### Sprint 3 — Arquitectura y Calidad General (Prioridad MEDIA)
+### Sprint 3 — Arquitectura y Calidad General (Prioridad MEDIA) ✅ COMPLETADO
 
-> Mejoras de calidad de codigo, mantenibilidad y enforcement de convenciones.
+> **Completado:** Sprint 3. 6 reglas nuevas implementadas:
+> - gloryAnalyzer.ts: n-plus-1-query, controller-fqn-inline, php-sin-return-type,
+>   repository-sin-whitelist-columnas (4 funciones nuevas)
+> - staticAnalyzer.ts: nomenclatura-css-ingles, css-hardcoded-value (2 funciones nuevas)
+> - CSS habilitado como lenguaje por defecto + incluido en workspace scan.
+> - diagnosticProvider.ts actualizado para llamar analizarGlory en TSX/JSX.
+> Total final: 43 reglas activas.
 
 #### 3.1 `[n-plus-1-query]` — Loop con query dentro (PHP) (EXISTENTE en plan)
 

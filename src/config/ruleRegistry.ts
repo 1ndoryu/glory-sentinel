@@ -81,6 +81,29 @@ const REGISTRO: DefinicionRegla[] = [
   { id: 'open-redirect', nombre: 'Redireccion insegura', severidadDefault: 'error', categoria: CategoriaRegla.GlorySchema },
   { id: 'return-void-critico', nombre: 'Escritura retorna void', severidadDefault: 'warning', categoria: CategoriaRegla.GlorySchema },
 
+  /* --- Sprint 2: React (reactAnalyzer.ts) --- */
+  { id: 'zustand-objeto-selector', nombre: 'Zustand selector crea ref nueva', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
+  { id: 'key-index-lista', nombre: 'key={index} en lista', severidadDefault: 'hint', categoria: CategoriaRegla.ReactPatrones },
+  { id: 'componente-sin-hook-glory', nombre: 'Componente sin hook dedicado', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
+  { id: 'promise-sin-catch', nombre: 'Promise sin catch', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
+  { id: 'useeffect-dep-inestable', nombre: 'useEffect dep inestable', severidadDefault: 'hint', categoria: CategoriaRegla.ReactPatrones },
+
+  /* --- Sprint 2: TypeScript (staticAnalyzer.ts) --- */
+  { id: 'any-type-explicito', nombre: 'Tipo any explicito', severidadDefault: 'hint', categoria: CategoriaRegla.EstructuraNomenclatura },
+
+  /* --- Sprint 2: Glory (gloryAnalyzer.ts) --- */
+  { id: 'isla-no-registrada', nombre: 'Isla no registrada', severidadDefault: 'warning', categoria: CategoriaRegla.GlorySchema },
+
+  /* --- Sprint 3: PHP (gloryAnalyzer.ts) --- */
+  { id: 'n-plus-1-query', nombre: 'Query N+1 en loop', severidadDefault: 'warning', categoria: CategoriaRegla.SeguridadSql },
+  { id: 'controller-fqn-inline', nombre: 'FQN inline en PHP', severidadDefault: 'hint', categoria: CategoriaRegla.EstructuraNomenclatura },
+  { id: 'php-sin-return-type', nombre: 'PHP sin return type', severidadDefault: 'hint', categoria: CategoriaRegla.WordPressPhp },
+  { id: 'repository-sin-whitelist-columnas', nombre: 'SELECT * sin columnas', severidadDefault: 'hint', categoria: CategoriaRegla.SeguridadSql },
+
+  /* --- Sprint 3: CSS (staticAnalyzer.ts) --- */
+  { id: 'nomenclatura-css-ingles', nombre: 'CSS en ingles', severidadDefault: 'hint', categoria: CategoriaRegla.EstructuraNomenclatura },
+  { id: 'css-hardcoded-value', nombre: 'Color CSS hardcodeado', severidadDefault: 'warning', categoria: CategoriaRegla.EstructuraNomenclatura },
+
 ];
 
 /* Cache de configuracion: se construye lazily al primer acceso */

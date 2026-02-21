@@ -41,6 +41,9 @@ let cacheMapaCols: MapaCols | null = null;
 let cacheMapaEnums: Map<string, EntradaEnum[]> | null = null;
 let schemaWatcher: vscode.FileSystemWatcher | null = null;
 
+/* Cache de islas registradas en appIslands.tsx (Sprint 2.6) */
+let cacheIslasRegistradas: Set<string> | null = null;
+
 /* Conjunto de valores enum demasiado comunes para reportar
  * (generarian falsos positivos masivos) */
 const VALORES_IGNORADOS_ENUM = new Set([
@@ -184,9 +187,11 @@ function cargarSchema(): void {
 /*
  * Inicializa el watcher del schema para invalidar cache
  * cuando se regeneran los archivos _generated.
+ * Tambien carga las islas registradas de appIslands.tsx.
  */
 export function inicializarGloryAnalyzer(context: vscode.ExtensionContext): void {
   cargarSchema();
+  cargarIslasRegistradas();
 
   /* Watcher para invalidar cache cuando cambian archivos _generated */
   const carpeta = buscarCarpetaGenerated();
@@ -206,6 +211,72 @@ export function inicializarGloryAnalyzer(context: vscode.ExtensionContext): void
     schemaWatcher.onDidDelete(recargar);
     context.subscriptions.push(schemaWatcher);
   }
+
+  /* Watcher para appIslands.tsx */
+  const folders = vscode.workspace.workspaceFolders;
+  if (folders) {
+    for (const folder of folders) {
+      const rutaAppIslands = path.join(folder.uri.fsPath, 'App', 'React', 'appIslands.tsx');
+      if (fs.existsSync(rutaAppIslands)) {
+        const patronIslas = new vscode.RelativePattern(path.dirname(rutaAppIslands), 'appIslands.tsx');
+        const islasWatcher = vscode.workspace.createFileSystemWatcher(patronIslas);
+
+        const recargarIslas = () => {
+          logInfo('GloryAnalyzer: appIslands.tsx cambio, recargando islas...');
+          cacheIslasRegistradas = null;
+          cargarIslasRegistradas();
+        };
+
+        islasWatcher.onDidChange(recargarIslas);
+        islasWatcher.onDidCreate(recargarIslas);
+        context.subscriptions.push(islasWatcher);
+        break;
+      }
+    }
+  }
+}
+
+/*
+ * Carga las islas registradas en appIslands.tsx.
+ * Parsea imports y lazy-imports para construir el set de islas activas.
+ */
+function cargarIslasRegistradas(): void {
+  const folders = vscode.workspace.workspaceFolders;
+  if (!folders) { return; }
+
+  for (const folder of folders) {
+    const rutaApp = path.join(folder.uri.fsPath, 'App', 'React', 'appIslands.tsx');
+    if (fs.existsSync(rutaApp)) {
+      try {
+        const contenido = fs.readFileSync(rutaApp, 'utf-8');
+        cacheIslasRegistradas = new Set<string>();
+
+        /* Imports directos: import X from './islands/X' */
+        const regexImport = /import.*from\s+['"]\.\/islands\/(\w+)['"]/g;
+        let match: RegExpExecArray | null;
+        while ((match = regexImport.exec(contenido)) !== null) {
+          cacheIslasRegistradas.add(match[1]);
+        }
+
+        /* Lazy imports: lazy(() => import('./islands/X')) */
+        const regexLazy = /import\s*\(\s*['"]\.\/islands\/(\w+)['"]\s*\)/g;
+        while ((match = regexLazy.exec(contenido)) !== null) {
+          cacheIslasRegistradas.add(match[1]);
+        }
+
+        /* String references en registros: 'X': component o "X": component */
+        const regexRegistro = /['"](\w+Island)['"]\s*:/g;
+        while ((match = regexRegistro.exec(contenido)) !== null) {
+          cacheIslasRegistradas.add(match[1]);
+        }
+
+        logInfo(`GloryAnalyzer: ${cacheIslasRegistradas.size} islas registradas en appIslands.tsx.`);
+      } catch (err) {
+        logWarn(`GloryAnalyzer: Error al leer appIslands.tsx — ${err}`);
+      }
+      break;
+    }
+  }
 }
 
 /* =======================================================================
@@ -214,7 +285,9 @@ export function inicializarGloryAnalyzer(context: vscode.ExtensionContext): void
 
 /*
  * Punto de entrada del analyzer Glory.
- * Ejecuta todas las verificaciones habilitadas sobre el archivo PHP.
+ * Ejecuta verificaciones habilitadas segun tipo de archivo.
+ * PHP: schema enforcement, queries, seguridad, calidad.
+ * TSX/JSX: isla-no-registrada.
  */
 export function analizarGlory(documento: vscode.TextDocument): Violacion[] {
   const texto = documento.getText();
@@ -222,18 +295,31 @@ export function analizarGlory(documento: vscode.TextDocument): Violacion[] {
   const rutaArchivo = documento.fileName;
   const violaciones: Violacion[] = [];
 
-  /* Asegurar que el schema este cargado */
-  if (!cacheMapaCols && !cacheMapaEnums) {
-    cargarSchema();
-  }
-
   /* Excluir archivos auto-generados */
   const rutaNormalizada = rutaArchivo.replace(/\\/g, '/');
   if (rutaNormalizada.includes('_generated/') || rutaNormalizada.includes('_generated\\')) {
     return [];
   }
 
-  /* Ejecutar cada verificacion si su regla esta habilitada */
+  const extension = path.extname(rutaArchivo).toLowerCase();
+
+  /* --- Reglas TSX/JSX --- */
+  if (extension === '.tsx' || extension === '.jsx') {
+    if (reglaHabilitada('isla-no-registrada')) {
+      violaciones.push(...verificarIslaNoRegistrada(rutaNormalizada));
+    }
+    return violaciones;
+  }
+
+  /* --- Reglas PHP --- */
+  if (extension !== '.php') { return violaciones; }
+
+  /* Asegurar que el schema este cargado */
+  if (!cacheMapaCols && !cacheMapaEnums) {
+    cargarSchema();
+  }
+
+  /* Sprint 1 */
   if (reglaHabilitada('hardcoded-sql-column') && cacheMapaCols) {
     violaciones.push(...verificarHardcodedSqlColumn(lineas, rutaNormalizada));
   }
@@ -256,6 +342,23 @@ export function analizarGlory(documento: vscode.TextDocument): Violacion[] {
 
   if (reglaHabilitada('return-void-critico')) {
     violaciones.push(...verificarReturnVoidCritico(texto, lineas));
+  }
+
+  /* Sprint 3 */
+  if (reglaHabilitada('n-plus-1-query')) {
+    violaciones.push(...verificarNPlus1Query(lineas));
+  }
+
+  if (reglaHabilitada('controller-fqn-inline')) {
+    violaciones.push(...verificarFqnInline(lineas));
+  }
+
+  if (reglaHabilitada('php-sin-return-type')) {
+    violaciones.push(...verificarPhpSinReturnType(lineas));
+  }
+
+  if (reglaHabilitada('repository-sin-whitelist-columnas')) {
+    violaciones.push(...verificarSelectStar(lineas, rutaNormalizada));
   }
 
   return violaciones;
@@ -312,6 +415,11 @@ function verificarHardcodedSqlColumn(lineas: string[], rutaArchivo: string): Vio
   /* Tambien detectar contexto de arrays asociativos en inserts/updates:
    * 'columna' => $valor o 'columna' => 'valor' */
   const regexArrayAsociativo = /['"]([a-z_]{2,})['"]\s*=>/g;
+
+  /* Detectar arrays planos de whitelists de columnas:
+   * $permitidos = ['nombre', 'email', 'telefono'] */
+  const regexContextoWhitelist = /\$(permitidos|permitidas|allowed|campos|columnas|whitelist|fields|ordenables|filtrables)\b/i;
+  const regexValorArrayPlano = /['"]([a-z_]{2,})['"](?:\s*,|\s*\])/g;
 
   for (let i = 0; i < lineas.length; i++) {
     const linea = lineas[i];
@@ -388,6 +496,35 @@ function verificarHardcodedSqlColumn(lineas: string[], rutaArchivo: string): Vio
             linea: i,
             columna: matchArr.index,
             columnaFin: matchArr.index + matchArr[0].length,
+            sugerencia: `Reemplazar '${valor}' con ${info.clase}::${info.constante}`,
+            fuente: 'estatico',
+          });
+        }
+      }
+    }
+
+    /* Verificar arrays planos de whitelists de columnas.
+     * Solo activo si la linea actual o las 2 anteriores contienen
+     * una variable de nombre sugerente ($permitidos, $campos, etc.) */
+    const tieneContextoWhitelist =
+      regexContextoWhitelist.test(linea) ||
+      (i > 0 && regexContextoWhitelist.test(lineas[i - 1])) ||
+      (i > 1 && regexContextoWhitelist.test(lineas[i - 2]));
+
+    if (tieneContextoWhitelist && !/\w+Cols::/.test(linea)) {
+      regexValorArrayPlano.lastIndex = 0;
+      let matchPlano: RegExpExecArray | null;
+      while ((matchPlano = regexValorArrayPlano.exec(linea)) !== null) {
+        const valor = matchPlano[1];
+        const info = todasLasColumnas.get(valor);
+        if (info) {
+          violaciones.push({
+            reglaId: 'hardcoded-sql-column',
+            mensaje: `'${valor}' en whitelist deberia usar ${info.clase}::${info.constante} (tabla: ${info.tabla})`,
+            severidad: obtenerSeveridadRegla('hardcoded-sql-column'),
+            linea: i,
+            columna: matchPlano.index,
+            columnaFin: matchPlano.index + matchPlano[0].length,
             sugerencia: `Reemplazar '${valor}' con ${info.clase}::${info.constante}`,
             fuente: 'estatico',
           });
@@ -507,20 +644,25 @@ function verificarHardcodedEnumValue(lineas: string[], rutaArchivo: string): Vio
 function verificarEndpointAccedeBd(lineas: string[], rutaArchivo: string): Violacion[] {
   const violaciones: Violacion[] = [];
 
-  /* Solo aplicar a archivos Controller/Endpoints */
+  /* Aplicar a archivos Controller/Endpoints y Services.
+   * Services tampoco deben tener queries directas — deben delegar a repos. */
   const nombreArchivo = path.basename(rutaArchivo);
-  if (!/Controller|Endpoints/i.test(nombreArchivo)) {
+  if (!/Controller|Endpoints|Service/i.test(nombreArchivo)) {
     return violaciones;
   }
 
-  /* Excluir archivos dentro de Repositories o Database base */
+  /* Excluir archivos dentro de Repositories, Database base o servicios de infraestructura.
+   * PostgresService es la capa de acceso a BD — es el unico Service que puede tener queries. */
   if (rutaArchivo.includes('/Repositories/') || rutaArchivo.includes('/Database/') ||
-      rutaArchivo.includes('BaseRepository') || rutaArchivo.includes('PostgresService')) {
+      rutaArchivo.includes('BaseRepository') || rutaArchivo.includes('PostgresService') ||
+      rutaArchivo.includes('CacheService') || rutaArchivo.includes('LogService')) {
     return violaciones;
   }
 
-  /* Patrones de acceso directo a BD */
-  const regexAccesoBd = /(\$this->pg|\$wpdb->|PostgresService|->ejecutar\(|->query\(|->get_results\(|->get_var\(|->get_row\(|->insert\(|->update\(|->delete\()/;
+  /* Patrones de acceso directo a BD.
+   * Excluimos ->query( generico porque puede ser un query builder, no BD directa.
+   * $wpdb metodos especificos: query, get_results, get_var, get_row, insert, update, delete. */
+  const regexAccesoBd = /(\$this->pg|\$wpdb->(?:query|get_results|get_var|get_row|insert|update|delete|prepare)\s*\(|PostgresService|->ejecutar\()/;
 
   for (let i = 0; i < lineas.length; i++) {
     const linea = lineas[i];
@@ -541,11 +683,18 @@ function verificarEndpointAccedeBd(lineas: string[], rutaArchivo: string): Viola
       continue;
     }
 
+    /* Excluir transacciones: START TRANSACTION, COMMIT, ROLLBACK son
+     * aceptables en controllers para coordinar operaciones cross-repo */
+    if (/\b(START\s+TRANSACTION|COMMIT|ROLLBACK|SAVEPOINT)\b/i.test(linea)) {
+      continue;
+    }
+
     const match = regexAccesoBd.exec(linea);
     if (match) {
+      const tipoArchivo = /Service/i.test(nombreArchivo) ? 'service' : 'controller';
       violaciones.push({
         reglaId: 'endpoint-accede-bd',
-        mensaje: `Query directa en controller ('${match[1]}'). Mover logica de datos a un Repository.`,
+        mensaje: `Query directa en ${tipoArchivo} ('${match[1]}'). Mover logica de datos a un Repository.`,
         severidad: obtenerSeveridadRegla('endpoint-accede-bd'),
         linea: i,
         columna: match.index,
@@ -742,8 +891,13 @@ function verificarReturnVoidCritico(texto: string, lineas: string[]): Violacion[
 
     const cuerpo = texto.substring(inicioBody, pos);
 
-    /* Verificar si el cuerpo tiene operaciones de escritura */
-    const tieneEscritura = /\b(INSERT|UPDATE|DELETE|->insertar\(|->actualizar\(|->eliminar\(|->insert\(|->update\(|->delete\(|->query\(.*(?:INSERT|UPDATE|DELETE))/i.test(cuerpo);
+    /* Excluir constructores y metodos de setup de rutas */
+    if (/^(__construct|register(Routes)?|registrar(Rutas)?)$/i.test(nombreMetodo)) {
+      continue;
+    }
+
+    /* Verificar si el cuerpo tiene operaciones de escritura (DML + DDL) */
+    const tieneEscritura = /\b(INSERT|UPDATE|DELETE|ALTER\s+TABLE|CREATE\s+TABLE|DROP\s+TABLE|TRUNCATE|->insertar\(|->actualizar\(|->eliminar\(|->insert\(|->update\(|->delete\(|->query\(.*(?:INSERT|UPDATE|DELETE|ALTER|CREATE|DROP))/i.test(cuerpo);
 
     if (tieneEscritura) {
       const tipoActual = returnType === 'void' ? 'void' : 'sin return type';
@@ -753,6 +907,261 @@ function verificarReturnVoidCritico(texto: string, lineas: string[]): Violacion[
         severidad: obtenerSeveridadRegla('return-void-critico'),
         linea: lineaSignature,
         sugerencia: `Cambiar return type a bool o un tipo que indique resultado de la operacion.`,
+        fuente: 'estatico',
+      });
+    }
+  }
+
+  return violaciones;
+}
+
+/* =======================================================================
+ * 2.6 ISLA NO REGISTRADA
+ * Detecta archivos en islands/ que no estan registrados en appIslands.tsx.
+ * ======================================================================= */
+
+function verificarIslaNoRegistrada(rutaArchivo: string): Violacion[] {
+  if (!cacheIslasRegistradas) { return []; }
+
+  /* Solo verificar archivos dentro de islands/ */
+  if (!rutaArchivo.includes('/islands/')) { return []; }
+
+  const nombreArchivo = path.basename(rutaArchivo, path.extname(rutaArchivo));
+
+  /* Excluir index, hooks, utils y archivos de componentes auxiliares */
+  if (nombreArchivo === 'index' || /^use[A-Z]/.test(nombreArchivo) ||
+      nombreArchivo.startsWith('_') || nombreArchivo === 'types') {
+    return [];
+  }
+
+  if (!cacheIslasRegistradas.has(nombreArchivo)) {
+    return [{
+      reglaId: 'isla-no-registrada',
+      mensaje: `Isla '${nombreArchivo}' no esta registrada en appIslands.tsx. El componente no sera accesible.`,
+      severidad: obtenerSeveridadRegla('isla-no-registrada'),
+      linea: 0,
+      sugerencia: `Agregar import y registro en App/React/appIslands.tsx para activar esta isla.`,
+      fuente: 'estatico',
+    }];
+  }
+
+  return [];
+}
+
+/* =======================================================================
+ * 3.1 N+1 QUERY
+ * Detecta queries dentro de loops (foreach, for, while).
+ * El patron N+1 causa overhead de multiples roundtrips a BD.
+ * ======================================================================= */
+
+function verificarNPlus1Query(lineas: string[]): Violacion[] {
+  const violaciones: Violacion[] = [];
+
+  const regexLoop = /\b(foreach|for|while)\s*\(/;
+  const regexQuery = /(\$this->pg|\$wpdb->|->ejecutar\(|->buscarPorId\(|->get_results\(|->get_var\(|->get_row\(|->query\()/;
+  const regexCache = /(\$cache|wp_cache_get|cache_get|Redis::|Memcached::|static\s+\$cache)/;
+
+  for (let i = 0; i < lineas.length; i++) {
+    const lineaTrimmed = lineas[i].trim();
+
+    /* Saltar comentarios */
+    if (lineaTrimmed.startsWith('*') || lineaTrimmed.startsWith('//') ||
+        lineaTrimmed.startsWith('#') || lineaTrimmed.startsWith('/*')) {
+      continue;
+    }
+
+    if (!regexLoop.test(lineas[i])) { continue; }
+
+    /* Saltar sentinel-disable */
+    if (i > 0 && lineas[i - 1].includes('sentinel-disable-next-line n-plus-1-query')) {
+      continue;
+    }
+
+    /* Encontrar el cuerpo del loop con conteo de llaves */
+    let llaves = 0;
+    let tieneQuery = false;
+    let tieneCache = false;
+    let lineaQuery = -1;
+    let encontroCuerpo = false;
+
+    for (let j = i; j < Math.min(lineas.length, i + 60); j++) {
+      for (const char of lineas[j]) {
+        if (char === '{') { llaves++; encontroCuerpo = true; }
+        if (char === '}') { llaves--; }
+      }
+
+      if (j > i && encontroCuerpo) {
+        if (regexQuery.test(lineas[j]) && lineaQuery === -1) {
+          tieneQuery = true;
+          lineaQuery = j;
+        }
+        if (regexCache.test(lineas[j])) {
+          tieneCache = true;
+        }
+      }
+
+      if (encontroCuerpo && llaves <= 0) { break; }
+    }
+
+    if (tieneQuery && !tieneCache) {
+      violaciones.push({
+        reglaId: 'n-plus-1-query',
+        mensaje: 'Query dentro de loop (N+1). Usar batch query, JOIN o cache para evitar overhead de red.',
+        severidad: obtenerSeveridadRegla('n-plus-1-query'),
+        linea: lineaQuery,
+        sugerencia: 'Extraer la query fuera del loop: obtener todos los registros de una vez y filtrar en memoria.',
+        fuente: 'estatico',
+      });
+    }
+  }
+
+  return violaciones;
+}
+
+/* =======================================================================
+ * 3.2 CONTROLLER FQN INLINE
+ * Detecta Fully Qualified Names (\App\..., \Glory\...) usados inline
+ * en vez de use statements al inicio del archivo.
+ * ======================================================================= */
+
+function verificarFqnInline(lineas: string[]): Violacion[] {
+  const violaciones: Violacion[] = [];
+  let pasadoUseStatements = false;
+
+  for (let i = 0; i < lineas.length; i++) {
+    const lineaTrimmed = lineas[i].trim();
+
+    /* Saltar comentarios */
+    if (lineaTrimmed.startsWith('*') || lineaTrimmed.startsWith('//') ||
+        lineaTrimmed.startsWith('#') || lineaTrimmed.startsWith('/*')) {
+      continue;
+    }
+
+    /* Despues de class/function/namespace, ya estamos fuera de la zona de use */
+    if (/^(class |abstract\s+class |final\s+class |function |namespace )/.test(lineaTrimmed)) {
+      pasadoUseStatements = true;
+    }
+
+    /* Solo aplicar dentro del cuerpo de la clase/funcion */
+    if (!pasadoUseStatements) { continue; }
+
+    /* Saltar sentinel-disable */
+    if (i > 0 && lineas[i - 1].includes('sentinel-disable-next-line controller-fqn-inline')) {
+      continue;
+    }
+
+    /* Detectar \App\ o \Glory\ inline */
+    if (/\\(App|Glory)\\/.test(lineas[i])) {
+      /* Excluir use statements sueltos (que se puedan haber puesto tarde) */
+      if (/^use\s+/.test(lineaTrimmed)) { continue; }
+      /* Excluir strings que son paths de archivos */
+      if (/['"]\/?(App|Glory)\//.test(lineas[i])) { continue; }
+      /* Excluir instanceof checks */
+      if (/instanceof/.test(lineas[i])) { continue; }
+      /* Excluir class annotations/docblocks */
+      if (/@\w+/.test(lineaTrimmed)) { continue; }
+
+      violaciones.push({
+        reglaId: 'controller-fqn-inline',
+        mensaje: 'FQN inline (\\App\\ o \\Glory\\). Usar "use" statement al inicio del archivo.',
+        severidad: obtenerSeveridadRegla('controller-fqn-inline'),
+        linea: i,
+        fuente: 'estatico',
+      });
+    }
+  }
+
+  return violaciones;
+}
+
+/* =======================================================================
+ * 3.3 PHP SIN RETURN TYPE
+ * Detecta funciones publicas sin return type declaration.
+ * ======================================================================= */
+
+function verificarPhpSinReturnType(lineas: string[]): Violacion[] {
+  const violaciones: Violacion[] = [];
+
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i];
+
+    /* Saltar sentinel-disable */
+    if (i > 0 && lineas[i - 1]?.includes('sentinel-disable-next-line php-sin-return-type')) {
+      continue;
+    }
+
+    /* Matchear public function nombre(...) sin : tipo antes de { */
+    const match = /public\s+function\s+(\w+)\s*\([^)]*\)\s*\{/.exec(linea);
+    if (!match) { continue; }
+
+    const nombre = match[1];
+
+    /* Excluir constructores, destructores y metodos magicos */
+    if (/^(__construct|__destruct|__clone|__toString|__get|__set|__isset|__unset|setUp|tearDown)$/.test(nombre)) {
+      continue;
+    }
+
+    /* Verificar si tiene return type (: antes de {) */
+    if (/\)\s*:\s*\S+\s*\{/.test(linea)) { continue; }
+
+    /* Verificar si tiene @return en docblock de las lineas anteriores */
+    let tieneDocReturn = false;
+    for (let j = Math.max(0, i - 10); j < i; j++) {
+      if (/@return/.test(lineas[j])) {
+        tieneDocReturn = true;
+        break;
+      }
+    }
+
+    const msgExtra = tieneDocReturn ? ' (tiene @return en docblock, agregar type hint nativo)' : '';
+    violaciones.push({
+      reglaId: 'php-sin-return-type',
+      mensaje: `Funcion publica '${nombre}()' sin return type declaration.${msgExtra}`,
+      severidad: obtenerSeveridadRegla('php-sin-return-type'),
+      linea: i,
+      sugerencia: `Agregar ': tipo' despues de los parentesis, antes de '{'. Ej: public function ${nombre}(): bool {`,
+      fuente: 'estatico',
+    });
+  }
+
+  return violaciones;
+}
+
+/* =======================================================================
+ * 3.5 REPOSITORY SIN WHITELIST COLUMNAS (SELECT *)
+ * Detecta SELECT * FROM que no lista columnas explicitas.
+ * ======================================================================= */
+
+function verificarSelectStar(lineas: string[], rutaArchivo: string): Violacion[] {
+  const violaciones: Violacion[] = [];
+
+  /* Excluir archivos generados y migrations */
+  if (rutaArchivo.includes('_generated/') || rutaArchivo.includes('/migrations/') ||
+      rutaArchivo.includes('/seeders/')) {
+    return [];
+  }
+
+  for (let i = 0; i < lineas.length; i++) {
+    const lineaTrimmed = lineas[i].trim();
+
+    /* Saltar comentarios */
+    if (lineaTrimmed.startsWith('*') || lineaTrimmed.startsWith('//') ||
+        lineaTrimmed.startsWith('#') || lineaTrimmed.startsWith('/*')) {
+      continue;
+    }
+
+    /* Saltar sentinel-disable */
+    if (i > 0 && lineas[i - 1]?.includes('sentinel-disable-next-line repository-sin-whitelist-columnas')) {
+      continue;
+    }
+
+    if (/SELECT\s+\*\s+FROM/i.test(lineas[i])) {
+      violaciones.push({
+        reglaId: 'repository-sin-whitelist-columnas',
+        mensaje: 'SELECT * FROM no lista columnas explicitas. Especificar columnas para eficiencia y evitar breaking changes.',
+        severidad: obtenerSeveridadRegla('repository-sin-whitelist-columnas'),
+        linea: i,
+        sugerencia: 'Reemplazar * con las columnas especificas que necesitas: SELECT col1, col2 FROM ...',
         fuente: 'estatico',
       });
     }
