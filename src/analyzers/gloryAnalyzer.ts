@@ -352,7 +352,9 @@ export function analizarGlory(documento: vscode.TextDocument): Violacion[] {
     violaciones.push(...verificarOpenRedirect(lineas));
   }
 
-  if (reglaHabilitada('return-void-critico')) {
+  /* Glory/ es framework externo con su propia arquitectura — las reglas
+   * return-void-critico y controller-fqn-inline no aplican a su codigo. */
+  if (reglaHabilitada('return-void-critico') && !rutaNormalizada.includes('/Glory/')) {
     violaciones.push(...verificarReturnVoidCritico(texto, lineas));
   }
 
@@ -361,7 +363,7 @@ export function analizarGlory(documento: vscode.TextDocument): Violacion[] {
     violaciones.push(...verificarNPlus1Query(lineas, rutaNormalizada));
   }
 
-  if (reglaHabilitada('controller-fqn-inline')) {
+  if (reglaHabilitada('controller-fqn-inline') && !rutaNormalizada.includes('/Glory/')) {
     violaciones.push(...verificarFqnInline(lineas));
   }
 
@@ -428,6 +430,24 @@ function verificarHardcodedSqlColumn(lineas: string[], rutaArchivo: string): Vio
     if (regexContextoSql.test(lineas[i])) {
       for (let j = Math.max(0, i - 1); j < Math.min(lineas.length, i + VENTANA_CONTEXTO); j++) {
         lineasConContextoSql.add(j);
+      }
+    }
+  }
+
+  /* Detectar lineas cerca de operaciones $wpdb de escritura.
+   * $wpdb->insert/update/delete/replace usan arrays asociativos
+   * ['columna' => valor] donde SI son contexto SQL.
+   * Sin este filtro, cualquier array PHP con claves como 'fecha', 'email'
+   * se detecta como SQL hardcodeado (ej: arrays de respuesta API,
+   * estructuras de datos internas, metadatos Stripe). */
+  const regexWpdbWrite = /\$wpdb->(?:insert|update|delete|replace)\s*\(/;
+  const VENTANA_WRITE = 8;
+  const lineasConContextoWrite = new Set<number>();
+
+  for (let i = 0; i < lineas.length; i++) {
+    if (regexWpdbWrite.test(lineas[i])) {
+      for (let j = Math.max(0, i); j < Math.min(lineas.length, i + VENTANA_WRITE); j++) {
+        lineasConContextoWrite.add(j);
       }
     }
   }
@@ -500,25 +520,30 @@ function verificarHardcodedSqlColumn(lineas: string[], rutaArchivo: string): Vio
       }
     }
 
-    /* Verificar arrays asociativos (inserts/updates) */
-    regexArrayAsociativo.lastIndex = 0;
-    let matchArr: RegExpExecArray | null;
-    while ((matchArr = regexArrayAsociativo.exec(linea)) !== null) {
-      const valor = matchArr[1];
-      const info = todasLasColumnas.get(valor);
-      if (info) {
-        /* Verificar que no es una linea ya usando Cols */
-        if (!/\w+Cols::/.test(linea)) {
-          violaciones.push({
-            reglaId: 'hardcoded-sql-column',
-            mensaje: `'${valor}' deberia usar ${info.clase}::${info.constante} (tabla: ${info.tabla})`,
-            severidad: obtenerSeveridadRegla('hardcoded-sql-column'),
-            linea: i,
-            columna: matchArr.index,
-            columnaFin: matchArr.index + matchArr[0].length,
-            sugerencia: `Reemplazar '${valor}' con ${info.clase}::${info.constante}`,
-            fuente: 'estatico',
-          });
+    /* Verificar arrays asociativos (inserts/updates).
+     * Solo flag si la linea esta en contexto SQL o cerca de $wpdb write.
+     * Sin este guard, arrays de respuesta API, datos internos y metadatos
+     * Stripe se detectan como SQL hardcodeado (falsos positivos masivos). */
+    if (lineasConContextoSql.has(i) || lineasConContextoWrite.has(i)) {
+      regexArrayAsociativo.lastIndex = 0;
+      let matchArr: RegExpExecArray | null;
+      while ((matchArr = regexArrayAsociativo.exec(linea)) !== null) {
+        const valor = matchArr[1];
+        const info = todasLasColumnas.get(valor);
+        if (info) {
+          /* Verificar que no es una linea ya usando Cols */
+          if (!/\w+Cols::/.test(linea)) {
+            violaciones.push({
+              reglaId: 'hardcoded-sql-column',
+              mensaje: `'${valor}' deberia usar ${info.clase}::${info.constante} (tabla: ${info.tabla})`,
+              severidad: obtenerSeveridadRegla('hardcoded-sql-column'),
+              linea: i,
+              columna: matchArr.index,
+              columnaFin: matchArr.index + matchArr[0].length,
+              sugerencia: `Reemplazar '${valor}' con ${info.clase}::${info.constante}`,
+              fuente: 'estatico',
+            });
+          }
         }
       }
     }
@@ -664,18 +689,19 @@ function verificarHardcodedEnumValue(lineas: string[], rutaArchivo: string): Vio
 function verificarEndpointAccedeBd(lineas: string[], rutaArchivo: string): Violacion[] {
   const violaciones: Violacion[] = [];
 
-  /* Aplicar a archivos Controller/Endpoints y Services.
-   * Services tampoco deben tener queries directas — deben delegar a repos. */
+  /* Solo aplicar a archivos Controller/Endpoints — capa de transporte.
+   * El protocolo dice: "ENDPOINTS no deben acceder a BD directamente".
+   * Services son capa valida de delegacion (el protocolo los lista como destino aceptable),
+   * por lo tanto NO se flaggean aqui. */
   const nombreArchivo = path.basename(rutaArchivo);
-  if (!/Controller|Endpoints|Service/i.test(nombreArchivo)) {
+  if (!/Controller|Endpoints/i.test(nombreArchivo)) {
     return violaciones;
   }
 
-  /* Excluir archivos dentro de Repositories, Database base o servicios de infraestructura.
-   * PostgresService es la capa de acceso a BD — es el unico Service que puede tener queries. */
-  if (rutaArchivo.includes('/Repositories/') || rutaArchivo.includes('/Database/') ||
-      rutaArchivo.includes('BaseRepository') || rutaArchivo.includes('PostgresService') ||
-      rutaArchivo.includes('CacheService') || rutaArchivo.includes('LogService')) {
+  /* Excluir archivos dentro de Repositories, Database base o Glory framework.
+   * Glory/ es framework externo con su propia arquitectura. */
+  if (rutaArchivo.includes('/Glory/') || rutaArchivo.includes('/Repositories/') ||
+      rutaArchivo.includes('/Database/') || rutaArchivo.includes('BaseRepository')) {
     return violaciones;
   }
 
@@ -711,10 +737,9 @@ function verificarEndpointAccedeBd(lineas: string[], rutaArchivo: string): Viola
 
     const match = regexAccesoBd.exec(linea);
     if (match) {
-      const tipoArchivo = /Service/i.test(nombreArchivo) ? 'service' : 'controller';
       violaciones.push({
         reglaId: 'endpoint-accede-bd',
-        mensaje: `Query directa en ${tipoArchivo} ('${match[1]}'). Mover logica de datos a un Repository.`,
+        mensaje: `Query directa en controller/endpoint ('${match[1]}'). Mover logica de datos a un Repository o Service.`,
         severidad: obtenerSeveridadRegla('endpoint-accede-bd'),
         linea: i,
         columna: match.index,
@@ -971,6 +996,9 @@ function verificarIslaNoRegistrada(rutaArchivo: string): Violacion[] {
 
   /* Solo verificar archivos dentro de islands/ */
   if (!rutaArchivo.includes('/islands/')) { return []; }
+
+  /* Glory tiene su propio registro de islas (main.tsx), no usa appIslands.tsx */
+  if (rutaArchivo.includes('/Glory/')) { return []; }
 
   const nombreArchivo = path.basename(rutaArchivo, path.extname(rutaArchivo));
 

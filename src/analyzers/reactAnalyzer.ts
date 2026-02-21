@@ -50,13 +50,16 @@ export function analizarReact(documento: vscode.TextDocument): Violacion[] {
   if (reglaHabilitada('zustand-objeto-selector')) {
     violaciones.push(...verificarZustandObjetoSelector(lineas));
   }
-  if (reglaHabilitada('key-index-lista')) {
+  if (reglaHabilitada('key-index-lista') &&
+      !documento.fileName.replace(/\\/g, '/').includes('/Glory/')) {
     violaciones.push(...verificarKeyIndexLista(lineas));
   }
-  if (reglaHabilitada('componente-sin-hook-glory')) {
+  if (reglaHabilitada('componente-sin-hook-glory') &&
+      !documento.fileName.replace(/\\/g, '/').includes('/Glory/')) {
     violaciones.push(...verificarComponenteSinHook(lineas, nombreArchivo));
   }
-  if (reglaHabilitada('promise-sin-catch')) {
+  if (reglaHabilitada('promise-sin-catch') &&
+      !documento.fileName.replace(/\\/g, '/').includes('/Glory/')) {
     violaciones.push(...verificarPromiseSinCatch(lineas));
   }
   if (reglaHabilitada('useeffect-dep-inestable')) {

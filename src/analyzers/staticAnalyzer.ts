@@ -42,6 +42,14 @@ export function analizarEstatico(
       continue;
     }
 
+    /* Excluir barras-decorativas en Glory/ — framework con convenciones propias */
+    if (regla.id === 'barras-decorativas') {
+      const rutaNorm = documento.fileName.replace(/\\/g, '/');
+      if (rutaNorm.includes('/Glory/')) {
+        continue;
+      }
+    }
+
     if (regla.porLinea) {
       const violacionesRegla = ejecutarReglaPorLinea(texto, regla, documento);
       violaciones.push(...violacionesRegla);
@@ -51,10 +59,14 @@ export function analizarEstatico(
     }
   }
 
-  /* Verificar limites de lineas (seccion 3 del protocolo) */
+  /* Verificar limites de lineas (seccion 3 del protocolo).
+   * Excluir Glory/ — framework externo con convenciones propias. */
   if (reglaHabilitada('limite-lineas')) {
-    const violacionesLimite = verificarLimiteLineas(documento, nombreArchivo);
-    violaciones.push(...violacionesLimite);
+    const rutaNormLimite = documento.fileName.replace(/\\/g, '/');
+    if (!rutaNormLimite.includes('/Glory/')) {
+      const violacionesLimite = verificarLimiteLineas(documento, nombreArchivo);
+      violaciones.push(...violacionesLimite);
+    }
   }
 
   /* Verificar conteo de useState (regla compuesta, no simple regex por linea).
@@ -77,9 +89,12 @@ export function analizarEstatico(
     violaciones.push(...verificarAnyType(texto, documento));
   }
 
-  /* Sprint 3: Reglas CSS */
+  /* Sprint 3: Reglas CSS.
+   * nomenclatura-css-ingles excluida de Glory/ — framework reutilizable
+   * que puede necesitar clases WP nativas en ingles (.description, etc.). */
   if (['.css', '.scss'].includes(extension)) {
-    if (reglaHabilitada('nomenclatura-css-ingles')) {
+    const rutaNormCss = documento.fileName.replace(/\\/g, '/');
+    if (reglaHabilitada('nomenclatura-css-ingles') && !rutaNormCss.includes('/Glory/')) {
       violaciones.push(...verificarNomenclaturaCssIngles(texto, documento, nombreArchivo));
     }
     /* css-hardcoded-value: desactivada por decision de producto.
@@ -402,8 +417,12 @@ function verificarNomenclaturaCssIngles(
   const lineas = texto.split('\n');
 
   /* Diccionario de palabras inglesas muy comunes en selectores CSS.
-   * Solo se detectan como clase CSS (precedidas de . en selector). */
-  const regexIngles = /\.(main|container|wrapper|button|header|footer|sidebar|content|card|item|input|form|modal|dropdown|toggle|badge|alert|tooltip|carousel|slider|pagination|breadcrumb|accordion|spinner|loader|overlay|backdrop|divider|grid|column|flex|stack|box|title|subtitle|heading|label|caption|description|link|icon|avatar|thumbnail|table|checkbox|radio|select|textarea|switch|progress|dialog|drawer|menu|toolbar|tag|chip|step|timeline|tree|upload|download|search|filter|sort|block|hidden|visible|active|disabled|selected|focused|checked|primary|secondary|dark|light|small|medium|large)\b/;
+   * Solo se detectan como clase CSS (precedidas de . en selector).
+   * (?!-) evita falsos positivos con prefijos (ej: .form-field-wrapper no es .form).
+   * Se excluyen clases de estado (active, disabled, hidden, visible, selected, focused,
+   * checked) porque son clases de estado toggled por JS/WordPress/frameworks y no
+   * representan nomenclatura que el desarrollador pueda renombrar. */
+  const regexIngles = /\.(main|container|wrapper|button|header|footer|sidebar|content|card|item|input|form|modal|dropdown|toggle|badge|alert|tooltip|carousel|slider|pagination|breadcrumb|accordion|spinner|loader|overlay|backdrop|divider|grid|column|flex|stack|box|title|subtitle|heading|label|caption|description|link|icon|avatar|thumbnail|table|checkbox|radio|select|textarea|switch|progress|dialog|drawer|menu|toolbar|tag|chip|step|timeline|tree|upload|download|search|filter|sort|block|primary|secondary|dark|light|small|medium|large)\b(?!-)/;
 
   for (let i = 0; i < lineas.length; i++) {
     const linea = lineas[i].trim();
