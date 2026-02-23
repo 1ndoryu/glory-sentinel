@@ -34,6 +34,14 @@ export interface OpcionesIA {
  */
 export async function analizarConIA(documento: vscode.TextDocument, modelFamily: string, timeoutMs: number, cancelToken?: vscode.CancellationToken, reglasCustom?: string, opcionesIA?: OpcionesIA): Promise<Violacion[] | null> {
     try {
+        /* Los archivos de hooks (useXxx.ts) contienen logica por diseno.
+         * La IA genera falsos positivos de srp-violado y mezcla-logica porque no
+         * entiende que un hook ES el destino correcto de la extraccion de logica. */
+        const nombreArchivo = documento.fileName.split(/[\\/]/).pop() || '';
+        if (/^use[A-Z].*\.ts$/.test(nombreArchivo)) {
+            return [];
+        }
+
         /* Determinar si usar Gemini CLI: por config explicita ('gemini-cli') o autodeteccion Antigravity */
         const usarGeminiCli = opcionesIA?.aiBackend === 'gemini-cli'
             || vscode.env.appName.toLowerCase().includes('antigravity');
@@ -110,7 +118,14 @@ export async function analizarConIA(documento: vscode.TextDocument, modelFamily:
              * un update optimista. Un update optimista real requiere analizar si el
              * estado modificado representa datos persistidos vs. estado de formulario local.
              * Sin análisis de tipos/flujo de datos es imposible distinguirlos de forma fiable. */
-            'update-optimista-sin-rollback'
+            'update-optimista-sin-rollback',
+            /* El analizador estatico (componente-sin-hook-glory en reactAnalyzer) detecta
+             * componentes con logica excesiva de forma precisa con conteo de lineas.
+             * La IA genera falsos positivos al confundir JSX con ternarios (presentacion
+             * pura) con logica real, o al no reconocer que el componente ya delega
+             * su logica a un hook dedicado (useComponentName). */
+            'separacion-logica-vista',
+            'componente-sin-hook-glory'
         ]);
         const violacionesFinal = violacionesNormalizadas.filter(v => !REGLAS_CUBIERTAS_POR_ESTATICO.has((v.regla || '').toLowerCase()));
 

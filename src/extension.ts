@@ -10,6 +10,7 @@ import {
   forzarAnalisisArchivo,
   analizarWorkspace,
   limpiarDiagnosticos,
+  obtenerColeccionDiagnosticos,
 } from './providers/diagnosticProvider';
 import { SentinelCodeActionProvider } from './providers/codeActionProvider';
 import { cargarConfiguracion, verificarArchivosReglas } from './services/ruleLoader';
@@ -17,6 +18,11 @@ import { categoriasRegla } from './config/ruleCategories';
 import { obtenerTodasLasReglas } from './config/ruleRegistry';
 import { inicializarCanal, logInfo } from './utils/logger';
 import { inicializarGloryAnalyzer } from './analyzers/gloryAnalyzer';
+import {
+  ejecutarHerramientasExternas,
+  publicarDiagnosticosExternos,
+  generarSeccionReporteExterno,
+} from './analyzers/externalToolsAnalyzer';
 
 /* Estado global de si la IA esta habilitada (para toggle rapido) */
 let iaHabilitada = true;
@@ -98,6 +104,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand('codeSentinel.showRulesSummary', () => {
       mostrarResumenReglas();
+    }),
+
+    vscode.commands.registerCommand('codeSentinel.runExternalTools', async () => {
+      await comandoEjecutarHerramientasExternas();
     })
   );
 
@@ -180,6 +190,72 @@ function mostrarResumenReglas(): void {
 </html>`;
 
   panel.webview.html = html;
+}
+
+/* Comando: ejecutar lint y type-check externos y mostrar resultados como diagnosticos */
+async function comandoEjecutarHerramientasExternas(): Promise<void> {
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: 'Code Sentinel: Herramientas externas',
+      cancellable: false,
+    },
+    async (progress) => {
+      const resultado = await ejecutarHerramientasExternas((msg) => {
+        progress.report({ message: msg });
+      });
+
+      const coleccion = obtenerColeccionDiagnosticos();
+      if (coleccion) {
+        const total = publicarDiagnosticosExternos(coleccion, resultado);
+        vscode.window.showInformationMessage(
+          `Code Sentinel: ${total} problema(s) de herramientas externas. ${resultado.resumenLint} | ${resultado.resumenTypeCheck}`
+        );
+      }
+
+      /* Generar reporte si hay resultados */
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      if (workspaceFolders) {
+        const rutaBase = workspaceFolders[0].uri.fsPath;
+        const seccion = generarSeccionReporteExterno(resultado, rutaBase);
+
+        const config = vscode.workspace.getConfiguration('codeSentinel');
+        const reportPath = config.get<string>('reportPath', '.sentinel-report.md');
+        const rutaReporte = vscode.Uri.joinPath(workspaceFolders[0].uri, reportPath);
+
+        try {
+          let contenidoExistente = '';
+          try {
+            const bytes = await vscode.workspace.fs.readFile(rutaReporte);
+            contenidoExistente = Buffer.from(bytes).toString('utf-8');
+          } catch {
+            /* No existe aun, se crea nuevo */
+          }
+
+          /* Si ya existe un reporte, agregar la seccion de tools externas */
+          if (contenidoExistente) {
+            /* Eliminar seccion previa de herramientas externas si existe */
+            const marcador = '## Herramientas Externas';
+            const indice = contenidoExistente.indexOf(marcador);
+            if (indice >= 0) {
+              /* Buscar la linea --- anterior al marcador */
+              const indiceSeparador = contenidoExistente.lastIndexOf('---', indice);
+              contenidoExistente = contenidoExistente.substring(0, indiceSeparador >= 0 ? indiceSeparador : indice);
+            }
+            contenidoExistente += seccion;
+          } else {
+            const fecha = new Date().toISOString().replace('T', ' ').substring(0, 19);
+            contenidoExistente = `# Code Sentinel - Reporte de Herramientas Externas\n\n**Fecha:** ${fecha}\n` + seccion;
+          }
+
+          await vscode.workspace.fs.writeFile(rutaReporte, Buffer.from(contenidoExistente, 'utf-8'));
+          logInfo(`Reporte de herramientas externas actualizado en ${reportPath}`);
+        } catch (error) {
+          logInfo(`No se pudo actualizar el reporte: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+    }
+  );
 }
 
 /* Funcion de desactivacion de la extension */

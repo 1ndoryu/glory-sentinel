@@ -550,3 +550,8 @@ export function limpiarDiagnosticos(): void {
   limpiarTodo();
   limpiarCacheCompleto();
 }
+
+/* Expone la coleccion de diagnosticos para uso desde otros modulos (ej: externalToolsAnalyzer) */
+export function obtenerColeccionDiagnosticos(): vscode.DiagnosticCollection | null {
+  return coleccionDiagnosticos ?? null;
+}

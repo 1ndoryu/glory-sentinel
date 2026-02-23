@@ -66,6 +66,12 @@ export function analizarReact(documento: vscode.TextDocument): Violacion[] {
     violaciones.push(...verificarUseEffectDepInestable(lineas));
   }
 
+  /* Sprint 4: Detectar HTML nativo en vez de componentes propios */
+  if (reglaHabilitada('html-nativo-en-vez-de-componente') &&
+      !documento.fileName.replace(/\\/g, '/').includes('/Glory/')) {
+    violaciones.push(...verificarHtmlNativoEnVezDeComponente(lineas, nombreArchivo));
+  }
+
   return violaciones;
 }
 
@@ -416,6 +422,13 @@ function verificarComponenteSinHook(lineas: string[], nombreArchivo: string): Vi
     return [];
   }
 
+  /* Si el componente ya importa un hook dedicado (useComponenteName), la logica
+   * ya fue extraida. No reportar falsos positivos. */
+  const nombreComponente = nombreArchivo.replace(/\.(tsx|jsx)$/, '');
+  const regexHookDedicado = new RegExp(`\\buse${nombreComponente}\\b`);
+  const tieneHookDedicado = lineas.some(l => regexHookDedicado.test(l));
+  if (tieneHookDedicado) { return []; }
+
   const violaciones: Violacion[] = [];
 
   /* Encontrar la zona entre el ultimo import y el primer JSX return */
@@ -580,6 +593,110 @@ function verificarUseEffectDepInestable(lineas: string[]): Violacion[] {
             });
           }
         }
+        break;
+      }
+    }
+  }
+
+  return violaciones;
+}
+
+/*
+ * Sprint 4: Detecta uso de elementos HTML nativos que deberian ser componentes
+ * propios del proyecto (Boton, Input, Select, Textarea, Checkbox, Radio, GloryLink).
+ *
+ * Elementos detectados:
+ * - <button> -> usar <Boton>
+ * - <input>  -> usar <Input>, <Checkbox>, <Radio> segun el type
+ * - <select> -> usar <Select>
+ * - <textarea> -> usar <Textarea>
+ * - <a href>   -> usar <GloryLink> para navegacion SPA
+ *
+ * Excluye archivos que SON los propios componentes UI, tests y Glory framework.
+ */
+function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArchivo: string): Violacion[] {
+  /* No reportar en archivos que son los propios componentes */
+  const archivosExcluidos = ['Boton', 'Input', 'Select', 'Textarea', 'Checkbox', 'Radio', 'GloryLink', 'PageRenderer'];
+  const nombreBase = nombreArchivo.replace(/\.(tsx|jsx)$/, '');
+  if (archivosExcluidos.includes(nombreBase)) {
+    return [];
+  }
+
+  /* Excluir tests y archivos generados */
+  if (nombreArchivo.includes('.test.') || nombreArchivo.includes('.spec.') ||
+      nombreArchivo.includes('_generated')) {
+    return [];
+  }
+
+  const violaciones: Violacion[] = [];
+
+  /* Mapeo de elementos HTML nativos a componentes recomendados */
+  const elementosNativos: Array<{
+    regex: RegExp;
+    elemento: string;
+    componente: string;
+    mensaje: string;
+  }> = [
+    {
+      regex: /<button[\s>]/i,
+      elemento: '<button>',
+      componente: '<Boton>',
+      mensaje: 'Usar componente <Boton> en vez de <button> nativo. Import desde components/ui.',
+    },
+    {
+      regex: /<input[\s/]/i,
+      elemento: '<input>',
+      componente: '<Input>',
+      mensaje: 'Usar componente <Input> (o <Checkbox>/<Radio> segun type) en vez de <input> nativo. Import desde components/ui.',
+    },
+    {
+      regex: /<select[\s>]/i,
+      elemento: '<select>',
+      componente: '<Select>',
+      mensaje: 'Usar componente <Select> en vez de <select> nativo. Import desde components/ui.',
+    },
+    {
+      regex: /<textarea[\s>]/i,
+      elemento: '<textarea>',
+      componente: '<Textarea>',
+      mensaje: 'Usar componente <Textarea> en vez de <textarea> nativo. Import desde components/ui.',
+    },
+    {
+      regex: /<a\s+(?:[^>]*\s)?href\s*=/i,
+      elemento: '<a href>',
+      componente: '<GloryLink>',
+      mensaje: 'Usar <GloryLink> en vez de <a href> para navegacion SPA interna. Import desde core/router.',
+    },
+  ];
+
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i];
+    const lineaTrimmed = linea.trim();
+
+    /* Saltar comentarios */
+    if (lineaTrimmed.startsWith('//') || lineaTrimmed.startsWith('*') ||
+        lineaTrimmed.startsWith('/*') || lineaTrimmed.startsWith('{/*')) {
+      continue;
+    }
+
+    /* Saltar sentinel-disable */
+    if (i > 0 && lineas[i - 1].includes('sentinel-disable-next-line html-nativo-en-vez-de-componente')) {
+      continue;
+    }
+    if (linea.includes('sentinel-disable html-nativo-en-vez-de-componente')) {
+      continue;
+    }
+
+    for (const def of elementosNativos) {
+      if (def.regex.test(linea)) {
+        violaciones.push({
+          reglaId: 'html-nativo-en-vez-de-componente',
+          mensaje: def.mensaje,
+          severidad: obtenerSeveridadRegla('html-nativo-en-vez-de-componente'),
+          linea: i,
+          fuente: 'estatico',
+        });
+        /* Solo reportar una vez por linea para evitar ruido */
         break;
       }
     }

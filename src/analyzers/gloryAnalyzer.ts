@@ -212,7 +212,7 @@ export function inicializarGloryAnalyzer(context: vscode.ExtensionContext): void
     context.subscriptions.push(schemaWatcher);
   }
 
-  /* Watcher para appIslands.tsx */
+  /* Watcher para appIslands.tsx e inicializarIslands.ts */
   const folders = vscode.workspace.workspaceFolders;
   if (folders) {
     for (const folder of folders) {
@@ -222,7 +222,7 @@ export function inicializarGloryAnalyzer(context: vscode.ExtensionContext): void
         const islasWatcher = vscode.workspace.createFileSystemWatcher(patronIslas);
 
         const recargarIslas = () => {
-          logInfo('GloryAnalyzer: appIslands.tsx cambio, recargando islas...');
+          logInfo('GloryAnalyzer: archivo de islas cambio, recargando...');
           cacheIslasRegistradas = null;
           cargarIslasRegistradas();
         };
@@ -230,6 +230,17 @@ export function inicializarGloryAnalyzer(context: vscode.ExtensionContext): void
         islasWatcher.onDidChange(recargarIslas);
         islasWatcher.onDidCreate(recargarIslas);
         context.subscriptions.push(islasWatcher);
+
+        /* Watcher para config/inicializarIslands.ts (sistema OCP) */
+        const rutaInicializar = path.join(folder.uri.fsPath, 'App', 'React', 'config', 'inicializarIslands.ts');
+        if (fs.existsSync(rutaInicializar)) {
+          const patronInicializar = new vscode.RelativePattern(path.dirname(rutaInicializar), 'inicializarIslands.ts');
+          const inicializarWatcher = vscode.workspace.createFileSystemWatcher(patronInicializar);
+          inicializarWatcher.onDidChange(recargarIslas);
+          inicializarWatcher.onDidCreate(recargarIslas);
+          context.subscriptions.push(inicializarWatcher);
+        }
+
         break;
       }
     }
@@ -237,8 +248,10 @@ export function inicializarGloryAnalyzer(context: vscode.ExtensionContext): void
 }
 
 /*
- * Carga las islas registradas en appIslands.tsx.
+ * Carga las islas registradas en appIslands.tsx y config/inicializarIslands.ts.
  * Parsea imports y lazy-imports para construir el set de islas activas.
+ * Soporta el sistema OCP donde islands se registran en inicializarIslands.ts
+ * y se importan como side-effect desde appIslands.tsx.
  */
 function cargarIslasRegistradas(): void {
   const folders = vscode.workspace.workspaceFolders;
@@ -248,41 +261,63 @@ function cargarIslasRegistradas(): void {
     const rutaApp = path.join(folder.uri.fsPath, 'App', 'React', 'appIslands.tsx');
     if (fs.existsSync(rutaApp)) {
       try {
-        const contenido = fs.readFileSync(rutaApp, 'utf-8');
         cacheIslasRegistradas = new Set<string>();
 
-        /* Imports: import {X} from './islands/X' o './islands/sub/X'
-         * Captura el ULTIMO segmento de la ruta (el nombre del componente).
-         * Soporta imports con/sin llaves y rutas con subdirectorios. */
-        const regexImport = /import\s+.*from\s+['"]\.\/islands\/(?:[\w/]+\/)?(\w+)['"]/g;
-        let match: RegExpExecArray | null;
-        while ((match = regexImport.exec(contenido)) !== null) {
-          cacheIslasRegistradas.add(match[1]);
-        }
+        /* Parsear appIslands.tsx */
+        const contenido = fs.readFileSync(rutaApp, 'utf-8');
+        parsearIslasDeContenido(contenido);
 
-        /* Lazy imports: lazy(() => import('./islands/sub/X')) */
-        const regexLazy = /import\s*\(\s*['"]\.\/islands\/(?:[\w/]+\/)?(\w+)['"]\s*\)/g;
-        while ((match = regexLazy.exec(contenido)) !== null) {
-          cacheIslasRegistradas.add(match[1]);
-        }
+        /* Parsear config/inicializarIslands.ts (sistema OCP de auto-registro) */
+        const rutaInicializar = path.join(folder.uri.fsPath, 'App', 'React', 'config', 'inicializarIslands.ts');
+        if (fs.existsSync(rutaInicializar)) {
+          const contenidoInicializar = fs.readFileSync(rutaInicializar, 'utf-8');
+          parsearIslasDeContenido(contenidoInicializar);
 
-        /* Registros en el objeto appIslands:
-         * Con quotes: 'X': component o "X": component
-         * Sin quotes: X: component (identifier key) */
-        const regexRegistro = /(?:['"](\w+)['"]|(\w+))\s*:\s*\w+/g;
-        while ((match = regexRegistro.exec(contenido)) !== null) {
-          const nombre = match[1] || match[2];
-          /* Solo agregar si parece un nombre de isla (PascalCase) */
-          if (nombre && /^[A-Z]/.test(nombre)) {
-            cacheIslasRegistradas.add(nombre);
+          /* Parsear llamadas a registrarIsland('NombreIsla', ...) */
+          const regexRegistrar = /registrarIsland\s*\(\s*['"](\w+)['"]/g;
+          let match: RegExpExecArray | null;
+          while ((match = regexRegistrar.exec(contenidoInicializar)) !== null) {
+            cacheIslasRegistradas.add(match[1]);
           }
         }
 
-        logInfo(`GloryAnalyzer: ${cacheIslasRegistradas.size} islas registradas en appIslands.tsx.`);
+        logInfo(`GloryAnalyzer: ${cacheIslasRegistradas.size} islas registradas en appIslands.tsx + inicializarIslands.ts.`);
       } catch (err) {
-        logWarn(`GloryAnalyzer: Error al leer appIslands.tsx — ${err}`);
+        logWarn(`GloryAnalyzer: Error al leer archivos de islas — ${err}`);
       }
       break;
+    }
+  }
+}
+
+/*
+ * Parsea imports y registros de islas de un contenido de archivo.
+ * Extrae nombres de islas de imports, lazy imports y registros en objetos.
+ */
+function parsearIslasDeContenido(contenido: string): void {
+  if (!cacheIslasRegistradas) { return; }
+
+  /* Imports: import {X} from './islands/X' o './islands/sub/X' */
+  const regexImport = /import\s+.*from\s+['"]\.\.?\/islands\/(?:[\w/]+\/)?(\w+)['"]/g;
+  let match: RegExpExecArray | null;
+  while ((match = regexImport.exec(contenido)) !== null) {
+    cacheIslasRegistradas.add(match[1]);
+  }
+
+  /* Lazy imports: lazy(() => import('./islands/sub/X')) */
+  const regexLazy = /import\s*\(\s*['"]\.\.?\/islands\/(?:[\w/]+\/)?(\w+)['"]\s*\)/g;
+  while ((match = regexLazy.exec(contenido)) !== null) {
+    cacheIslasRegistradas.add(match[1]);
+  }
+
+  /* Registros en el objeto appIslands:
+   * Con quotes: 'X': component o "X": component
+   * Sin quotes: X: component (identifier key) */
+  const regexRegistro = /(?:['"](\w+)['"]|(\w+))\s*:\s*\w+/g;
+  while ((match = regexRegistro.exec(contenido)) !== null) {
+    const nombre = match[1] || match[2];
+    if (nombre && /^[A-Z]/.test(nombre)) {
+      cacheIslasRegistradas.add(nombre);
     }
   }
 }

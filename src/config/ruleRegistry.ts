@@ -109,6 +109,8 @@ const REGISTRO: DefinicionRegla[] = [
   /* css-hardcoded-value: desactivada. Descomentar para re-activar. */
   // { id: 'css-hardcoded-value', nombre: 'Color CSS hardcodeado', severidadDefault: 'warning', categoria: CategoriaRegla.EstructuraNomenclatura },
 
+  /* --- Sprint 4: React (reactAnalyzer.ts) --- */
+  { id: 'html-nativo-en-vez-de-componente', nombre: 'HTML nativo en vez de componente', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
 ];
 
 /* Cache de configuracion: se construye lazily al primer acceso */

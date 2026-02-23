@@ -46,6 +46,10 @@
       {
         "command": "codeSentinel.showRulesSummary",
         "title": "Glory Sentinel: Ver Resumen de Reglas"
+      },
+      {
+        "command": "codeSentinel.runExternalTools",
+        "title": "Glory Sentinel: Ejecutar Lint y Type-Check"
       }
     ],
     "configuration": {
