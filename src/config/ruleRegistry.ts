@@ -18,6 +18,8 @@ export interface DefinicionRegla {
   nombre: string;
   severidadDefault: SeveridadRegla;
   categoria: CategoriaRegla;
+  /* Si es false, la regla viene desactivada out-of-the-box sin config del usuario */
+  habilitadaDefault?: boolean;
 }
 
 /* Formato que el usuario escribe en settings.json */
@@ -101,7 +103,9 @@ const REGISTRO: DefinicionRegla[] = [
   { id: 'repository-sin-whitelist-columnas', nombre: 'SELECT * sin columnas', severidadDefault: 'hint', categoria: CategoriaRegla.SeguridadSql },
 
   /* --- Sprint 3: CSS (staticAnalyzer.ts) --- */
-  { id: 'nomenclatura-css-ingles', nombre: 'CSS en ingles', severidadDefault: 'hint', categoria: CategoriaRegla.EstructuraNomenclatura },
+  /* habilitadaDefault: false — demasiados falsos positivos con clases nativas (.input, .select, .button)
+   * que no conviene renombrar (formularios WordPress, librerías externas). */
+  { id: 'nomenclatura-css-ingles', nombre: 'CSS en ingles', severidadDefault: 'hint', habilitadaDefault: false, categoria: CategoriaRegla.EstructuraNomenclatura },
   /* css-hardcoded-value: desactivada. Descomentar para re-activar. */
   // { id: 'css-hardcoded-value', nombre: 'Color CSS hardcodeado', severidadDefault: 'warning', categoria: CategoriaRegla.EstructuraNomenclatura },
 
@@ -135,7 +139,7 @@ function construirCache(): Map<string, ConfigReglaEfectiva> {
       : regla.severidadDefault;
 
     mapa.set(regla.id, {
-      habilitada: override?.habilitada ?? true,
+      habilitada: override?.habilitada ?? (regla.habilitadaDefault ?? true),
       severidad: severidadFinal,
     });
   }
