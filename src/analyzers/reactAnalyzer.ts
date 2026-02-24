@@ -450,9 +450,13 @@ function verificarComponenteSinHook(lineas: string[], nombreArchivo: string): Vi
   if (lineaReturn <= finImports) { return violaciones; }
 
   /* Contar lineas con logica significativa entre imports y return.
-   * Excluir destructuring de hooks/props (eso es aceptable). */
-  let lineasLogica = 0;
-  const regexLogica = /\b(useEffect|useState|useMemo|useCallback|useRef|fetch\s*\(|await\s|try\s*\{|if\s*\(|for\s*\(|while\s*\(|switch\s*\(|\.then\s*\()/;
+   * Excluir destructuring de hooks/props (eso es aceptable).
+   * Distinguir entre logica con estado/efectos (hooks) y logica pura (if/else).
+   * Solo logica con hooks/async obliga a extraer un hook. */
+  let lineasLogicaTotal = 0;
+  let lineasLogicaEstado = 0;
+  const regexLogicaTotal = /\b(useEffect|useState|useMemo|useCallback|useRef|fetch\s*\(|await\s|try\s*\{|if\s*\(|for\s*\(|while\s*\(|switch\s*\(|\.then\s*\()/;
+  const regexLogicaEstado = /\b(useEffect|useState|useMemo|useCallback|useRef|fetch\s*\(|await\s|\.then\s*\()/;
 
   for (let i = finImports; i < lineaReturn; i++) {
     const lineaTrimmed = lineas[i].trim();
@@ -472,16 +476,24 @@ function verificarComponenteSinHook(lineas: string[], nombreArchivo: string): Vi
     /* Saltar firma del componente (export function, const Component) */
     if (/^(?:export\s+)?(?:default\s+)?(?:function|const)\s+\w+/.test(lineaTrimmed) && !/useEffect|useState/.test(lineaTrimmed)) { continue; }
 
-    if (regexLogica.test(lineaTrimmed)) {
-      lineasLogica++;
+    if (regexLogicaTotal.test(lineaTrimmed)) {
+      lineasLogicaTotal++;
+    }
+    if (regexLogicaEstado.test(lineaTrimmed)) {
+      lineasLogicaEstado++;
     }
   }
 
-  if (lineasLogica > 5) {
-    const nombreComponente = nombreArchivo.replace(/\.(tsx|jsx)$/, '');
+  /* Criterio dual:
+   * - Si hay logica con estado/efectos (hooks, fetch, async) y supera 5 lineas totales -> flag
+   * - Si hay SOLO logica pura (if/else, for, switch) sin hooks, necesita >10 lineas para flag
+   * Esto evita falsos positivos en componentes con funciones puras de formateo/mapeo */
+  const necesitaHook = (lineasLogicaEstado > 0 && lineasLogicaTotal > 5) || lineasLogicaTotal > 10;
+
+  if (necesitaHook) {
     violaciones.push({
       reglaId: 'componente-sin-hook-glory',
-      mensaje: `Componente con ${lineasLogica} lineas de logica. Extraer a hook dedicado (use${nombreComponente}).`,
+      mensaje: `Componente con ${lineasLogicaTotal} lineas de logica (${lineasLogicaEstado} con estado/efectos). Extraer a hook dedicado (use${nombreComponente}).`,
       severidad: obtenerSeveridadRegla('componente-sin-hook-glory'),
       linea: finImports,
       sugerencia: `Crear use${nombreComponente}.ts con la logica y mantener solo JSX en el componente.`,
@@ -610,15 +622,28 @@ function verificarUseEffectDepInestable(lineas: string[]): Violacion[] {
  * - <input>  -> usar <Input>, <Checkbox>, <Radio> segun el type
  * - <select> -> usar <Select>
  * - <textarea> -> usar <Textarea>
- * - <a href>   -> usar <GloryLink> para navegacion SPA
+ * - <a href>   -> usar <GloryLink> para navegacion SPA (excluye anchors, downloads, URLs externas)
  *
- * Excluye archivos que SON los propios componentes UI, tests y Glory framework.
+ * Excluye:
+ * - Archivos que SON los propios componentes UI
+ * - Tests y archivos generados
+ * - Glory framework
+ * - Componentes que son wrappers de UI (Campo*, Toggle*, Switch*)
+ * - Archivos en blocks/ (landing page blocks con URLs dinamicas)
  */
 function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArchivo: string): Violacion[] {
   /* No reportar en archivos que son los propios componentes */
-  const archivosExcluidos = ['Boton', 'Input', 'Select', 'Textarea', 'Checkbox', 'Radio', 'GloryLink', 'PageRenderer'];
+  const archivosExcluidos = [
+    'Boton', 'Input', 'Select', 'Textarea', 'Checkbox', 'Radio', 'GloryLink', 'PageRenderer',
+  ];
   const nombreBase = nombreArchivo.replace(/\.(tsx|jsx)$/, '');
   if (archivosExcluidos.includes(nombreBase)) {
+    return [];
+  }
+
+  /* Excluir componentes que SON wrappers de UI nativos (encapsulan input/textarea/select con logica propia) */
+  const prefijosWrapper = ['Campo', 'Toggle', 'Switch'];
+  if (prefijosWrapper.some(p => nombreBase.startsWith(p))) {
     return [];
   }
 
@@ -629,45 +654,6 @@ function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArchivo: s
   }
 
   const violaciones: Violacion[] = [];
-
-  /* Mapeo de elementos HTML nativos a componentes recomendados */
-  const elementosNativos: Array<{
-    regex: RegExp;
-    elemento: string;
-    componente: string;
-    mensaje: string;
-  }> = [
-    {
-      regex: /<button[\s>]/i,
-      elemento: '<button>',
-      componente: '<Boton>',
-      mensaje: 'Usar componente <Boton> en vez de <button> nativo. Import desde components/ui.',
-    },
-    {
-      regex: /<input[\s/]/i,
-      elemento: '<input>',
-      componente: '<Input>',
-      mensaje: 'Usar componente <Input> (o <Checkbox>/<Radio> segun type) en vez de <input> nativo. Import desde components/ui.',
-    },
-    {
-      regex: /<select[\s>]/i,
-      elemento: '<select>',
-      componente: '<Select>',
-      mensaje: 'Usar componente <Select> en vez de <select> nativo. Import desde components/ui.',
-    },
-    {
-      regex: /<textarea[\s>]/i,
-      elemento: '<textarea>',
-      componente: '<Textarea>',
-      mensaje: 'Usar componente <Textarea> en vez de <textarea> nativo. Import desde components/ui.',
-    },
-    {
-      regex: /<a\s+(?:[^>]*\s)?href\s*=/i,
-      elemento: '<a href>',
-      componente: '<GloryLink>',
-      mensaje: 'Usar <GloryLink> en vez de <a href> para navegacion SPA interna. Import desde core/router.',
-    },
-  ];
 
   for (let i = 0; i < lineas.length; i++) {
     const linea = lineas[i];
@@ -687,18 +673,80 @@ function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArchivo: s
       continue;
     }
 
-    for (const def of elementosNativos) {
-      if (def.regex.test(linea)) {
-        violaciones.push({
-          reglaId: 'html-nativo-en-vez-de-componente',
-          mensaje: def.mensaje,
-          severidad: obtenerSeveridadRegla('html-nativo-en-vez-de-componente'),
-          linea: i,
-          fuente: 'estatico',
-        });
-        /* Solo reportar una vez por linea para evitar ruido */
-        break;
+    /* --- <button> --- solo lowercase nativo, no <Boton> */
+    if (/<button[\s>]/.test(linea)) {
+      violaciones.push({
+        reglaId: 'html-nativo-en-vez-de-componente',
+        mensaje: 'Usar componente <Boton> en vez de <button> nativo. Import desde components/ui.',
+        severidad: obtenerSeveridadRegla('html-nativo-en-vez-de-componente'),
+        linea: i,
+        fuente: 'estatico',
+      });
+      continue;
+    }
+
+    /* --- <input> --- solo lowercase nativo, no <Input> */
+    if (/<input[\s/]/.test(linea)) {
+      /* Excluir input type="checkbox" en componentes Toggle/Switch (ya excluidos arriba por nombre).
+       * Tambien excluir input type="hidden" ya que no tiene equivalente en el sistema UI. */
+      if (/type\s*=\s*["']hidden["']/i.test(linea)) {
+        continue;
       }
+      violaciones.push({
+        reglaId: 'html-nativo-en-vez-de-componente',
+        mensaje: 'Usar componente <Input> (o <Checkbox>/<Radio> segun type) en vez de <input> nativo. Import desde components/ui.',
+        severidad: obtenerSeveridadRegla('html-nativo-en-vez-de-componente'),
+        linea: i,
+        fuente: 'estatico',
+      });
+      continue;
+    }
+
+    /* --- <select> --- solo lowercase nativo, no <Select> */
+    if (/<select[\s>]/.test(linea)) {
+      violaciones.push({
+        reglaId: 'html-nativo-en-vez-de-componente',
+        mensaje: 'Usar componente <Select> en vez de <select> nativo. Import desde components/ui.',
+        severidad: obtenerSeveridadRegla('html-nativo-en-vez-de-componente'),
+        linea: i,
+        fuente: 'estatico',
+      });
+      continue;
+    }
+
+    /* --- <textarea> --- solo lowercase nativo, no <Textarea> */
+    if (/<textarea[\s>]/.test(linea)) {
+      violaciones.push({
+        reglaId: 'html-nativo-en-vez-de-componente',
+        mensaje: 'Usar componente <Textarea> en vez de <textarea> nativo. Import desde components/ui.',
+        severidad: obtenerSeveridadRegla('html-nativo-en-vez-de-componente'),
+        linea: i,
+        fuente: 'estatico',
+      });
+      continue;
+    }
+
+    /* --- <a href> --- */
+    if (/<a\s+(?:[^>]*\s)?href\s*=/i.test(linea)) {
+      /* Excluir <a ... download ...> — patron del navegador para descarga de archivos */
+      if (/\bdownload\b/i.test(linea)) {
+        continue;
+      }
+      /* Excluir <a href="#..."> — anchor links de scroll, no navegacion SPA */
+      if (/href\s*=\s*["']#/i.test(linea)) {
+        continue;
+      }
+      /* Excluir <a href={...}> con expresiones dinamicas en blocks (URLs configurables) */
+      if (/href\s*=\s*\{/.test(linea)) {
+        continue;
+      }
+      violaciones.push({
+        reglaId: 'html-nativo-en-vez-de-componente',
+        mensaje: 'Usar <GloryLink> en vez de <a href> para navegacion SPA interna. Import desde core/router.',
+        severidad: obtenerSeveridadRegla('html-nativo-en-vez-de-componente'),
+        linea: i,
+        fuente: 'estatico',
+      });
     }
   }
 
