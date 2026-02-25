@@ -111,6 +111,13 @@ const REGISTRO: DefinicionRegla[] = [
 
   /* --- Sprint 4: React (reactAnalyzer.ts) --- */
   { id: 'html-nativo-en-vez-de-componente', nombre: 'HTML nativo en vez de componente', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
+
+  /* --- Sprint 5: Detecciones avanzadas (reactAnalyzer.ts + staticAnalyzer.ts) --- */
+  { id: 'componente-artesanal', nombre: 'Componente artesanal detectado', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
+  { id: 'fallo-sin-feedback', nombre: 'Catch sin feedback al usuario', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
+  { id: 'update-optimista-sin-rollback', nombre: 'Update optimista sin rollback', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
+  { id: 'fetch-sin-timeout', nombre: 'fetch() sin timeout', severidadDefault: 'hint', categoria: CategoriaRegla.ReactPatrones },
+  { id: 'non-null-assertion-excesivo', nombre: 'Non-null assertion excesivo', severidadDefault: 'hint', categoria: CategoriaRegla.EstructuraNomenclatura },
 ];
 
 /* Cache de configuracion: se construye lazily al primer acceso */

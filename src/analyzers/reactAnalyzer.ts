@@ -6,6 +6,9 @@
  * Sprint 1: useEffect, mutacion, zustand, console, error-enmascarado
  * Sprint 2: zustand-objeto, key-index, componente-sin-hook,
  *           promise-sin-catch, useeffect-dep-inestable
+ * Sprint 4: html-nativo-en-vez-de-componente
+ * Sprint 5: componente-artesanal, fallo-sin-feedback,
+ *           update-optimista-sin-rollback, fetch-sin-timeout
  */
 
 import * as vscode from 'vscode';
@@ -70,6 +73,24 @@ export function analizarReact(documento: vscode.TextDocument): Violacion[] {
   if (reglaHabilitada('html-nativo-en-vez-de-componente') &&
       !documento.fileName.replace(/\\/g, '/').includes('/Glory/')) {
     violaciones.push(...verificarHtmlNativoEnVezDeComponente(lineas, nombreArchivo));
+  }
+
+  /* Sprint 5: Detecciones avanzadas de patrones React */
+  if (reglaHabilitada('componente-artesanal') &&
+      !documento.fileName.replace(/\\/g, '/').includes('/Glory/')) {
+    violaciones.push(...verificarComponenteArtesanal(lineas, nombreArchivo));
+  }
+  if (reglaHabilitada('fallo-sin-feedback') &&
+      !documento.fileName.replace(/\\/g, '/').includes('/Glory/')) {
+    violaciones.push(...verificarFalloSinFeedback(lineas));
+  }
+  if (reglaHabilitada('update-optimista-sin-rollback') &&
+      !documento.fileName.replace(/\\/g, '/').includes('/Glory/')) {
+    violaciones.push(...verificarUpdateOptimistaSinRollback(lineas));
+  }
+  if (reglaHabilitada('fetch-sin-timeout') &&
+      !documento.fileName.replace(/\\/g, '/').includes('/Glory/')) {
+    violaciones.push(...verificarFetchSinTimeout(lineas, nombreArchivo));
   }
 
   return violaciones;
@@ -745,6 +766,310 @@ function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArchivo: s
         mensaje: 'Usar <GloryLink> en vez de <a href> para navegacion SPA interna. Import desde core/router.',
         severidad: obtenerSeveridadRegla('html-nativo-en-vez-de-componente'),
         linea: i,
+        fuente: 'estatico',
+      });
+    }
+  }
+
+  return violaciones;
+}
+
+/*
+ * Sprint 5: Detecta patrones artesanales que reimplementan componentes
+ * reutilizables del proyecto (MenuContextual, Modal, etc.).
+ *
+ * Patrones detectados:
+ * - Menu/Dropdown artesanal: useEffect con document.addEventListener('mousedown'/'click')
+ *   para cerrar un dropdown. Deberia usar MenuContextual.
+ * - Modal artesanal: div con clase overlay/backdrop + onClick para cerrar.
+ *   Deberia usar Modal.
+ *
+ * Excluye los propios componentes UI reutilizables y sus hooks.
+ */
+function verificarComponenteArtesanal(lineas: string[], nombreArchivo: string): Violacion[] {
+  /* No reportar en componentes que SON los reutilizables */
+  const componentesExcluidos = [
+    'MenuContextual', 'MenuContextualPR', 'Modal', 'ModalBase',
+    'ModalInspectorSample', 'ModalFiltros', 'Dropdown',
+    'DropdownNotificaciones', 'DropdownMensajes',
+    'Popover', 'Tooltip', 'ContenedorToasts', 'Notificacion',
+  ];
+  const nombreBase = nombreArchivo.replace(/\.(tsx|jsx)$/, '');
+  if (componentesExcluidos.includes(nombreBase)) {
+    return [];
+  }
+
+  /* Excluir hooks de los componentes UI reutilizables */
+  if (/^use(?:MenuContextual|Modal|Dropdown|Popover|Tooltip)/i.test(nombreBase)) {
+    return [];
+  }
+
+  /* Excluir tests y archivos generados */
+  if (nombreArchivo.includes('.test.') || nombreArchivo.includes('.spec.') ||
+      nombreArchivo.includes('_generated')) {
+    return [];
+  }
+
+  const violaciones: Violacion[] = [];
+
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i];
+
+    /* sentinel-disable checks */
+    if (i > 0 && lineas[i - 1].includes('sentinel-disable-next-line componente-artesanal')) {
+      continue;
+    }
+    if (linea.includes('sentinel-disable componente-artesanal')) {
+      continue;
+    }
+
+    /* --- Patron 1: Outside-click listener artesanal ---
+     * document.addEventListener('mousedown'|'click', ...) dentro de useEffect
+     * es la senal clasica de un menu/dropdown artesanal. */
+    if (/document\.addEventListener\s*\(\s*['"](?:mousedown|click)['"]/i.test(linea)) {
+      /* Verificar que estamos dentro de un useEffect (buscar hacia atras) */
+      let dentroUseEffect = false;
+      for (let j = Math.max(0, i - 15); j < i; j++) {
+        if (/useEffect\s*\(/.test(lineas[j])) {
+          dentroUseEffect = true;
+          break;
+        }
+      }
+
+      if (dentroUseEffect) {
+        violaciones.push({
+          reglaId: 'componente-artesanal',
+          mensaje: 'Patron de menu/dropdown artesanal detectado (outside-click handler manual). Usar <MenuContextual> del sistema de componentes.',
+          severidad: obtenerSeveridadRegla('componente-artesanal'),
+          linea: i,
+          sugerencia: 'Reemplazar con <MenuContextual items={...} abierto={...} onCerrar={...} />. Import desde components/ui.',
+          fuente: 'estatico',
+        });
+      }
+    }
+
+    /* --- Patron 2: Overlay/backdrop artesanal ---
+     * Un div con clase overlay/backdrop + onClick que cierra algo = modal artesanal. */
+    if (/<div\b[^>]*(?:className|class)\s*=/.test(linea)) {
+      const tieneOverlay = /(?:overlay|backdrop|fondo(?:Modal|Oscuro)|fondoModal)/i.test(linea);
+      const tieneOnClick = /onClick\s*=\s*\{/.test(linea);
+
+      if (tieneOverlay && tieneOnClick) {
+        violaciones.push({
+          reglaId: 'componente-artesanal',
+          mensaje: 'Patron de modal artesanal detectado (div overlay/backdrop con onClick). Usar <Modal> del sistema de componentes.',
+          severidad: obtenerSeveridadRegla('componente-artesanal'),
+          linea: i,
+          sugerencia: 'Reemplazar con <Modal abierto={...} onCerrar={...}>contenido</Modal>. Import desde components/ui.',
+          fuente: 'estatico',
+        });
+      }
+    }
+  }
+
+  return violaciones;
+}
+
+/*
+ * Sprint 5: Detecta catch blocks que solo hacen console.error/log
+ * sin dar feedback visible al usuario (toast, setError, etc.).
+ * Un console.error solo no es feedback — el usuario no ve la consola.
+ */
+function verificarFalloSinFeedback(lineas: string[]): Violacion[] {
+  const violaciones: Violacion[] = [];
+
+  /* Patrones que indican feedback real al usuario */
+  const patronesFeedback = /mostrar(?:Error|Notificacion|Toast)|toast\s*\.\s*(?:error|warning|info|success)|addToast|setError|set[A-Z]\w*Error|agregarNotificacion|notificar|mostrarAlerta/i;
+
+  for (let i = 0; i < lineas.length; i++) {
+    /* Buscar inicio de catch block */
+    if (!/\bcatch\s*\(/.test(lineas[i])) { continue; }
+
+    /* sentinel-disable check */
+    if (i > 0 && lineas[i - 1].includes('sentinel-disable-next-line fallo-sin-feedback')) {
+      continue;
+    }
+
+    /* Recolectar contenido del catch block */
+    let profundidad = 0;
+    let inicioBloque = false;
+    let tieneConsole = false;
+    let tieneFeedback = false;
+    let tieneThrow = false;
+
+    for (let j = i; j < Math.min(lineas.length, i + 30); j++) {
+      const lineaCatch = lineas[j];
+
+      /* Contar llaves para delimitar el bloque catch */
+      for (const char of lineaCatch) {
+        if (char === '{') {
+          inicioBloque = true;
+          profundidad++;
+        }
+        if (char === '}') {
+          profundidad--;
+        }
+      }
+
+      /* Verificar contenido del bloque */
+      if (/console\.\s*(?:error|log|warn)\s*\(/.test(lineaCatch)) {
+        tieneConsole = true;
+      }
+      if (patronesFeedback.test(lineaCatch)) {
+        tieneFeedback = true;
+      }
+      if (/\bthrow\b/.test(lineaCatch)) {
+        tieneThrow = true;
+      }
+
+      /* Si cerramos el bloque catch, evaluar */
+      if (inicioBloque && profundidad === 0) {
+        break;
+      }
+    }
+
+    /* Solo reportar si tiene console pero NO tiene feedback ni throw */
+    if (tieneConsole && !tieneFeedback && !tieneThrow) {
+      violaciones.push({
+        reglaId: 'fallo-sin-feedback',
+        mensaje: 'Catch con solo console.error/log sin feedback al usuario. El usuario no ve la consola.',
+        severidad: obtenerSeveridadRegla('fallo-sin-feedback'),
+        linea: i,
+        sugerencia: 'Agregar toast o notificacion visible: toast.error("Descripcion del error") o mostrarError(...).',
+        fuente: 'estatico',
+      });
+    }
+  }
+
+  return violaciones;
+}
+
+/*
+ * Sprint 5: Detecta update optimista (set() antes de await) sin rollback en catch.
+ * Si la API falla, el UI queda mostrando el estado optimista sin revertir.
+ *
+ * Patron detectado:
+ * 1. set({ ... }) o set(prev => ...) — update de Zustand
+ * 2. Seguido de await (llamada a API)
+ * 3. Catch block sin un segundo set() para revertir
+ */
+function verificarUpdateOptimistaSinRollback(lineas: string[]): Violacion[] {
+  const violaciones: Violacion[] = [];
+
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i];
+
+    /* Detectar set() de Zustand: set({ ... }), set(prev => ...), set(state => ...) */
+    if (!/\bset\s*\(\s*(?:\{|(?:prev|state|s)\s*=>)/.test(linea)) { continue; }
+
+    /* sentinel-disable check */
+    if (i > 0 && lineas[i - 1].includes('sentinel-disable-next-line update-optimista-sin-rollback')) {
+      continue;
+    }
+
+    /* Buscar un await en las siguientes 10 lineas */
+    let lineaAwait = -1;
+    for (let j = i + 1; j < Math.min(lineas.length, i + 10); j++) {
+      if (/\bawait\b/.test(lineas[j])) {
+        lineaAwait = j;
+        break;
+      }
+    }
+
+    if (lineaAwait === -1) { continue; }
+
+    /* Hay set() seguido de await = potencial update optimista.
+     * Buscar catch block despues del await. */
+    for (let j = lineaAwait; j < Math.min(lineas.length, lineaAwait + 30); j++) {
+      if (!/\bcatch\s*\(/.test(lineas[j])) { continue; }
+
+      /* Hay catch. Buscar set() dentro del catch (rollback) */
+      let tieneRollback = false;
+      let profundidad = 0;
+      let dentroBloque = false;
+
+      for (let k = j; k < Math.min(lineas.length, j + 20); k++) {
+        for (const c of lineas[k]) {
+          if (c === '{') { profundidad++; dentroBloque = true; }
+          if (c === '}') { profundidad--; }
+        }
+        if (/\bset\s*\(/.test(lineas[k])) {
+          tieneRollback = true;
+          break;
+        }
+        if (dentroBloque && profundidad === 0) { break; }
+      }
+
+      if (!tieneRollback) {
+        violaciones.push({
+          reglaId: 'update-optimista-sin-rollback',
+          mensaje: 'Update optimista: set() antes de await sin rollback en catch. Si la API falla, el UI queda inconsistente.',
+          severidad: obtenerSeveridadRegla('update-optimista-sin-rollback'),
+          linea: i,
+          sugerencia: 'Guardar valor previo antes del set() optimista y restaurarlo en catch: catch(e) { set(valorPrevio); }',
+          fuente: 'estatico',
+        });
+      }
+      break;
+    }
+  }
+
+  return violaciones;
+}
+
+/*
+ * Sprint 5: Detecta fetch() sin AbortController/signal.
+ * Un fetch sin timeout puede colgar indefinidamente si el servidor no responde.
+ *
+ * Excluye archivos que SON el wrapper de API (apiCliente, httpClient, etc.)
+ * ya que ellos SON la abstraccion donde se maneja el timeout.
+ */
+function verificarFetchSinTimeout(lineas: string[], nombreArchivo: string): Violacion[] {
+  /* Excluir archivos que SON el cliente/wrapper HTTP */
+  const nombreBase = nombreArchivo.replace(/\.(ts|tsx|js|jsx)$/, '');
+  const archivosCliente = ['apiCliente', 'apiClient', 'httpClient', 'gloryFetch', 'fetchWrapper'];
+  if (archivosCliente.includes(nombreBase)) {
+    return [];
+  }
+
+  const violaciones: Violacion[] = [];
+  const texto = lineas.join('\n');
+
+  /* Si el archivo ya usa AbortController, asumimos que maneja timeouts correctamente */
+  const tieneAbortController = /AbortController/.test(texto);
+
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i];
+
+    /* Detectar fetch( directo */
+    if (!/\bfetch\s*\(/.test(linea)) { continue; }
+
+    /* Excluir si es un import, definicion de tipo o comentario */
+    const trimmed = linea.trim();
+    if (/^(?:import|type|interface|\/\/|\*|\/\*)/.test(trimmed)) { continue; }
+
+    /* sentinel-disable check */
+    if (i > 0 && lineas[i - 1].includes('sentinel-disable-next-line fetch-sin-timeout')) {
+      continue;
+    }
+
+    /* Buscar signal en la misma linea o las 5 siguientes (opciones del fetch) */
+    let tieneSignal = false;
+    for (let j = i; j < Math.min(lineas.length, i + 6); j++) {
+      if (/\bsignal\b/.test(lineas[j])) {
+        tieneSignal = true;
+        break;
+      }
+    }
+
+    /* Si no hay signal Y el archivo no tiene AbortController global, reportar */
+    if (!tieneSignal && !tieneAbortController) {
+      violaciones.push({
+        reglaId: 'fetch-sin-timeout',
+        mensaje: 'fetch() sin AbortController/signal. Puede colgar indefinidamente si el servidor no responde.',
+        severidad: obtenerSeveridadRegla('fetch-sin-timeout'),
+        linea: i,
+        sugerencia: 'Usar AbortController con timeout: const ctrl = new AbortController(); setTimeout(() => ctrl.abort(), 30000); fetch(url, { signal: ctrl.signal })',
         fuente: 'estatico',
       });
     }

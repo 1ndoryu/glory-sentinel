@@ -89,6 +89,11 @@ export function analizarEstatico(
     violaciones.push(...verificarAnyType(texto, documento));
   }
 
+  /* Sprint 5: non-null assertions excesivas en TS/TSX */
+  if (['.ts', '.tsx'].includes(extension) && !nombreArchivo.endsWith('.d.ts') && reglaHabilitada('non-null-assertion-excesivo')) {
+    violaciones.push(...verificarNonNullAssertion(texto, documento));
+  }
+
   /* Sprint 3: Reglas CSS.
    * nomenclatura-css-ingles excluida de Glory/ — framework reutilizable
    * que puede necesitar clases WP nativas en ingles (.description, etc.). */
@@ -548,4 +553,58 @@ function verificarCssHardcoded(
   }
 
   return violaciones;
+}
+
+/*
+ * Sprint 5: Detecta uso excesivo de non-null assertions (!) en TypeScript.
+ * variable!.propiedad indica que el tipo no esta bien definido o que se
+ * esta forzando non-null donde TypeScript ya deberia inferirlo.
+ *
+ * Solo reporta si el archivo tiene 5 o mas instancias (uso excesivo).
+ * Un par de ! aislados suelen ser legitimos; muchos indican tipos mal definidos.
+ */
+function verificarNonNullAssertion(texto: string, documento: vscode.TextDocument): Violacion[] {
+  const lineas = texto.split('\n');
+
+  /* Primer paso: recolectar todas las instancias de non-null assertion */
+  const instancias: number[] = [];
+
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i];
+    const trimmed = linea.trim();
+
+    /* Saltar comentarios */
+    if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) {
+      continue;
+    }
+
+    /* sentinel-disable */
+    if (linea.includes('sentinel-disable non-null-assertion-excesivo')) { continue; }
+    if (i > 0 && lineas[i - 1]?.includes('sentinel-disable-next-line non-null-assertion-excesivo')) { continue; }
+
+    /* Patron: expresion! seguido de acceso a propiedad (. o [)
+     * Captura: variable!.prop, array[0]!.prop, getData()!.field, ref.current!.value
+     * Excluye: !== (not-equal), !! (double negation), ! (logical not) */
+    const matches = [...linea.matchAll(/[)\]a-zA-Z0-9_>]!\s*[.\[]/g)];
+    for (const match of matches) {
+      const posExcl = (match.index ?? 0) + match[0].indexOf('!');
+      /* Excluir !== */
+      if (posExcl + 1 < linea.length && linea[posExcl + 1] === '=') { continue; }
+      /* Excluir !! (double negation antes del !) */
+      if (posExcl > 0 && linea[posExcl - 1] === '!') { continue; }
+
+      instancias.push(i);
+    }
+  }
+
+  /* Solo reportar si hay uso excesivo (5+) */
+  if (instancias.length < 5) { return []; }
+
+  return instancias.map(lineaNum => ({
+    reglaId: 'non-null-assertion-excesivo',
+    mensaje: `Non-null assertion (!) — ${instancias.length} en este archivo. Indica tipos mal definidos. Tipar correctamente para evitar !.`,
+    severidad: obtenerSeveridadRegla('non-null-assertion-excesivo'),
+    linea: lineaNum,
+    fuente: 'estatico' as const,
+  }));
 }
