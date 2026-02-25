@@ -134,6 +134,19 @@ Puedes deshabilitar reglas individualmente o cambiar su severidad:
 | `mutacion-directa-estado` | `.splice()`, `.push()` o asignación directa a prop de estado React | warning |
 | `zustand-sin-selector` | `useStore()` sin selector (re-render en cualquier cambio del store) | warning |
 | `console-generico-en-catch` | `console.log` en un catch en lugar de `console.error` con contexto | warning |
+| `error-enmascarado` | `ok: true` o datos vacíos en catch. El error se enmascara como éxito | error |
+| `zustand-objeto-selector` | Selector Zustand que crea nuevo objeto/array cada render | warning |
+| `key-index-lista` | `key={index}` en `.map()` — usar ID estable | hint |
+| `componente-sin-hook-glory` | Componente con >5 líneas de lógica sin hook dedicado | warning |
+| `promise-sin-catch` | `.then()` sin `.catch()` fuera de try-catch | warning |
+| `useeffect-dep-inestable` | Dependencia de useEffect creada inline (nueva ref cada render) | hint |
+| `html-nativo-en-vez-de-componente` | `<button>`, `<input>`, `<select>`, `<a href>` en vez de componentes UI | warning |
+| `componente-artesanal` | Menu/dropdown/modal artesanal en vez de `<MenuContextual>` o `<Modal>` | warning |
+| `fallo-sin-feedback` | Catch con solo `console.error` sin toast/notificación visible al usuario | warning |
+| `update-optimista-sin-rollback` | `set()` optimista antes de await sin rollback en catch | warning |
+| `fetch-sin-timeout` | `fetch()` sin `AbortController`/signal (puede colgar indefinidamente) | hint |
+| `non-null-assertion-excesivo` | 5+ non-null assertions (`!`) en un archivo. Indica tipos mal definidos | hint |
+| `any-type-explicito` | Tipo `any` explícito en TS/TSX | hint |
 
 ## Lógica contextual — sin falsos positivos
 

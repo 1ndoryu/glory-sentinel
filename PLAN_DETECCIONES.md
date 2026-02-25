@@ -1,67 +1,62 @@
 # Code Sentinel — Plan de Nuevas Detecciones
 
-> Actualizado: R72 (auditoría sentinel 245 violaciones)
+> Actualizado: Sprint 5 (5 nuevas reglas implementadas)
 
-## Implementadas en esta iteración (R72)
+## Implementadas Sprint 5
+
+- **componente-artesanal** (reactAnalyzer) — Detecta menus/dropdowns artesanales (outside-click handler manual) y modales artesanales (div overlay/backdrop con onClick). Sugiere usar `<MenuContextual>` y `<Modal>` del sistema de componentes.
+- **fallo-sin-feedback** (reactAnalyzer) — Catch con solo console.error/log sin feedback visible al usuario (toast, setError, notificacion). P0 de auditoría frontend.
+- **update-optimista-sin-rollback** (reactAnalyzer) — set() de Zustand antes de await sin set() de rollback en el catch. UI queda inconsistente si la API falla.
+- **non-null-assertion-excesivo** (staticAnalyzer) — Detecta archivos con 5+ non-null assertions (!), indica tipos mal definidos. Severidad hint.
+- **fetch-sin-timeout** (reactAnalyzer) — fetch() sin AbortController/signal. Puede colgar indefinidamente. Excluye archivos que son el wrapper HTTP.
+
+## Implementadas anteriormente
+
+### R72
 
 - **error-enmascarado** (reactAnalyzer) — `ok: true` o `data: []` dentro de catch. P0 de auditoría frontend (9 funciones afectadas).
 - **sanitizacion-faltante** (phpAnalyzer) — `$_GET`/`$_POST`/`$_REQUEST` sin sanitize_text_field/intval/etc.
 
-## Mejoras a detecciones existentes (R72)
+### Mejoras R72
 
-- **exec-sin-escapeshellarg** — eliminados 3 patrones de falso positivo: PDO::exec(), comandos literal, sprintf+escapeshellarg.
-- **json-decode-inseguro** — reescrita con reconocimiento de `?? default`, ternary, is_string/isset guards. 100% de reports eran falso positivo.
-- **controller-sin-trycatch** — relajada detección (try anywhere, no solo primera instrucción) + excluye métodos pure/const-return.
-- **barras-decorativas** — regex ahora solo matchea líneas de comentario (`*, //, /*`), no código. Añadido `.css` a aplicaA.
+- **exec-sin-escapeshellarg** — eliminados 3 patrones de falso positivo.
+- **json-decode-inseguro** — reescrita con reconocimiento de guards.
+- **controller-sin-trycatch** — relajada detección.
+- **barras-decorativas** — regex mejorada.
 
 ## Pendientes — Prioridad Alta
 
 ### PHP
 
-- **[endpoint-accede-bd]** — Controllers REST con queries `$wpdb` directas en vez de usar repos. Detección: buscar `$wpdb` o `$this->pg` dentro de archivos Controller. Excluir repositorios/servicios. Complejidad: media.
-
-- **[multi-tabla-sin-transaccion]** — Escribir en >1 tabla sin BEGIN/COMMIT. Detección heurística: contar `->insert`/`->update`/`->delete` en un mismo método público con >1 tabla distinta. Complejidad: alta (requiere resolver nombres de tabla).
-
-- **[open-redirect]** — `wp_redirect()` o `header('Location:')` con variable del request sin `wp_validate_redirect()`. Detección regex por línea + verificar contexto. Complejidad: baja.
-
-- **[return-void-critico]** — Métodos con INSERT/UPDATE/DELETE que retornan void. Detección: parsear firma de método + buscar operaciones de escritura. Si return type es `: void` y tiene operaciones de BD, reportar. Complejidad: media.
+- **[multi-tabla-sin-transaccion]** — Escribir en >1 tabla sin BEGIN/COMMIT. Complejidad: alta (requiere resolver nombres de tabla).
 
 ### React/TypeScript
 
-- **[update-optimista-sin-rollback]** — Detectar setState seguido de await sin verificación resp.ok y rollback. Heurística: setState → await fetch → sin `if (!resp.ok) { setState(snapshot) }`. Complejidad: alta.
-
-- **[fallo-sin-feedback]** — Catch que solo tiene console.error sin toast/notificación visible. Heurística: catch block sin `toast(` ni `notificar(` ni `mostrarError(`. Complejidad: media.
-
-- **[try-catch-faltante-ts]** — Llamadas a fetch/apiCliente sin try-catch en servicios TS (no solo useEffect). Complejidad: media.
-
-- **[separacion-logica-vista]** — Componente con >5 líneas de lógica (useEffect/useState/calculos) sin hook dedicado. Heurística: contar líneas de lógica entre imports y return JSX. Complejidad: media.
+- ~~**[update-optimista-sin-rollback]**~~ ✅ Sprint 5
+- ~~**[fallo-sin-feedback]**~~ ✅ Sprint 5
+- **[try-catch-faltante-ts]** — Parcialmente cubierta por `promise-sin-catch`. Pendiente para async functions sin try-catch. Complejidad: media.
+- **[separacion-logica-vista]** — Cubierta por `componente-sin-hook-glory`. No requiere regla adicional.
 
 ## Pendientes — Prioridad Media
 
 ### General
 
-- **[nomenclatura-css]** — Clases CSS no en español camelCase. Regex: `/\.(main|container|wrapper|button|header|footer|section|sidebar|content|nav)/` en archivos CSS. Complejidad: baja pero muchos falsos positivos potenciales con librerías.
-
-- **[srp-violado]** — Archivo con múltiples exports de dominio distinto. Heurística: contar diferentes "dominios" (patrones import, export function). Complejidad: muy alta, probablemente requiere IA.
+- **[srp-violado]** — Archivo con múltiples exports de dominio distinto. Complejidad: muy alta, candidata para aiAnalyzer.
 
 ### TypeScript
 
-- **[any-type]** — Parámetros o returns con tipo `any`. Regex simple pero ruidoso. Mejor como hint. Complejidad: baja.
-
-- **[non-null-assertion-excesivo]** — Más de N `!` non-null assertions en un archivo. Complejidad: baja.
-
-- **[promise-sin-catch]** — Promises sin `.catch()` ni await en try-catch. Complejidad: media.
+- ~~**[non-null-assertion-excesivo]**~~ ✅ Sprint 5
+- ~~**[promise-sin-catch]**~~ ✅ Sprint 2
 
 ## Pendientes — Prioridad Baja
 
-- **[n-plus-1-query]** — Loop con query dentro (PHP). Heurística: `foreach`/`for`/`while` con `$wpdb->` o `$this->pg->` dentro. Complejidad: media.
-
-- **[race-condition-create-get]** — Patrón buscar→crear sin lock/upsert. Detección por IA más que regex. Complejidad: muy alta.
-
-- **[fetch-sin-timeout]** — fetch() en servicios sin AbortController/timeout. Complejidad: media.
+- ~~**[n-plus-1-query]**~~ ✅ Sprint 3
+- **[race-condition-create-get]** — Patrón buscar→crear sin lock/upsert. Candidata para aiAnalyzer.
+- ~~**[fetch-sin-timeout]**~~ ✅ Sprint 5
 
 ## Notas de Implementación
 
-- Reglas del phpAnalyzer que requieran scope de método completo pueden reutilizar el patrón de `verificarControllerSinTryCatch` (parseo de llaves + extracción de body).
-- Para detecciones complejas (srp-violado, race-condition), considerar delegarlas al aiAnalyzer (análisis con LLM) en lugar de regex.
+- Reglas del phpAnalyzer que requieran scope de método completo pueden reutilizar el patrón de `verificarControllerSinTryCatch`.
+- Para detecciones complejas (srp-violado, race-condition), delegar al aiAnalyzer.
 - Cada nueva regla DEBE registrarse en `ruleRegistry.ts` para ser deshabilititable via settings.json.
+- [Sprint 5]: Las reglas `componente-artesanal` y `fetch-sin-timeout` excluyen archivos que SON los componentes/wrappers relevantes para evitar falsos positivos.

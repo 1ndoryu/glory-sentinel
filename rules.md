@@ -26,12 +26,15 @@ Estas son las reglas que la IA debe verificar en cada archivo. Edita este archiv
 
 - [separacion-logica-vista] Si un componente tiene mas de 5 lineas de logica (fetching, calculos, effects), extraer a un hook dedicado. El componente solo debe tener imports, destructuring y JSX.
 - [error-enmascarado] En un `catch`, PROHIBIDO retornar `{ ok: true }` o datos vacios como si fuera exito. Siempre retornar `ok: false` o re-lanzar el error.
-- [update-optimista-sin-rollback] Si se actualiza el estado UI antes de confirmar con la API, DEBE verificarse `resp.ok` y revertir el estado si falla.
+- [update-optimista-sin-rollback] Si se actualiza el estado UI antes de confirmar con la API, DEBE verificarse `resp.ok` y revertir el estado si falla. Detectado: set() de Zustand antes de await sin set() de rollback en catch.
 - [useeffect-sin-cleanup] Todo `useEffect` que lance requests async DEBE retornar una funcion de cleanup con `AbortController`.
 - [mutacion-directa-estado] PROHIBIDO `splice()`, `push()`, o asignacion directa a propiedades de objetos del estado React. Usar `map()` + spread.
 - [zustand-sin-selector] `useStore()` sin selector re-renderiza en cualquier cambio del store. Usar `useStore(s => s.campo)`.
-- [fallo-sin-feedback] Si una operacion falla, el usuario DEBE recibir feedback visible (toast, mensaje de error). `console.error` solo no es suficiente.
+- [fallo-sin-feedback] Si una operacion falla, el usuario DEBE recibir feedback visible (toast, mensaje de error). `console.error` solo no es suficiente. Detectado: catch con solo console.error/log sin toast/notification.
 - [try-catch-faltante-ts] Operaciones de fetch, I/O, APIs externas DEBEN estar en try-catch o manejar errores explicitamente.
+- [componente-artesanal] PROHIBIDO reimplementar componentes que ya existen en el sistema (MenuContextual, Modal, etc.). Detectado: outside-click handlers manuales (document.addEventListener mousedown/click en useEffect) y overlays/backdrops artesanales.
+- [fetch-sin-timeout] fetch() DEBE usar AbortController con signal/timeout. Sin timeout puede colgar indefinidamente. Excluye archivos que SON el wrapper HTTP.
+- [non-null-assertion-excesivo] Archivos con 5+ non-null assertions (variable!.prop) indican tipos mal definidos. Tipar correctamente para evitar !.
 
 ---
 
