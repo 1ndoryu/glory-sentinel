@@ -900,13 +900,15 @@ function verificarFalloSinFeedback(lineas: string[]): Violacion[] {
     for (let j = i; j < Math.min(lineas.length, i + 30); j++) {
       const lineaCatch = lineas[j];
 
-      /* Contar llaves para delimitar el bloque catch */
+      /* Contar llaves para delimitar el bloque catch.
+       * Solo decrementar } despues de encontrar la primera { del catch,
+       * para no contar el } del try que precede a catch en la misma linea. */
       for (const char of lineaCatch) {
         if (char === '{') {
           inicioBloque = true;
           profundidad++;
         }
-        if (char === '}') {
+        if (char === '}' && inicioBloque) {
           profundidad--;
         }
       }
@@ -991,7 +993,7 @@ function verificarUpdateOptimistaSinRollback(lineas: string[]): Violacion[] {
       for (let k = j; k < Math.min(lineas.length, j + 20); k++) {
         for (const c of lineas[k]) {
           if (c === '{') { profundidad++; dentroBloque = true; }
-          if (c === '}') { profundidad--; }
+          if (c === '}' && dentroBloque) { profundidad--; }
         }
         if (/\bset\s*\(/.test(lineas[k])) {
           tieneRollback = true;
