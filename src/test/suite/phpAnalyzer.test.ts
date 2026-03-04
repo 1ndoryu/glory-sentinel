@@ -75,11 +75,14 @@ function verificarWpdbSinPrepareContextual(lineas: string[]): Array<{ reglaId: s
       continue;
     }
 
-    /* Detectar prepare() anidado como argumento (ej: get_row(prepare(...))) */
+    /* Detectar prepare() anidado como argumento — misma linea */
     if (/\$wpdb\s*->\s*prepare\s*\(/.test(linea)) { continue; }
 
-    /* Queries sin parametros de usuario no necesitan prepare() */
+    /* Detectar prepare() anidado en sentencia multi-linea (argumento en linea siguiente) */
     const lineaCompleta = obtenerSentenciaMultilinea(lineas, i);
+    if (/\$wpdb\s*->\s*prepare\s*\(/.test(lineaCompleta)) { continue; }
+
+    /* Queries sin parametros de usuario no necesitan prepare() */
     if (esSentenciaSinParametrosUsuario(lineaCompleta)) {
       continue;
     }
@@ -148,7 +151,7 @@ function verificarRequestJsonDirecto(lineas: string[]): Array<{ reglaId: string;
 suite('phpAnalyzer - wpdb-sin-prepare contextual', () => {
 
   test('detecta query sin prepare', () => {
-    const lineas = ['$wpdb->query("SELECT * FROM tabla");'];
+    const lineas = ['$wpdb->query("SELECT * FROM tabla WHERE id = " . $userId);'];
     const v = verificarWpdbSinPrepareContextual(lineas);
     assert.strictEqual(v.length, 1);
     assert.strictEqual(v[0].reglaId, 'wpdb-sin-prepare');

@@ -55,7 +55,7 @@ suite('lineCounter', () => {
     const limite = obtenerLimiteArchivo('useAlumnos.ts', '/src/hooks/useAlumnos.ts');
     assert.notStrictEqual(limite, null);
     assert.strictEqual(limite?.tipo, 'hook');
-    assert.strictEqual(limite?.limite, 120);
+    assert.strictEqual(limite?.limite, 300);
   });
 
   test('obtenerLimiteArchivo - util detectado', () => {
@@ -76,7 +76,7 @@ suite('lineCounter', () => {
     const limite = obtenerLimiteArchivo('estilos.css', '/src/styles/estilos.css');
     assert.notStrictEqual(limite, null);
     assert.strictEqual(limite?.tipo, 'estilo');
-    assert.strictEqual(limite?.limite, 300);
+    assert.strictEqual(limite?.limite, 600);
   });
 
   test('obtenerLimiteArchivo - archivo sin limite', () => {

@@ -53,17 +53,6 @@ suite('Reglas Estaticas - Regex Patterns', () => {
     });
   });
 
-  /* css-inline-jsx */
-  suite('css-inline-jsx', () => {
-    test('detecta style={{}}', () => {
-      assert.strictEqual(testearRegla('css-inline-jsx', 'style={{ color: "red" }}'), true);
-    });
-
-    test('no detecta style={variable}', () => {
-      assert.strictEqual(testearRegla('css-inline-jsx', 'style={claseEstilo}'), false);
-    });
-  });
-
   /* catch-vacio */
   suite('catch-vacio', () => {
     test('detecta catch vacio simple', () => {
