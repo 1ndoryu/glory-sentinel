@@ -1,0 +1,63 @@
+/*
+ * Helpers compartidos para los analyzers de Code Sentinel.
+ * Centraliza patrones repetidos: skip de comentarios, sentinel-disable,
+ * exclusion Glory/, hash de contenido, etc.
+ * Reduce boilerplate en ~30 funciones de reglas.
+ */
+
+import * as vscode from 'vscode';
+import * as crypto from 'crypto';
+
+/*
+ * Retorna true si la linea es un comentario (PHP, JS/TS, CSS).
+ * Cubre: //, #, /*, *, docblocks (/**).
+ */
+export function esComentario(linea: string): boolean {
+  const trim = linea.trim();
+  return (
+    trim.startsWith('//') ||
+    trim.startsWith('*') ||
+    trim.startsWith('/*') ||
+    trim.startsWith('#')
+  );
+}
+
+/*
+ * Retorna true si la linea anterior contiene `sentinel-disable-next-line <reglaId>`.
+ * Verifica bounds del array automaticamente.
+ */
+export function tieneSentinelDisable(lineas: string[], indice: number, reglaId: string): boolean {
+  if (indice <= 0) { return false; }
+  return lineas[indice - 1]?.includes(`sentinel-disable-next-line ${reglaId}`) ?? false;
+}
+
+/*
+ * Retorna true si la ruta pertenece al framework Glory/
+ * (que tiene su propia arquitectura y no debe analizarse con reglas del proyecto).
+ */
+export function esRutaGlory(ruta: string): boolean {
+  const normalizada = ruta.replace(/\\/g, '/');
+  return normalizada.includes('/Glory/');
+}
+
+/*
+ * Calcula hash MD5 del contenido.
+ * Usado por debounceService y cacheService para detectar cambios.
+ */
+export function calcularHash(contenido: string): string {
+  return crypto.createHash('md5').update(contenido).digest('hex');
+}
+
+/*
+ * Extrae las lineas de texto de un documento VS Code.
+ */
+export function obtenerLineas(documento: vscode.TextDocument): string[] {
+  return documento.getText().split('\n');
+}
+
+/*
+ * Normaliza una ruta reemplazando backslashes por forward slashes.
+ */
+export function normalizarRuta(ruta: string): string {
+  return ruta.replace(/\\/g, '/');
+}

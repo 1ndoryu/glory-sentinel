@@ -6,8 +6,8 @@
 
 import * as vscode from 'vscode';
 import { EstadoArchivo, ConfiguracionSentinel } from '../types';
-import * as crypto from 'crypto';
 import { logInfo, logWarn, logError } from '../utils/logger';
+import { calcularHash } from '../utils/analisisHelpers';
 
 /* Mapa de estado por archivo (URI como clave) */
 const estadoArchivos = new Map<string, EstadoArchivo>();
@@ -220,11 +220,6 @@ function obtenerOCrearEstado(key: string): EstadoArchivo {
 
   estadoArchivos.set(key, nuevo);
   return nuevo;
-}
-
-/* Calcula hash MD5 del contenido para detectar cambios */
-function calcularHash(contenido: string): string {
-  return crypto.createHash('md5').update(contenido).digest('hex');
 }
 
 /* Obtiene el estado actual de un archivo (para cache de resultados) */

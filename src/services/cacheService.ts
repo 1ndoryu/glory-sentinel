@@ -5,7 +5,7 @@
  */
 
 import * as vscode from 'vscode';
-import * as crypto from 'crypto';
+import { calcularHash } from '../utils/analisisHelpers';
 
 interface EntradaCache {
   hash: string;
@@ -124,7 +124,7 @@ function limpiarEntradasAntiguas(): void {
   }
 }
 
-/* Calcula hash MD5 del contenido */
-function calcularHash(contenido: string): string {
-  return crypto.createHash('md5').update(contenido).digest('hex');
+/* Expone tamano del cache para tests/debug */
+export function tamanoCache(): number {
+  return cache.size;
 }
