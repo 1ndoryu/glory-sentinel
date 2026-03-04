@@ -410,6 +410,11 @@ export function analizarGlory(documento: vscode.TextDocument): Violacion[] {
     violaciones.push(...verificarSelectStar(lineas, rutaNormalizada));
   }
 
+  /* Sprint 6 */
+  if (reglaHabilitada('glory-meta-clave-incorrecta')) {
+    violaciones.push(...verificarDefaultContentMetaClave(lineas));
+  }
+
   return violaciones;
 }
 
@@ -1355,6 +1360,65 @@ function verificarSelectStar(lineas: string[], rutaArchivo: string): Violacion[]
         severidad: obtenerSeveridadRegla('repository-sin-whitelist-columnas'),
         linea: i,
         sugerencia: 'Reemplazar * con las columnas especificas que necesitas: SELECT col1, col2 FROM ...',
+        fuente: 'estatico',
+      });
+    }
+  }
+
+  return violaciones;
+}
+
+/* =======================================================================
+ * 6.1 DEFAULT CONTENT META CLAVE INCORRECTA
+ * Detecta el uso de la clave 'meta' en lugar de 'metaEntrada' dentro de
+ * DefaultContentManager::define(). PostSyncHandler usa $definition['metaEntrada']
+ * para escribir los metadatos via meta_input en wp_insert_post. Si se usa 'meta',
+ * el post se crea sin ningun metadato (perdida de datos silenciosa).
+ *
+ * Ejemplo del bug:
+ *   DefaultContentManager::define('vehiculo', [[
+ *       'titulo' => 'Cresta One',
+ *       'meta' => ['_vehiculo_activo' => '1'],  <-- INCORRECTO, no se escribe nada
+ *   ]]);
+ *
+ * Correccion:
+ *   'metaEntrada' => ['_vehiculo_activo' => '1'],  <-- CORRECTO
+ * ======================================================================= */
+
+function verificarDefaultContentMetaClave(lineas: string[]): Violacion[] {
+  const violaciones: Violacion[] = [];
+
+  /* Solo actuar si el archivo usa DefaultContentManager::define */
+  const textoCompleto = lineas.join('\n');
+  if (!/DefaultContentManager\s*::\s*define\s*\(/.test(textoCompleto)) {
+    return violaciones;
+  }
+
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i];
+    const trim = linea.trim();
+
+    /* Saltar comentarios */
+    if (trim.startsWith('//') || trim.startsWith('*') ||
+        trim.startsWith('/*') || trim.startsWith('#')) {
+      continue;
+    }
+
+    /* Saltar sentinel-disable */
+    if (i > 0 && lineas[i - 1]?.includes('sentinel-disable-next-line glory-meta-clave-incorrecta')) {
+      continue;
+    }
+
+    /* Detectar ['meta'] => o "meta" => como clave de array.
+     * Excluir 'metaEntrada', 'metaBox', 'metaDesc' u otras claves que
+     * empiecen con 'meta' pero no sean el error especifico. */
+    if (/['"]meta['"]\s*=>/.test(linea) && !/['"]meta[A-Za-z]/.test(linea)) {
+      violaciones.push({
+        reglaId: 'glory-meta-clave-incorrecta',
+        mensaje: "Clave 'meta' incorrecta en DefaultContentManager::define(). PostSyncHandler usa 'metaEntrada' para escribir via meta_input. Con 'meta' el post se crea sin ningun metadato (bug silencioso de perdida de datos).",
+        severidad: obtenerSeveridadRegla('glory-meta-clave-incorrecta'),
+        linea: i,
+        sugerencia: "Renombrar la clave 'meta' a 'metaEntrada' en la definicion del contenido.",
         fuente: 'estatico',
       });
     }

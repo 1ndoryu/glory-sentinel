@@ -102,6 +102,12 @@ const REGISTRO: DefinicionRegla[] = [
   { id: 'php-sin-return-type', nombre: 'PHP sin return type', severidadDefault: 'hint', categoria: CategoriaRegla.WordPressPhp },
   { id: 'repository-sin-whitelist-columnas', nombre: 'SELECT * sin columnas', severidadDefault: 'hint', categoria: CategoriaRegla.SeguridadSql },
 
+  /* --- Sprint 6: DefaultContent (gloryAnalyzer.ts) --- */
+  /* Error silencioso: usar 'meta' en vez de 'metaEntrada' hace que PostSyncHandler
+   * no escriba ningun metadato al crear el post, produciendo perdida de datos
+   * sin ningun error visible. Severidad error — es un bug de datos critico. */
+  { id: 'glory-meta-clave-incorrecta', nombre: "DefaultContentManager: 'meta' en vez de 'metaEntrada'", severidadDefault: 'error', categoria: CategoriaRegla.GlorySchema },
+
   /* --- Sprint 3: CSS (staticAnalyzer.ts) --- */
   /* habilitadaDefault: false — demasiados falsos positivos con clases nativas (.input, .select, .button)
    * que no conviene renombrar (formularios WordPress, librerías externas). */
