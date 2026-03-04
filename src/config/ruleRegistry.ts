@@ -102,11 +102,36 @@ const REGISTRO: DefinicionRegla[] = [
   { id: 'php-sin-return-type', nombre: 'PHP sin return type', severidadDefault: 'hint', categoria: CategoriaRegla.WordPressPhp },
   { id: 'repository-sin-whitelist-columnas', nombre: 'SELECT * sin columnas', severidadDefault: 'hint', categoria: CategoriaRegla.SeguridadSql },
 
-  /* --- Sprint 6: DefaultContent (gloryAnalyzer.ts) --- */
-  /* Error silencioso: usar 'meta' en vez de 'metaEntrada' hace que PostSyncHandler
-   * no escriba ningun metadato al crear el post, produciendo perdida de datos
-   * sin ningun error visible. Severidad error — es un bug de datos critico. */
-  { id: 'glory-meta-clave-incorrecta', nombre: "DefaultContentManager: 'meta' en vez de 'metaEntrada'", severidadDefault: 'error', categoria: CategoriaRegla.GlorySchema },
+  /* --- Sprint 6: DefaultContent (gloryAnalyzer.ts) ---
+   * Claves incorrectas en definiciones de DefaultContentManager::define().
+   * PostSyncHandler lee el array $definition con claves exactas en español.
+   * Un error de nombre produce perdida silenciosa de datos (ni log ni excepcion). */
+
+  /* 'meta' en vez de 'metaEntrada': PostSyncHandler usa $definition['metaEntrada'] para
+   * meta_input de wp_insert_post. Con 'meta' el post se crea sin ningun metadato. */
+  { id: 'glory-meta-clave-incorrecta', nombre: "'meta' en vez de 'metaEntrada'", severidadDefault: 'error', categoria: CategoriaRegla.GlorySchema },
+
+  /* 'slug' en vez de 'slugDefault': DefaultContentSynchronizer usa $definition['slugDefault']
+   * para findPorSlug(). Si falta, cada sync CREA un post nuevo en vez de actualizar
+   * el existente — duplicacion infinita en cada activacion del tema. */
+  { id: 'glory-slug-clave-incorrecta', nombre: "'slug' en vez de 'slugDefault'", severidadDefault: 'error', categoria: CategoriaRegla.GlorySchema },
+
+  /* 'title' en vez de 'titulo': prepareCorePostData() usa $definition['titulo'] para
+   * post_title. Con 'title' el post se crea con titulo vacio. */
+  { id: 'glory-titulo-clave-incorrecta', nombre: "'title'/'name' en vez de 'titulo'", severidadDefault: 'error', categoria: CategoriaRegla.GlorySchema },
+
+  /* 'imagen'/'image' en vez de 'imagenDestacadaAsset': PostRelationHandler::setFeaturedImage()
+   * hace isset($definicion['imagenDestacadaAsset']) — si la clave no existe, no asigna
+   * imagen destacada sin ningun aviso. */
+  { id: 'glory-imagen-clave-incorrecta', nombre: "'imagen' en vez de 'imagenDestacadaAsset'", severidadDefault: 'warning', categoria: CategoriaRegla.GlorySchema },
+
+  /* 'galeria'/'gallery' en vez de 'galeriaAssets': PostRelationHandler::setGallery()
+   * usa la clave 'galeriaAssets'. Error tipico de mezclar ingles/espanol. */
+  { id: 'glory-galeria-clave-incorrecta', nombre: "'galeria'/'gallery' en vez de 'galeriaAssets'", severidadDefault: 'warning', categoria: CategoriaRegla.GlorySchema },
+
+  /* 'content'/'contenido_html' en vez de 'contenido': prepareCorePostData() usa
+   * $definition['contenido'] para post_content. Silencioso: post con contenido vacio. */
+  { id: 'glory-contenido-clave-incorrecta', nombre: "'content' en vez de 'contenido'", severidadDefault: 'warning', categoria: CategoriaRegla.GlorySchema },
 
   /* --- Sprint 3: CSS (staticAnalyzer.ts) --- */
   /* habilitadaDefault: false — demasiados falsos positivos con clases nativas (.input, .select, .button)
