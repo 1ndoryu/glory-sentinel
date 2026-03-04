@@ -1,7 +1,7 @@
 ﻿/*
  * Fachada del analyzer Glory.
  * Coordina los submodulos: schemaLoader, islandTracker,
- * gloryPhpRules y defaultContentRules.
+ * glorySchemaRules, glorySecurityRules, gloryQualityRules y defaultContentRules.
  *
  * Antes: 1460 lineas monoliticas. Ahora: fachada ~70 lineas.
  */
@@ -15,18 +15,9 @@ import { normalizarRuta } from '../utils/analisisHelpers';
 /* Submodulos */
 import { inicializarSchemaWatcher, cargarSchema, obtenerMapaCols, obtenerMapaEnums } from './glory/schemaLoader';
 import { inicializarIslasWatcher, verificarIslaNoRegistrada } from './glory/islandTracker';
-import {
-  verificarHardcodedSqlColumn,
-  verificarHardcodedEnumValue,
-  verificarEndpointAccedeBd,
-  verificarIntervalSinWhitelist,
-  verificarOpenRedirect,
-  verificarReturnVoidCritico,
-  verificarNPlus1Query,
-  verificarFqnInline,
-  verificarPhpSinReturnType,
-  verificarSelectStar,
-} from './glory/gloryPhpRules';
+import { verificarHardcodedSqlColumn, verificarHardcodedEnumValue, verificarSelectStar } from './glory/glorySchemaRules';
+import { verificarEndpointAccedeBd, verificarIntervalSinWhitelist, verificarOpenRedirect } from './glory/glorySecurityRules';
+import { verificarReturnVoidCritico, verificarNPlus1Query, verificarFqnInline, verificarPhpSinReturnType } from './glory/gloryQualityRules';
 import { verificarDefaultContentClaves, REGLA_IDS_DEFAULT_CONTENT } from './glory/defaultContentRules';
 
 /*
