@@ -110,18 +110,37 @@ Deben ser UNA función parametrizada.
 
 ---
 
-## Métricas objetivo
+## Resultados finales
+
+### Fases completadas
+- **Fase 1** (helpers compartidos): `analisisHelpers.ts` (56 líneas) con 6 helpers reutilizados en todos los módulos.
+- **Fase 2** (split gloryAnalyzer): 1,460 → 106 líneas fachada + 4 submódulos.
+  - gloryPhpRules.ts (688) → split adicional en 3: glorySchemaRules (215), glorySecurityRules (163), gloryQualityRules (213).
+- **Fase 3** (split reactAnalyzer): 1,082 → 101 líneas fachada + 3 submódulos (reactHookRules 179, reactErrorRules 252, reactComponentRules 406).
+- **Fase 4** (diagnosticProvider): 558 → 438 líneas + reportGenerator.ts (96). Eliminado esReglaIA() frágil, reemplazado con fuente-based tagging.
+- **Fase 5** (extension.ts): Diferida — 264 líneas, bajo el límite.
+- **Split phpAnalyzer**: 847 → 59 líneas fachada + 3 submódulos (phpControllerRules 155, phpDataRules 229, phpSecurityRules 298).
+- **Split staticAnalyzer**: 610 → 189 líneas fachada + 2 submódulos (staticCodeRules 210, staticCssRules 130).
+- **Hash dedup**: debounceService y cacheService usan calcularHash de analisisHelpers.
+
+### Métricas
 
 | Archivo | Antes | Después |
 |---------|-------|---------|
-| gloryAnalyzer.ts | 1,460 | ~60 (fachada) |
-| glory/schemaLoader.ts | - | ~130 |
-| glory/islandTracker.ts | - | ~150 |
-| glory/gloryPhpRules.ts | - | ~500 |
-| glory/defaultContentRules.ts | - | ~80 |
-| reactAnalyzer.ts | 1,082 | ~900 (reducción boilerplate) |
-| diagnosticProvider.ts | 558 | ~400 |
-| reportGenerator.ts | - | ~120 |
-| utils/analisisHelpers.ts | - | ~60 |
+| gloryAnalyzer.ts | 1,460 | 121 (fachada) |
+| reactAnalyzer.ts | 1,082 | 101 (fachada) |
+| phpAnalyzer.ts | 847 | 59 (fachada) |
+| staticAnalyzer.ts | 610 | 189 (fachada) |
+| diagnosticProvider.ts | 558 | 438 |
+| **Archivo más grande** | **1,460** | **478 (aiAnalyzer)** |
 
-Ningún archivo >600 líneas después de la refactorización.
+### Tests: 174 passing, 6 pre-existentes failing (0 regresiones).
+### Commits: 3 — [AG-REF] split monolitos, split phpAnalyzer, split gloryPhpRules+staticAnalyzer.
+
+### Lecciones aprendidas
+- [Compilación]: PowerShell here-strings (@'...'@) pierden caracteres especiales como `—`, usar Set-Content con encoding UTF8.
+- [Tests]: `npm test` requiere VS Code no esté actualizándose. Alternativa: `npx mocha --require out/test/registerMocks.js --ui tdd --color --timeout 10000 "out/test/suite/**/*.test.js"`.
+- [Tests pre-existentes fallidos]: lineCounter (2 — expectativas desactualizadas para hook/css limits), phpAnalyzer wpdb (2 — tests que no contemplan exclusiones contextuales), css-inline-jsx (2 — regla eliminada pero tests no removidos).
+- [Arquitectura]: Las fachadas delgadas (importar + despachar) son el patrón correcto para mantener el API pública sin romper consumidores.
+- [esReglaIA]: El heurístico de lista hardcodeada se reemplazó con campo `fuente` en cada Violacion — escalable sin mantenimiento.
+- [phpAnalyzer.verificarArchivosTemporalesSinFinally]: El parámetro `texto` era dead code — solo usaba `lineas`. Eliminado en el split.
