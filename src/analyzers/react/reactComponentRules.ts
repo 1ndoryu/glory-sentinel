@@ -277,10 +277,13 @@ export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArc
  */
 export function verificarComponenteArtesanal(lineas: string[], nombreArchivo: string): Violacion[] {
   const componentesExcluidos = [
-    'MenuContextual', 'MenuContextualPR', 'Modal', 'ModalBase',
+    /* Componentes del sistema UI — implementan los patrones ellos mismos */
+    'MenuContextual', 'MenuContextualPR', 'Modal', 'ModalBase', 'ModalAcciones',
     'ModalInspectorSample', 'ModalFiltros', 'Dropdown',
     'DropdownNotificaciones', 'DropdownMensajes',
     'Popover', 'Tooltip', 'ContenedorToasts', 'Notificacion',
+    /* Selectores propios — implementan overlay nativamente por diseno */
+    'SelectorMenu', 'SelectorBase', 'Boton', 'BotonBase', 'CampoTexto',
   ];
   const nombreBase = nombreArchivo.replace(/\.(tsx|jsx)$/, '');
   if (componentesExcluidos.includes(nombreBase)) { return []; }

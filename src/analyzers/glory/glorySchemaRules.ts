@@ -12,6 +12,8 @@ import { obtenerMapaCols, obtenerMapaEnums } from './schemaLoader';
 /* Valores de columna demasiado genericos para reportar (falsos positivos) */
 const COLUMNAS_IGNORADAS = new Set([
   'id', 'tipo', 'estado', 'created_at', 'updated_at', 'nombre',
+  /* 'key' es ubicuo en PHP arrays y no representa una columna SQL en la mayoria de contextos */
+  'key',
 ]);
 
 /* Valores enum demasiado comunes para reportar (falsos positivos masivos) */

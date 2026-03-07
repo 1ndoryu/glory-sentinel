@@ -264,6 +264,12 @@ export async function analizarWorkspace(): Promise<void> {
         });
 
         try {
+          /* Filtro secundario: findFiles con glob combinado no excluye todo en VS Code.
+           * debeExcluirse garantiza que archivos de vendor/target/agent nunca se analicen. */
+          if (debeExcluirse(archivos[i].fsPath, configuracion.exclude)) {
+            continue;
+          }
+
           const doc = await vscode.workspace.openTextDocument(archivos[i]);
           if (documentoEsValido(doc)) {
             /* Solo analisis estatico para scan completo del workspace */
