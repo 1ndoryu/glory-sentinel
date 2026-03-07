@@ -50,12 +50,6 @@ export const categoriasRegla: MetadataCategoria[] = [
     seccionProtocolo: 'Seccion 7',
   },
   {
-    id: CategoriaRegla.SemanticaIA,
-    nombre: 'Semantica IA',
-    descripcion: 'Separacion logica-vista, SRP, I/O sin proteccion',
-    seccionProtocolo: 'Nivel 2',
-  },
-  {
     id: CategoriaRegla.GlorySchema,
     nombre: 'Glory Schema & Seguridad',
     descripcion: 'Enforcement del Schema System (Cols/Enums), repository pattern, INTERVAL seguro, redirects',

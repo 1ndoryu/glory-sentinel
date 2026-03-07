@@ -23,16 +23,6 @@ export interface ReglaEstatica {
   quickFixId?: string;
 }
 
-/* Regla semantica que requiere analisis IA */
-export interface ReglaSemantica {
-  id: string;
-  nombre: string;
-  descripcion: string;
-  promptResumido: string;
-  severidad: SeveridadRegla;
-  aplicaA: string[];
-  categoria: CategoriaRegla;
-}
 
 /* Categorias de reglas segun secciones del protocolo */
 export enum CategoriaRegla {
@@ -42,7 +32,6 @@ export enum CategoriaRegla {
   WordPressPhp = 'wordpress-php',
   SeguridadSql = 'seguridad-sql',
   ReactPatrones = 'react-patrones',
-  SemanticaIA = 'semantica-ia',
   GlorySchema = 'glory-schema',
 }
 
@@ -57,57 +46,23 @@ export interface Violacion {
   columnaFin?: number;
   sugerencia?: string;
   quickFixId?: string;
-  fuente: 'estatico' | 'ia';
-}
-
-/* Resultado del analisis IA (lo que devuelve el modelo) */
-export interface RespuestaIA {
-  violaciones: ViolacionIA[];
-}
-
-export interface ViolacionIA {
-  linea: number;
-  lineaFin?: number;
-  regla: string;
-  severidad: SeveridadRegla;
-  mensaje: string;
-  sugerencia?: string;
+  fuente: 'estatico';
 }
 
 /* Estado de un archivo en cache para el debounce */
 export interface EstadoArchivo {
   hash: string;
   ultimoAnalisisEstatico: number;
-  ultimoAnalisisIA: number;
   timerEstatico: ReturnType<typeof setTimeout> | null;
-  timerIA: ReturnType<typeof setTimeout> | null;
   resultadosEstaticos: vscode.Diagnostic[];
-  resultadosIA: vscode.Diagnostic[];
 }
 
 /* Configuracion cargada desde settings.json */
 export interface ConfiguracionSentinel {
   staticAnalysisEnabled: boolean;
-  aiAnalysisEnabled: boolean;
-  aiModelFamily: string;
-  /* 'copilot' | 'gemini-cli' */
-  aiBackend: string;
-  geminiModel: string;
   timing: {
     staticDebounceMs: number;
-    aiDelayOnOpenMs: number;
-    aiDelayOnEditMs: number;
-    aiCooldownMs: number;
-    aiTimeoutMs: number;
   };
-  limits: {
-    maxAiRequestsPerMinute: number;
-    maxFileSizeForAiKb: number;
-  };
-  rulesFile: string;
-  rulesFiles: string[];
-  /* Contenido combinado de los archivos de reglas del usuario (se carga async) */
-  customRulesContent: string;
   exclude: string[];
   languages: string[];
 }

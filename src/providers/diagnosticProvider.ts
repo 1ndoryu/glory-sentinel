@@ -10,24 +10,20 @@ import { analizarEstatico } from '../analyzers/staticAnalyzer';
 import { analizarPhp } from '../analyzers/phpAnalyzer';
 import { analizarReact } from '../analyzers/reactAnalyzer';
 import { analizarGlory } from '../analyzers/gloryAnalyzer';
-import { analizarConIA, invalidarCacheModelo, OpcionesIA } from '../analyzers/aiAnalyzer';
 import { guardarEnCache, obtenerDelCache, limpiarCacheCompleto } from '../services/cacheService';
 import { logInfo, logWarn } from '../utils/logger';
 import {
   programarAnalisisEstatico,
-  programarAnalisisIA,
   registrarCallbacks,
   limpiarEstado,
   limpiarTodo,
   actualizarResultados,
 } from '../services/debounceService';
-import { cargarConfiguracion, debeExcluirse, lenguajeHabilitado, cargarReglasCustom, invalidarCacheReglas } from '../services/ruleLoader';
+import { cargarConfiguracion, debeExcluirse, lenguajeHabilitado, invalidarCacheReglas } from '../services/ruleLoader';
 import { generarReporteWorkspace } from './reportGenerator';
 
-/* Nombre que aparece en el panel Problems como fuente.
- * IA usa sufijo para distinguir diagnosticos sin heuristicas fragiles. */
+/* Nombre que aparece en el panel Problems como fuente */
 const FUENTE_ESTATICO = 'Code Sentinel';
-const FUENTE_IA = 'Code Sentinel [IA]';
 
 /* DiagnosticCollection global de la extension */
 let coleccionDiagnosticos: vscode.DiagnosticCollection;
@@ -45,18 +41,9 @@ export function inicializarDiagnosticProvider(
 
   configuracion = cargarConfiguracion();
 
-  /* Cargar reglas custom del usuario desde los archivos configurados */
-  cargarReglasCustom(configuracion.rulesFiles).then(contenido => {
-    configuracion.customRulesContent = contenido;
-    if (contenido.length > 0) {
-      logInfo(`Reglas custom inyectadas en prompts IA (${Math.round(contenido.length / 1024)}KB).`);
-    }
-  });
-
   /* Registrar callbacks para el servicio de debounce */
   registrarCallbacks(
-    (uri) => ejecutarAnalisisEstatico(uri),
-    (uri) => ejecutarAnalisisIA(uri)
+    (uri) => ejecutarAnalisisEstatico(uri)
   );
 
   /* Listeners de eventos del editor.
@@ -81,7 +68,6 @@ export function inicializarDiagnosticProvider(
   for (const doc of docsVisibles) {
     if (documentoEsValido(doc)) {
       ejecutarAnalisisEstatico(doc.uri);
-      programarAnalisisIA(doc.uri, configuracion, configuracion.timing.aiDelayOnOpenMs);
     }
   }
 
@@ -97,9 +83,9 @@ function ejecutarAnalisisEstatico(uri: vscode.Uri): void {
 
   /* Verificar cache */
   const contenido = doc.getText();
-  const cacheado = obtenerDelCache(uri, contenido, 'estatico');
+  const cacheado = obtenerDelCache(uri, contenido);
   if (cacheado) {
-    publicarDiagnosticos(uri, cacheado, 'estatico');
+    publicarDiagnosticos(uri, cacheado);
     return;
   }
 
@@ -121,84 +107,8 @@ function ejecutarAnalisisEstatico(uri: vscode.Uri): void {
   const diagnosticos = violaciones.map(v => crearDiagnostico(doc, v));
 
   /* Guardar en cache y publicar */
-  guardarEnCache(uri, contenido, 'estatico', diagnosticos);
-  publicarDiagnosticos(uri, diagnosticos, 'estatico');
-}
-
-/* Ejecuta analisis IA para un archivo */
-async function ejecutarAnalisisIA(uri: vscode.Uri): Promise<void> {
-  const nombreArchivo = uri.fsPath.split(/[\\/]/).pop() ?? uri.fsPath;
-  const doc = vscode.workspace.textDocuments.find(d => d.uri.toString() === uri.toString());
-
-  if (!doc) {
-    logWarn(`IA [${nombreArchivo}]: documento no encontrado en textDocuments.`);
-    return;
-  }
-  if (!documentoEsValido(doc)) {
-    logInfo(`IA [${nombreArchivo}]: excluido por validacion (idioma/ruta no habilitado).`);
-    return;
-  }
-
-  /* Verificar tamano del archivo */
-  const contenido = doc.getText();
-  const tamanoKb = Math.round(contenido.length / 1024);
-  if (contenido.length > configuracion.limits.maxFileSizeForAiKb * 1024) {
-    logWarn(`IA [${nombreArchivo}]: archivo demasiado grande (${tamanoKb}KB > ${configuracion.limits.maxFileSizeForAiKb}KB). Omitido.`);
-    return;
-  }
-
-  /* Verificar cache IA — usar !== null porque [] (sin violaciones) es truthy y causaria falso hit */
-  const cacheado = obtenerDelCache(uri, contenido, 'ia');
-  if (cacheado !== null) {
-    logInfo(`IA [${nombreArchivo}]: resultado en cache, omitiendo request.`);
-    publicarDiagnosticos(uri, cacheado, 'ia');
-    return;
-  }
-
-  const modeloInfo = configuracion.aiBackend === 'gemini-cli'
-    ? `Gemini CLI: ${configuracion.geminiModel}`
-    : configuracion.aiModelFamily;
-  logInfo(`IA [${nombreArchivo}]: iniciando analisis (${tamanoKb}KB, modelo: ${modeloInfo})...`);
-
-  /* Opciones de backend para pasar al analyzer */
-  const opcionesGemini: OpcionesIA = {
-    aiBackend: configuracion.aiBackend,
-    geminiModel: configuracion.geminiModel,
-  };
-
-  /* Mostrar indicador de progreso */
-  const violacionesIA = await vscode.window.withProgress(
-    {
-      location: vscode.ProgressLocation.Window,
-      title: `Code Sentinel: Analizando ${nombreArchivo}...`,
-    },
-    async () => {
-      return await analizarConIA(
-        doc,
-        configuracion.aiModelFamily,
-        configuracion.timing.aiTimeoutMs,
-        undefined,
-        configuracion.customRulesContent,
-        opcionesGemini
-      );
-    }
-  );
-
-  /* null = la IA fallo (timeout, error de red, modelo no disponible).
-   * NO cachear para que se reintente en el proximo ciclo */
-  if (violacionesIA === null) {
-    logWarn(`IA [${nombreArchivo}]: analisis fallido (no se cachea, se reintentara).`);
-    return;
-  }
-
-  /* Cachear resultado exitoso (incluso array vacio = sin violaciones) */
-  const diagnosticosIA = violacionesIA.map(v => crearDiagnostico(doc, v));
-  guardarEnCache(uri, contenido, 'ia', diagnosticosIA);
-  if (diagnosticosIA.length > 0) {
-    publicarDiagnosticos(uri, diagnosticosIA, 'ia');
-  } else {
-    logInfo(`IA [${nombreArchivo}]: resultado guardado en cache (0 violaciones).`);
-  }
+  guardarEnCache(uri, contenido, diagnosticos);
+  publicarDiagnosticos(uri, diagnosticos);
 }
 
 /* Crea un diagnostico VS Code a partir de una violacion */
@@ -217,7 +127,7 @@ function crearDiagnostico(doc: vscode.TextDocument, violacion: Violacion): vscod
   const severidad = severidadADiagnostic(violacion.severidad);
 
   const diagnostico = new vscode.Diagnostic(rango, violacion.mensaje, severidad);
-  diagnostico.source = violacion.fuente === 'ia' ? FUENTE_IA : FUENTE_ESTATICO;
+  diagnostico.source = FUENTE_ESTATICO;
   diagnostico.code = violacion.reglaId;
 
   if (violacion.sugerencia) {
@@ -227,28 +137,13 @@ function crearDiagnostico(doc: vscode.TextDocument, violacion: Violacion): vscod
   return diagnostico;
 }
 
-/*
- * Publica diagnosticos, haciendo merge de estaticos e IA sin duplicar.
- * Usa el campo source del diagnostic para distinguir origen
- * (FUENTE_ESTATICO vs FUENTE_IA) en vez de heuristicas fragiles.
- */
+/* Publica diagnosticos en la coleccion de VS Code */
 function publicarDiagnosticos(
   uri: vscode.Uri,
-  nuevosDiagnosticos: vscode.Diagnostic[],
-  tipo: 'estatico' | 'ia'
+  nuevosDiagnosticos: vscode.Diagnostic[]
 ): void {
-  actualizarResultados(uri, tipo, nuevosDiagnosticos);
-
-  /* Mantener diagnosticos del otro tipo y reemplazar los del tipo actual */
-  const diagnosticosExistentes = coleccionDiagnosticos.get(uri) || [];
-  const fuenteOtra = tipo === 'estatico' ? FUENTE_IA : FUENTE_ESTATICO;
-
-  const delOtroTipo = (diagnosticosExistentes as vscode.Diagnostic[]).filter(
-    d => d.source === fuenteOtra
-  );
-
-  const merged = [...delOtroTipo, ...nuevosDiagnosticos];
-  coleccionDiagnosticos.set(uri, merged);
+  actualizarResultados(uri, nuevosDiagnosticos);
+  coleccionDiagnosticos.set(uri, nuevosDiagnosticos);
 }
 
 /* Verifica si un documento es valido para analisis */
@@ -299,11 +194,6 @@ function alCambiarEditoresVisibles(editors: readonly vscode.TextEditor[]): void 
 
     /* Analisis estatico inmediato */
     ejecutarAnalisisEstatico(doc.uri);
-
-    /* Programar analisis IA con delay corto para archivos visibles */
-    if (configuracion.aiAnalysisEnabled) {
-      programarAnalisisIA(doc.uri, configuracion, configuracion.timing.aiDelayOnOpenMs);
-    }
   }
 }
 
@@ -316,11 +206,6 @@ function alCambiarDocumento(event: vscode.TextDocumentChangeEvent): void {
   if (configuracion.staticAnalysisEnabled) {
     programarAnalisisEstatico(event.document.uri, configuracion);
   }
-
-  /* Reprogramar analisis IA con delay de edicion */
-  if (configuracion.aiAnalysisEnabled) {
-    programarAnalisisIA(event.document.uri, configuracion);
-  }
 }
 
 function alCerrarDocumento(doc: vscode.TextDocument): void {
@@ -331,23 +216,13 @@ function alCerrarDocumento(doc: vscode.TextDocument): void {
 
 function alCambiarConfiguracion(): void {
   configuracion = cargarConfiguracion();
-  invalidarCacheModelo();
   invalidarCacheReglas();
   limpiarCacheCompleto();
-
-  /* Recargar reglas custom del usuario */
-  cargarReglasCustom(configuracion.rulesFiles).then(contenido => {
-    configuracion.customRulesContent = contenido;
-  });
 
   /* Re-analizar documentos abiertos con nueva configuracion */
   for (const doc of vscode.workspace.textDocuments) {
     if (documentoEsValido(doc)) {
       ejecutarAnalisisEstatico(doc.uri);
-      /* Re-agendar IA con la nueva configuracion (ej: delay cambiado) */
-      if (configuracion.aiAnalysisEnabled) {
-        programarAnalisisIA(doc.uri, configuracion, configuracion.timing.aiDelayOnOpenMs);
-      }
     }
   }
 }
@@ -355,7 +230,6 @@ function alCambiarConfiguracion(): void {
 /* Expone funciones para los comandos de la extension */
 export function forzarAnalisisArchivo(uri: vscode.Uri): void {
   ejecutarAnalisisEstatico(uri);
-  ejecutarAnalisisIA(uri);
 }
 
 export async function analizarWorkspace(): Promise<void> {

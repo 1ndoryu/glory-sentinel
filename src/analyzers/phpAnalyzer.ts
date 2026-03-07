@@ -7,17 +7,23 @@ import * as vscode from 'vscode';
 import { Violacion } from '../types';
 import { reglaHabilitada } from '../config/ruleRegistry';
 
-import { verificarControllerSinTryCatch } from './php/phpControllerRules';
+import { verificarControllerSinTryCatch, verificarLockSinFinally, verificarCatchCriticoSoloLog } from './php/phpControllerRules';
 import {
   verificarWpdbSinPrepareContextual,
   verificarRequestJsonDirecto,
   verificarJsonDecodeInseguro,
+  verificarToctouSelectInsert,
+  verificarCadenaIssetUpdate,
+  verificarQueryDobleVerificacion,
+  verificarJsonSinLimiteBd,
+  verificarRetornoIgnoradoRepo,
 } from './php/phpDataRules';
 import {
   verificarExecSinEscape,
   verificarCurlSinVerificacion,
   verificarArchivosTemporalesSinFinally,
   verificarSanitizacionFaltante,
+  verificarMimeTypeCliente,
 } from './php/phpSecurityRules';
 
 /*
@@ -51,6 +57,32 @@ export function analizarPhp(documento: vscode.TextDocument): Violacion[] {
   }
   if (reglaHabilitada('sanitizacion-faltante')) {
     violaciones.push(...verificarSanitizacionFaltante(lineas));
+  }
+
+  /* Sprint 8: Nuevas reglas PHP */
+  if (reglaHabilitada('lock-sin-finally')) {
+    violaciones.push(...verificarLockSinFinally(lineas));
+  }
+  if (reglaHabilitada('catch-critico-solo-log')) {
+    violaciones.push(...verificarCatchCriticoSoloLog(lineas));
+  }
+  if (reglaHabilitada('toctou-select-insert')) {
+    violaciones.push(...verificarToctouSelectInsert(lineas));
+  }
+  if (reglaHabilitada('cadena-isset-update')) {
+    violaciones.push(...verificarCadenaIssetUpdate(lineas));
+  }
+  if (reglaHabilitada('query-doble-verificacion')) {
+    violaciones.push(...verificarQueryDobleVerificacion(lineas));
+  }
+  if (reglaHabilitada('json-sin-limite-bd')) {
+    violaciones.push(...verificarJsonSinLimiteBd(lineas));
+  }
+  if (reglaHabilitada('retorno-ignorado-repo')) {
+    violaciones.push(...verificarRetornoIgnoradoRepo(lineas));
+  }
+  if (reglaHabilitada('mime-type-cliente')) {
+    violaciones.push(...verificarMimeTypeCliente(lineas));
   }
 
   return violaciones;

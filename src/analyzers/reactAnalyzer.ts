@@ -17,6 +17,7 @@ import {
   verificarUseEffectDepInestable,
   verificarZustandSinSelector,
   verificarZustandObjetoSelector,
+  verificarListenSinCleanup,
 } from './react/reactHookRules';
 import {
   verificarConsoleEnCatch,
@@ -24,6 +25,8 @@ import {
   verificarPromiseSinCatch,
   verificarFalloSinFeedback,
   verificarFetchSinTimeout,
+  verificarStatusHttpGenerico,
+  verificarHandlerSinTryCatch,
 } from './react/reactErrorRules';
 import {
   verificarMutacionDirectaEstado,
@@ -32,6 +35,8 @@ import {
   verificarHtmlNativoEnVezDeComponente,
   verificarComponenteArtesanal,
   verificarUpdateOptimistaSinRollback,
+  verificarColaSinLimite,
+  verificarObjetoMutableExportado,
 } from './react/reactComponentRules';
 
 /*
@@ -52,6 +57,9 @@ export function analizarReact(documento: vscode.TextDocument): Violacion[] {
 
   /* Determinar si el archivo pertenece a Glory/ (muchas reglas lo excluyen) */
   const enGlory = esRutaGlory(documento.fileName);
+
+  /* desktop/ tiene sus propios componentes, no comparte componentes UI de la webapp */
+  const enDesktop = documento.fileName.replace(/\\/g, '/').includes('/desktop/');
 
   /* Sprint 1  Hooks */
   if (reglaHabilitada('useeffect-sin-cleanup')) {
@@ -78,8 +86,8 @@ export function analizarReact(documento: vscode.TextDocument): Violacion[] {
     violaciones.push(...verificarUseEffectDepInestable(lineas));
   }
 
-  /* Reglas que excluyen Glory/  usan guard centralizado */
-  if (!enGlory) {
+  /* Reglas que excluyen Glory/ y desktop/ — usan guard centralizado */
+  if (!enGlory && !enDesktop) {
     if (reglaHabilitada('key-index-lista')) {
       violaciones.push(...verificarKeyIndexLista(lineas));
     }
@@ -104,6 +112,23 @@ export function analizarReact(documento: vscode.TextDocument): Violacion[] {
     if (reglaHabilitada('fetch-sin-timeout')) {
       violaciones.push(...verificarFetchSinTimeout(lineas, nombreArchivo));
     }
+    if (reglaHabilitada('handler-sin-trycatch')) {
+      violaciones.push(...verificarHandlerSinTryCatch(lineas));
+    }
+    if (reglaHabilitada('cola-sin-limite')) {
+      violaciones.push(...verificarColaSinLimite(lineas));
+    }
+    if (reglaHabilitada('objeto-mutable-exportado')) {
+      violaciones.push(...verificarObjetoMutableExportado(lineas));
+    }
+  }
+
+  /* Reglas globales (no excluyen Glory) */
+  if (reglaHabilitada('listen-sin-cleanup')) {
+    violaciones.push(...verificarListenSinCleanup(lineas));
+  }
+  if (reglaHabilitada('status-http-generico')) {
+    violaciones.push(...verificarStatusHttpGenerico(lineas));
   }
 
   return violaciones;

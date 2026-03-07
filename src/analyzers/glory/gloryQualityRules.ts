@@ -49,6 +49,12 @@ export function verificarReturnVoidCritico(texto: string, lineas: string[]): Vio
     const tieneEscritura = /\b(INSERT|UPDATE|DELETE|ALTER\s+TABLE|CREATE\s+TABLE|DROP\s+TABLE|TRUNCATE|->insertar\(|->actualizar\(|->eliminar\(|->insert\(|->update\(|->delete\(|->query\(.*(?:INSERT|UPDATE|DELETE|ALTER|CREATE|DROP))/i.test(cuerpo);
 
     if (tieneEscritura) {
+      /* Si el metodo no tiene `: void` explicito, verificar si tiene return con valor */
+      if (returnType === null) {
+        const tieneReturnConValor = /\breturn\s+[^;]+;/.test(cuerpo);
+        if (tieneReturnConValor) { continue; }
+      }
+
       const tipoActual = returnType === 'void' ? 'void' : 'sin return type';
       violaciones.push({
         reglaId: 'return-void-critico',

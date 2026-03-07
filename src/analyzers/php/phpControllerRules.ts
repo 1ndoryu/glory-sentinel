@@ -5,7 +5,7 @@
 
 import {Violacion} from '../../types';
 import {obtenerSeveridadRegla} from '../../config/ruleRegistry';
-import {esComentario} from '../../utils/analisisHelpers';
+import {esComentario, tieneSentinelDisable} from '../../utils/analisisHelpers';
 
 /*
  * Detecta metodos publicos de controllers sin try-catch global.
@@ -156,4 +156,105 @@ function esRetornoConstante(lineas: string[], inicio: number, fin: number): bool
         }
     }
     return !tieneIO;
+}
+
+/*
+ * Detecta advisory lock / flock sin bloque finally para garantizar liberacion.
+ * Un lock sin finally produce lock huerfano si el codigo intermedio lanza excepcion.
+ */
+export function verificarLockSinFinally(lineas: string[]): Violacion[] {
+    const violaciones: Violacion[] = [];
+
+    for (let i = 0; i < lineas.length; i++) {
+        if (tieneSentinelDisable(lineas, i, 'lock-sin-finally')) { continue; }
+
+        if (!/advisory[Ll]ock|pg_advisory_lock|\bflock\s*\(/.test(lineas[i])) {
+            continue;
+        }
+
+        /* Buscar finally con unlock en las siguientes 150 lineas (scope del metodo) */
+        const ventana = lineas.slice(i, Math.min(lineas.length, i + 150)).join('\n');
+        const tieneFinally = /finally\s*\{[^}]*(?:advisory[Uu]nlock|pg_advisory_unlock|fclose|flock)/s.test(ventana);
+
+        if (!tieneFinally) {
+            violaciones.push({
+                reglaId: 'lock-sin-finally',
+                mensaje: 'Advisory lock / flock sin bloque finally para liberacion. Riesgo de lock huerfano si hay excepcion.',
+                severidad: obtenerSeveridadRegla('lock-sin-finally'),
+                linea: i,
+                fuente: 'estatico',
+            });
+        }
+    }
+
+    return violaciones;
+}
+
+/*
+ * Detecta catch en metodos criticos (revenue/pago/transaccion) que solo logea sin re-throw.
+ * Un fallo silencioso en operaciones financieras causa perdida de datos sin alerta.
+ */
+export function verificarCatchCriticoSoloLog(lineas: string[]): Violacion[] {
+    const violaciones: Violacion[] = [];
+    const patronMetodoCritico = /function\s+\w*(revenue|pago|transaccion|cobro|factur|monetiz|comision|ingreso)/i;
+
+    let dentroDeMetodoCritico = false;
+    let profundidadMetodo = 0;
+    let lineaMetodo = 0;
+
+    for (let i = 0; i < lineas.length; i++) {
+        const linea = lineas[i].trim();
+
+        if (patronMetodoCritico.test(linea)) {
+            dentroDeMetodoCritico = true;
+            profundidadMetodo = 0;
+            lineaMetodo = i;
+        }
+
+        if (dentroDeMetodoCritico) {
+            for (const c of lineas[i]) {
+                if (c === '{') { profundidadMetodo++; }
+                if (c === '}') { profundidadMetodo--; }
+            }
+
+            if (profundidadMetodo <= 0 && i > lineaMetodo) {
+                dentroDeMetodoCritico = false;
+                continue;
+            }
+
+            /* Detectar catch dentro del metodo critico */
+            if (/\bcatch\s*\(/.test(linea)) {
+                if (tieneSentinelDisable(lineas, i, 'catch-critico-solo-log')) { continue; }
+
+                /* Examinar cuerpo del catch (hasta cierre de llave) */
+                let cuerpoCatch = '';
+                let llavesCatch = 0;
+                for (let j = i; j < Math.min(lineas.length, i + 30); j++) {
+                    cuerpoCatch += lineas[j] + '\n';
+                    for (const c of lineas[j]) {
+                        if (c === '{') { llavesCatch++; }
+                        if (c === '}') { llavesCatch--; }
+                    }
+                    if (llavesCatch <= 0 && j > i) { break; }
+                }
+
+                const soloLogea = /\b(log|Logger|error_log|logError|logWarn)\b/i.test(cuerpoCatch);
+                const reThrow = /\bthrow\b/.test(cuerpoCatch);
+                const returnError = /\breturn\s+(false|null|\$|new\s+\\?WP_Error|new\s+\\?WP_REST_Response\(.*[45]\d{2})/i.test(cuerpoCatch);
+
+                if (soloLogea && !reThrow && !returnError) {
+                    violaciones.push({
+                        reglaId: 'catch-critico-solo-log',
+                        mensaje: 'Catch en metodo critico (financiero) solo logea sin re-throw ni return de error. Fallo silencioso en operacion financiera.',
+                        severidad: obtenerSeveridadRegla('catch-critico-solo-log'),
+                        linea: i,
+                        fuente: 'estatico',
+                        sugerencia: 'Re-lanzar excepcion o retornar false/WP_Error para que el caller pueda reaccionar.',
+                    });
+                }
+            }
+        }
+    }
+
+    return violaciones;
 }

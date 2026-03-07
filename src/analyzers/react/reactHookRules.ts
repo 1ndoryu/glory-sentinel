@@ -177,3 +177,78 @@ export function verificarZustandObjetoSelector(lineas: string[]): Violacion[] {
 
   return violaciones;
 }
+
+/*
+ * Detecta listen() de Tauri o addEventListener() cuyo retorno (unlisten)
+ * no se almacena en variable y no aparece en cleanup/dispose del mismo scope.
+ * Causa memory leak por listeners acumulados.
+ */
+export function verificarListenSinCleanup(lineas: string[]): Violacion[] {
+  const violaciones: Violacion[] = [];
+  const patronListen = /(?:\blisten\s*[<(]|\baddEventListener\s*\()/;
+
+  for (let i = 0; i < lineas.length; i++) {
+    if (tieneSentinelDisable(lineas, i, 'listen-sin-cleanup')) { continue; }
+    if (!patronListen.test(lineas[i])) { continue; }
+    if (esComentario(lineas[i])) { continue; }
+
+    const linea = lineas[i].trim();
+
+    /* Si el retorno se captura en variable, verificar que se usa en cleanup */
+    const matchCaptura = /(?:const|let)\s+(\w+)\s*=\s*(?:await\s+)?(?:listen|addEventListener)/.exec(linea);
+
+    if (matchCaptura) {
+      /* Verificar que la variable se usa en un cleanup/dispose/return en las siguientes 100 lineas */
+      const varNombre = matchCaptura[1];
+      let tieneCleanup = false;
+      for (let j = i + 1; j < Math.min(lineas.length, i + 100); j++) {
+        if (new RegExp(`\\b${varNombre}\\b`).test(lineas[j]) &&
+            /return|cleanup|dispose|detener|unlisten|remove/i.test(lineas[j])) {
+          tieneCleanup = true;
+          break;
+        }
+      }
+      if (!tieneCleanup) {
+        violaciones.push({
+          reglaId: 'listen-sin-cleanup',
+          mensaje: `listen() capturado en '${varNombre}' pero no se usa en cleanup/dispose. Memory leak por listener acumulado.`,
+          severidad: obtenerSeveridadRegla('listen-sin-cleanup'),
+          linea: i,
+          fuente: 'estatico',
+          sugerencia: 'Llamar unlisten/removeEventListener en el return de useEffect o funcion de dispose.',
+        });
+      }
+      continue;
+    }
+
+    /* Si no se captura el retorno, es mas probable que sea leak */
+    const esCallbackDiretoSinCaptura = /^\s*(?:await\s+)?(?:listen|addEventListener)\s*[<(]/.test(linea);
+    if (esCallbackDiretoSinCaptura) {
+      /* Excepciones: si esta dentro de useEffect que tiene cleanup, lo ignoramos */
+      let dentroDeUseEffectConCleanup = false;
+      for (let j = Math.max(0, i - 10); j < i; j++) {
+        if (/useEffect\s*\(/.test(lineas[j])) {
+          for (let k = i; k < Math.min(lineas.length, i + 50); k++) {
+            if (/return\s*\(\s*\)\s*=>|return\s+function/.test(lineas[k])) {
+              dentroDeUseEffectConCleanup = true;
+              break;
+            }
+          }
+          break;
+        }
+      }
+
+      if (!dentroDeUseEffectConCleanup) {
+        violaciones.push({
+          reglaId: 'listen-sin-cleanup',
+          mensaje: 'listen()/addEventListener() sin capturar retorno para cleanup. Memory leak por listener.',
+          severidad: obtenerSeveridadRegla('listen-sin-cleanup'),
+          linea: i,
+          fuente: 'estatico',
+        });
+      }
+    }
+  }
+
+  return violaciones;
+}

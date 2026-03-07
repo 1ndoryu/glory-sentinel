@@ -1,5 +1,5 @@
 /*
- * Servicio de cache para resultados de analisis.
+ * Servicio de cache para resultados de analisis estatico.
  * Cachea resultados por hash del contenido del archivo
  * para evitar re-analisis innecesarios.
  */
@@ -9,10 +9,7 @@ import { calcularHash } from '../utils/analisisHelpers';
 
 interface EntradaCache {
   hash: string;
-  diagnosticosEstaticos: vscode.Diagnostic[];
-  diagnosticosIA: vscode.Diagnostic[];
-  /* Distingue "IA nunca ejecutada" de "IA ejecutada y sin violaciones" */
-  iaAnalizado: boolean;
+  diagnosticos: vscode.Diagnostic[];
   timestamp: number;
 }
 
@@ -31,8 +28,7 @@ const MAX_ENTRADAS = 100;
  */
 export function obtenerDelCache(
   uri: vscode.Uri,
-  contenido: string,
-  tipo: 'estatico' | 'ia'
+  contenido: string
 ): vscode.Diagnostic[] | null {
   const key = uri.toString();
   const entrada = cache.get(key);
@@ -54,14 +50,7 @@ export function obtenerDelCache(
     return null;
   }
 
-  /* Para IA: retornar null si nunca se ejecuto (no confundir con "sin violaciones") */
-  if (tipo === 'ia' && !entrada.iaAnalizado) {
-    return null;
-  }
-
-  return tipo === 'estatico'
-    ? entrada.diagnosticosEstaticos
-    : entrada.diagnosticosIA;
+  return entrada.diagnosticos;
 }
 
 /*
@@ -70,31 +59,16 @@ export function obtenerDelCache(
 export function guardarEnCache(
   uri: vscode.Uri,
   contenido: string,
-  tipo: 'estatico' | 'ia',
   diagnosticos: vscode.Diagnostic[]
 ): void {
   const key = uri.toString();
   const hash = calcularHash(contenido);
 
-  const entrada = cache.get(key) || {
+  cache.set(key, {
     hash,
-    diagnosticosEstaticos: [],
-    diagnosticosIA: [],
-    iaAnalizado: false,
+    diagnosticos,
     timestamp: Date.now(),
-  };
-
-  entrada.hash = hash;
-  entrada.timestamp = Date.now();
-
-  if (tipo === 'estatico') {
-    entrada.diagnosticosEstaticos = diagnosticos;
-  } else {
-    entrada.diagnosticosIA = diagnosticos;
-    entrada.iaAnalizado = true;
-  }
-
-  cache.set(key, entrada);
+  });
 
   /* Evitar que el cache crezca indefinidamente */
   if (cache.size > MAX_ENTRADAS) {

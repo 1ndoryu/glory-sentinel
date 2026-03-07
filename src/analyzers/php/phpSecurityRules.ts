@@ -5,6 +5,7 @@
 
 import { Violacion } from '../../types';
 import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
+import { tieneSentinelDisable } from '../../utils/analisisHelpers';
 
 /*
  * Detecta exec()/shell_exec() sin escapeshellarg().
@@ -295,4 +296,41 @@ function esUsadoSoloEnExistencia(linea: string, superGlobal: string): boolean {
   const ocurrenciasSeguras = (linea.match(dentroIsset) || []).length;
 
   return ocurrenciasSeguras >= totalOcurrencias;
+}
+
+/*
+ * Detecta uso de MIME type del cliente ($_FILES['...']['type'], $archivo['type'])
+ * en validacion sin verificacion server-side (mime_content_type / finfo_file).
+ * El MIME del cliente es spoofeable trivialmente.
+ */
+export function verificarMimeTypeCliente(lineas: string[]): Violacion[] {
+    const violaciones: Violacion[] = [];
+    const patronMimeCliente = /\$(?:_FILES\s*\[\s*['"][^'"]+['"]\s*\]\s*\[\s*['"]type['"]\s*\]|(?:archivo|file|upload)\w*\s*\[\s*['"]type['"]\s*\])/;
+
+    for (let i = 0; i < lineas.length; i++) {
+        if (tieneSentinelDisable(lineas, i, 'mime-type-cliente')) { continue; }
+        if (!patronMimeCliente.test(lineas[i])) { continue; }
+
+        /* Buscar mime_content_type o finfo_ en el mismo metodo (+-50 lineas) */
+        let tieneVerificacionServer = false;
+        for (let j = Math.max(0, i - 30); j < Math.min(lineas.length, i + 50); j++) {
+            if (/\b(mime_content_type|finfo_file|finfo_open|wp_check_filetype_and_ext|wp_check_filetype)\b/.test(lineas[j])) {
+                tieneVerificacionServer = true;
+                break;
+            }
+        }
+
+        if (!tieneVerificacionServer) {
+            violaciones.push({
+                reglaId: 'mime-type-cliente',
+                mensaje: 'Validacion MIME usa tipo reportado por el cliente. Spoofeable. Usar mime_content_type() o finfo_file().',
+                severidad: obtenerSeveridadRegla('mime-type-cliente'),
+                linea: i,
+                fuente: 'estatico',
+                sugerencia: 'Reemplazar con wp_check_filetype_and_ext() o finfo_file(finfo_open(FILEINFO_MIME_TYPE), $path).',
+            });
+        }
+    }
+
+    return violaciones;
 }

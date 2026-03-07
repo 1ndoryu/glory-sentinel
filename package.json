@@ -1,7 +1,7 @@
 {
   "name": "glory-sentinel",
   "displayName": "Glory Sentinel",
-  "description": "Analiza automaticamente el codigo del workspace con reglas estaticas y analisis IA para detectar problemas de arquitectura, seguridad y calidad.",
+  "description": "Analiza automaticamente el codigo del workspace con reglas estaticas para detectar problemas de arquitectura, seguridad y calidad.",
   "version": "0.1.0",
   "publisher": "1ndoryu",
   "icon": "media/7599515f2b8981a49a057e0e9a75b8b6.jpg",
@@ -40,10 +40,6 @@
         "title": "Glory Sentinel: Limpiar Diagnosticos"
       },
       {
-        "command": "codeSentinel.toggleAI",
-        "title": "Glory Sentinel: Activar/Desactivar IA"
-      },
-      {
         "command": "codeSentinel.showRulesSummary",
         "title": "Glory Sentinel: Ver Resumen de Reglas"
       },
@@ -60,79 +56,10 @@
           "default": true,
           "description": "Habilitar analisis estatico (regex/conteo)"
         },
-        "codeSentinel.aiAnalysis.enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Habilitar analisis con IA (vscode.lm)"
-        },
-        "codeSentinel.ai.modelFamily": {
-          "type": "string",
-          "default": "gpt-5-mini",
-          "description": "Familia del modelo de IA a usar (para vscode.lm API)"
-        },
-        "codeSentinel.ai.backend": {
-          "type": "string",
-          "default": "copilot",
-          "enum": [
-            "copilot",
-            "gemini-cli"
-          ],
-          "enumDescriptions": [
-            "Usar GitHub Copilot (vscode.lm API) como backend de IA",
-            "Usar Gemini CLI instalado localmente como backend de IA"
-          ],
-          "description": "Backend de IA a usar para el analisis semantico"
-        },
-        "codeSentinel.ai.geminiModel": {
-          "type": "string",
-          "default": "flash-min",
-          "description": "Modelo o alias de Gemini a usar con Gemini CLI. Recomendado: flash-min (alias local con thinkingLevel minimal). Ejemplos: flash-min, gemini-3-flash-preview, gemini-3-pro-preview, gemini-2.5-flash"
-        },
         "codeSentinel.timing.staticDebounce": {
           "type": "number",
           "default": 1,
           "description": "Debounce en segundos para analisis estatico al editar"
-        },
-        "codeSentinel.timing.aiDelayOnOpen": {
-          "type": "number",
-          "default": 5,
-          "description": "Delay en segundos para analisis IA al abrir/ver un archivo"
-        },
-        "codeSentinel.timing.aiDelayOnEdit": {
-          "type": "number",
-          "default": 30,
-          "description": "Delay en segundos para analisis IA al editar"
-        },
-        "codeSentinel.timing.aiCooldown": {
-          "type": "number",
-          "default": 300,
-          "description": "Cooldown en segundos tras analisis IA exitoso"
-        },
-        "codeSentinel.timing.aiTimeout": {
-          "type": "number",
-          "default": 45,
-          "description": "Timeout en segundos para request IA"
-        },
-        "codeSentinel.limits.maxAiRequestsPerMinute": {
-          "type": "number",
-          "default": 10,
-          "description": "Maximo de requests IA por minuto"
-        },
-        "codeSentinel.limits.maxFileSizeForAiKb": {
-          "type": "number",
-          "default": 100,
-          "description": "Tamano maximo de archivo en KB para analisis IA"
-        },
-        "codeSentinel.rulesFile": {
-          "type": "string",
-          "default": ".github/instructions/test.instructions.md",
-          "description": "Path relativo al workspace del archivo de reglas principal (backward compat)"
-        },
-        "codeSentinel.rulesFiles": {
-          "type": "array",
-          "items": { "type": "string" },
-          "default": [],
-          "description": "Array de paths relativos al workspace de archivos de reglas adicionales. Se combinan con rulesFile."
         },
         "codeSentinel.rules": {
           "type": "object",
@@ -154,7 +81,9 @@
             "**/out/**",
             "**/.vitepress/cache/**",
             "**/build/**",
-            "**/.agent/code-sentinel/**"
+            "**/.agent/**",
+            "**/target/**",
+            "**/scripts/**"
           ],
           "description": "Globs de exclusion para analisis"
         },

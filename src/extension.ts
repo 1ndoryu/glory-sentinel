@@ -13,7 +13,7 @@ import {
   obtenerColeccionDiagnosticos,
 } from './providers/diagnosticProvider';
 import { SentinelCodeActionProvider } from './providers/codeActionProvider';
-import { cargarConfiguracion, verificarArchivosReglas } from './services/ruleLoader';
+import { cargarConfiguracion } from './services/ruleLoader';
 import { categoriasRegla } from './config/ruleCategories';
 import { obtenerTodasLasReglas } from './config/ruleRegistry';
 import { inicializarCanal, logInfo } from './utils/logger';
@@ -23,9 +23,6 @@ import {
   publicarDiagnosticosExternos,
   generarSeccionReporteExterno,
 } from './analyzers/externalToolsAnalyzer';
-
-/* Estado global de si la IA esta habilitada (para toggle rapido) */
-let iaHabilitada = true;
 
 
 /*
@@ -37,15 +34,10 @@ export function activate(context: vscode.ExtensionContext): void {
   inicializarCanal(context);
 
   const config = cargarConfiguracion();
-  iaHabilitada = config.aiAnalysisEnabled;
 
   const todasLasReglas = obtenerTodasLasReglas();
   const reglasActivas = todasLasReglas.filter(r => r.habilitada);
   logInfo(`Code Sentinel activado. ${todasLasReglas.length} reglas registradas (${reglasActivas.length} activas, ${todasLasReglas.length - reglasActivas.length} deshabilitadas).`);
-  const backendIA = config.aiBackend === 'gemini-cli'
-    ? `Gemini CLI (modelo: ${config.geminiModel})`
-    : `Copilot vscode.lm (modelo: ${config.aiModelFamily})`;
-  logInfo(`IA: ${iaHabilitada ? 'habilitada' : 'deshabilitada'} — backend: ${backendIA}`);
 
   /* Inicializar provider de diagnosticos (corazon de la extension) */
   inicializarDiagnosticProvider(context);
@@ -89,19 +81,6 @@ export function activate(context: vscode.ExtensionContext): void {
       vscode.window.showInformationMessage('Code Sentinel: Diagnosticos limpiados.');
     }),
 
-    vscode.commands.registerCommand('codeSentinel.toggleAI', () => {
-      iaHabilitada = !iaHabilitada;
-      const estado = iaHabilitada ? 'activado' : 'desactivado';
-      vscode.window.showInformationMessage(`Code Sentinel: Analisis IA ${estado}.`);
-
-      /* Actualizar configuracion */
-      vscode.workspace.getConfiguration('codeSentinel').update(
-        'aiAnalysis.enabled',
-        iaHabilitada,
-        vscode.ConfigurationTarget.Workspace
-      );
-    }),
-
     vscode.commands.registerCommand('codeSentinel.showRulesSummary', () => {
       mostrarResumenReglas();
     }),
@@ -110,15 +89,6 @@ export function activate(context: vscode.ExtensionContext): void {
       await comandoEjecutarHerramientasExternas();
     })
   );
-
-  /* Verificar que al menos un archivo de reglas existe */
-  verificarArchivosReglas(config.rulesFiles).then(existe => {
-    if (!existe && config.rulesFiles.length > 0) {
-      vscode.window.showWarningMessage(
-        `Code Sentinel: Ningun archivo de reglas encontrado (${config.rulesFiles.join(', ')}). Usando reglas builtin.`
-      );
-    }
-  });
 }
 
 /* Muestra un webview con el resumen de reglas activas, incluyendo estado habilitada/deshabilitada */
@@ -153,7 +123,7 @@ function mostrarResumenReglas(): void {
 </head>
 <body>
   <h1>Code Sentinel - Reglas</h1>
-  <p>${reglasActivas.length} reglas activas de ${todasLasReglas.length} | IA: ${iaHabilitada ? 'Habilitada' : 'Deshabilitada'}</p>
+  <p>${reglasActivas.length} reglas activas de ${todasLasReglas.length}</p>
   <p><em>Configura reglas en settings.json con <code>codeSentinel.rules</code>. Ejemplo: <code>{ "barras-decorativas": { "habilitada": false } }</code></em></p>`;
 
   for (const categoria of categoriasRegla) {

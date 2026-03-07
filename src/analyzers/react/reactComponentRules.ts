@@ -404,3 +404,88 @@ export function verificarUpdateOptimistaSinRollback(lineas: string[]): Violacion
 
   return violaciones;
 }
+
+/*
+ * Detecta .push() a arrays de cola/buffer sin verificar limite de tamano.
+ * Un array que crece sin control puede causar memory leaks.
+ */
+export function verificarColaSinLimite(lineas: string[]): Violacion[] {
+  const violaciones: Violacion[] = [];
+  const patronCola = /\b(\w*(?:cola|queue|buffer|pending|batch|stack))\s*\.\s*push\s*\(/i;
+
+  for (let i = 0; i < lineas.length; i++) {
+    if (tieneSentinelDisable(lineas, i, 'cola-sin-limite')) { continue; }
+    if (esComentario(lineas[i])) { continue; }
+
+    const match = patronCola.exec(lineas[i]);
+    if (!match) { continue; }
+
+    const nombreVar = match[1];
+
+    /* Buscar .length check en las 5 lineas anteriores */
+    let tieneCheckLimite = false;
+    for (let j = Math.max(0, i - 5); j < i; j++) {
+      if (new RegExp(`${nombreVar}\\.length`).test(lineas[j]) ||
+          /\bMAX_|MAX_SIZE|LIMITE|CAPACITY/i.test(lineas[j])) {
+        tieneCheckLimite = true;
+        break;
+      }
+    }
+
+    if (!tieneCheckLimite) {
+      violaciones.push({
+        reglaId: 'cola-sin-limite',
+        mensaje: `"${nombreVar}.push()" sin verificar tamano. Un array que crece sin control causa memory leaks.`,
+        severidad: obtenerSeveridadRegla('cola-sin-limite'),
+        linea: i,
+        fuente: 'estatico',
+        sugerencia: `Agregar check de limite: if (${nombreVar}.length < MAX_SIZE) { ${nombreVar}.push(...) }`,
+      });
+    }
+  }
+
+  return violaciones;
+}
+
+/*
+ * Detecta export const de objetos/arrays mutables al nivel de modulo.
+ * Estos se comparten entre todos los importadores y sus mutaciones
+ * generan efectos laterales dificiles de rastrear.
+ */
+export function verificarObjetoMutableExportado(lineas: string[]): Violacion[] {
+  const violaciones: Violacion[] = [];
+  const patronExportMutable = /^export\s+const\s+(\w+)\s*(?::\s*\w[^=]*)?\s*=\s*(\{|\[)/;
+
+  for (let i = 0; i < lineas.length; i++) {
+    if (tieneSentinelDisable(lineas, i, 'objeto-mutable-exportado')) { continue; }
+    if (esComentario(lineas[i])) { continue; }
+
+    const match = patronExportMutable.exec(lineas[i].trim());
+    if (!match) { continue; }
+
+    const nombre = match[1];
+
+    /* Excluir patrones comunes que son intencionalmente mutables (ej: registros, maps) */
+    if (/REGISTRO|registry|MAPA/i.test(nombre)) { continue; }
+
+    /* Verificar si la linea anterior tiene Object.freeze o as const */
+    let esInmutable = false;
+    const contexto = lineas.slice(i, Math.min(lineas.length, i + 5)).join(' ');
+    if (/Object\.freeze/.test(contexto) || /as\s+const/.test(contexto) || /readonly/.test(lineas[i])) {
+      esInmutable = true;
+    }
+
+    if (!esInmutable) {
+      violaciones.push({
+        reglaId: 'objeto-mutable-exportado',
+        mensaje: `"export const ${nombre}" exporta un ${match[2] === '{' ? 'objeto' : 'array'} mutable. Mutaciones afectan a todos los importadores.`,
+        severidad: obtenerSeveridadRegla('objeto-mutable-exportado'),
+        linea: i,
+        fuente: 'estatico',
+        sugerencia: `Usar "as const", Object.freeze(), o una funcion factory: export const get${nombre} = () => (${match[2] === '{' ? '{ ... }' : '[ ... ]'}).`,
+      });
+    }
+  }
+
+  return violaciones;
+}

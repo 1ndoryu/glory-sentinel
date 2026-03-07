@@ -250,3 +250,107 @@ export function verificarFetchSinTimeout(lineas: string[], nombreArchivo: string
 
   return violaciones;
 }
+
+/*
+ * Detecta comparaciones de status HTTP especificos (=== 409, === 401, etc.)
+ * que marcan exito sin inspeccionar el body/response.data.
+ */
+export function verificarStatusHttpGenerico(lineas: string[]): Violacion[] {
+  const violaciones: Violacion[] = [];
+  const patronStatus = /===?\s*(409|401|403|404|500)\b/;
+  const patronExito = /\b(marcar(?:Exito|Completado|Sincronizado)|set(?:Synced|Success|Completed)|completar|sincronizar)\b/i;
+
+  for (let i = 0; i < lineas.length; i++) {
+    if (tieneSentinelDisable(lineas, i, 'status-http-generico')) { continue; }
+    if (!patronStatus.test(lineas[i])) { continue; }
+    if (esComentario(lineas[i])) { continue; }
+
+    /* Buscar si en las siguientes 5 lineas se marca exito sin inspeccionar body */
+    for (let j = i; j < Math.min(lineas.length, i + 5); j++) {
+      if (patronExito.test(lineas[j])) {
+        /* Verificar que no se inspecciona response.data o body */
+        let inspeccionaBody = false;
+        for (let k = i; k <= j; k++) {
+          if (/\b(data|body|response\.\w+|\.json\(\))\b/.test(lineas[k]) && !/status/.test(lineas[k])) {
+            inspeccionaBody = true;
+            break;
+          }
+        }
+
+        if (!inspeccionaBody) {
+          violaciones.push({
+            reglaId: 'status-http-generico',
+            mensaje: `Status HTTP ${patronStatus.exec(lineas[i])?.[1]} marca exito sin inspeccionar body. Puede significar conflicto irrecuperable.`,
+            severidad: obtenerSeveridadRegla('status-http-generico'),
+            linea: i,
+            fuente: 'estatico',
+            sugerencia: 'Inspeccionar response.data/body para determinar el tipo real de conflicto antes de marcar exito.',
+          });
+          break;
+        }
+      }
+    }
+  }
+
+  return violaciones;
+}
+
+/*
+ * Detecta funciones async pasadas como callback a listen()/on()/addEventListener()
+ * sin try-catch. Una excepcion en un handler async no se propaga al caller.
+ */
+export function verificarHandlerSinTryCatch(lineas: string[]): Violacion[] {
+  const violaciones: Violacion[] = [];
+  const patronCallback = /(?:\blisten\s*[<(]|\bon\s*\(|\baddEventListener\s*\()/;
+
+  for (let i = 0; i < lineas.length; i++) {
+    if (tieneSentinelDisable(lineas, i, 'handler-sin-trycatch')) { continue; }
+    if (!patronCallback.test(lineas[i])) { continue; }
+    if (esComentario(lineas[i])) { continue; }
+
+    /* Buscar async en la definicion del callback (misma linea o siguiente) */
+    let tieneAsync = false;
+    let lineaCallback = -1;
+
+    for (let j = i; j < Math.min(lineas.length, i + 3); j++) {
+      if (/\basync\b/.test(lineas[j]) && /=>|function/.test(lineas[j])) {
+        tieneAsync = true;
+        lineaCallback = j;
+        break;
+      }
+    }
+
+    if (!tieneAsync) { continue; }
+
+    /* Verificar que el cuerpo del callback tiene try-catch */
+    let llaves = 0;
+    let tieneTryCatch = false;
+
+    for (let j = lineaCallback; j < Math.min(lineas.length, lineaCallback + 50); j++) {
+      for (const c of lineas[j]) {
+        if (c === '{') { llaves++; }
+        if (c === '}') { llaves--; }
+      }
+
+      if (/\btry\s*\{/.test(lineas[j])) {
+        tieneTryCatch = true;
+        break;
+      }
+
+      if (llaves <= 0 && j > lineaCallback) { break; }
+    }
+
+    if (!tieneTryCatch) {
+      violaciones.push({
+        reglaId: 'handler-sin-trycatch',
+        mensaje: 'Handler async sin try-catch. Excepciones en callbacks async no se propagan al caller.',
+        severidad: obtenerSeveridadRegla('handler-sin-trycatch'),
+        linea: lineaCallback,
+        fuente: 'estatico',
+        sugerencia: 'Envolver el cuerpo del handler en try { ... } catch(e) { ... }.',
+      });
+    }
+  }
+
+  return violaciones;
+}

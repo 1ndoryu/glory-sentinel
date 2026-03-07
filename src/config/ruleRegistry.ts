@@ -75,6 +75,16 @@ const REGISTRO: DefinicionRegla[] = [
   /* --- PHP adicional (phpAnalyzer.ts) --- */
   { id: 'sanitizacion-faltante', nombre: 'Request sin sanitizar', severidadDefault: 'warning', categoria: CategoriaRegla.WordPressPhp },
 
+  /* --- Sprint 8: Nuevas reglas PHP --- */
+  { id: 'lock-sin-finally', nombre: 'Lock sin finally', severidadDefault: 'error', categoria: CategoriaRegla.WordPressPhp },
+  { id: 'catch-critico-solo-log', nombre: 'Catch critico solo log', severidadDefault: 'warning', categoria: CategoriaRegla.WordPressPhp },
+  { id: 'toctou-select-insert', nombre: 'TOCTOU select-insert', severidadDefault: 'error', categoria: CategoriaRegla.SeguridadSql },
+  { id: 'cadena-isset-update', nombre: 'Cadena isset-update', severidadDefault: 'warning', categoria: CategoriaRegla.WordPressPhp },
+  { id: 'query-doble-verificacion', nombre: 'Query doble verificacion', severidadDefault: 'information', categoria: CategoriaRegla.SeguridadSql },
+  { id: 'json-sin-limite-bd', nombre: 'JSON sin limite a BD', severidadDefault: 'warning', categoria: CategoriaRegla.WordPressPhp },
+  { id: 'retorno-ignorado-repo', nombre: 'Retorno repo ignorado', severidadDefault: 'warning', categoria: CategoriaRegla.WordPressPhp },
+  { id: 'mime-type-cliente', nombre: 'MIME type del cliente', severidadDefault: 'error', categoria: CategoriaRegla.PatronesProhibidos },
+
   /* --- Glory Schema (gloryAnalyzer.ts) — Sprint 1 --- */
   { id: 'hardcoded-sql-column', nombre: 'Columna SQL hardcodeada', severidadDefault: 'warning', categoria: CategoriaRegla.GlorySchema },
   { id: 'hardcoded-enum-value', nombre: 'Valor enum hardcodeado', severidadDefault: 'warning', categoria: CategoriaRegla.GlorySchema },
@@ -149,6 +159,13 @@ const REGISTRO: DefinicionRegla[] = [
   { id: 'update-optimista-sin-rollback', nombre: 'Update optimista sin rollback', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
   { id: 'fetch-sin-timeout', nombre: 'fetch() sin timeout', severidadDefault: 'hint', categoria: CategoriaRegla.ReactPatrones },
   { id: 'non-null-assertion-excesivo', nombre: 'Non-null assertion excesivo', severidadDefault: 'hint', categoria: CategoriaRegla.EstructuraNomenclatura },
+
+  /* --- Sprint 9: React/TS nuevas detecciones --- */
+  { id: 'listen-sin-cleanup', nombre: 'listen() sin cleanup', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
+  { id: 'status-http-generico', nombre: 'Status HTTP marca exito sin body', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
+  { id: 'handler-sin-trycatch', nombre: 'Handler async sin try-catch', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
+  { id: 'cola-sin-limite', nombre: 'push() a cola sin limite', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
+  { id: 'objeto-mutable-exportado', nombre: 'Objeto mutable exportado', severidadDefault: 'hint', categoria: CategoriaRegla.ReactPatrones },
 ];
 
 /* Cache de configuracion: se construye lazily al primer acceso */
