@@ -6,7 +6,7 @@
 
 import {Violacion} from '../../types';
 import {obtenerSeveridadRegla} from '../../config/ruleRegistry';
-import {tieneSentinelDisable} from '../../utils/analisisHelpers';
+import {tieneSentinelDisable, esRutaGlory} from '../../utils/analisisHelpers';
 
 /*
  * Verifica $wpdb sin prepare con contexto.
@@ -348,6 +348,9 @@ export function verificarQueryDobleVerificacion(lineas: string[]): Violacion[] {
         const ALIAS_EXCLUIDOS = new Set(['tabla', 'col', 'cols', 'id', 'tipo']);
         if (ALIAS_EXCLUIDOS.has(tabla) || /(?:cols|enums|dto|schema)$/.test(tabla)) { continue; }
 
+        /* Si el nombre capturado viene de interpolacion PHP ({$alias}) es un alias de variable, no tabla real */
+        if (lineas[i].includes(`{$${tabla}}`) || new RegExp(`\\$${tabla}\\b`).test(lineas[i])) { continue; }
+
         /* Buscar query de datos sobre misma tabla en las siguientes 20 lineas */
         for (let j = i + 1; j < Math.min(lineas.length, i + 20); j++) {
             const lineaJ = lineas[j].toLowerCase();
@@ -420,8 +423,10 @@ export function verificarJsonSinLimiteBd(lineas: string[]): Violacion[] {
  * Detecta llamadas a metodos de Repository/Service cuyo nombre sugiere escritura
  * donde el valor de retorno no se captura ni se usa en condicion.
  */
-export function verificarRetornoIgnoradoRepo(lineas: string[]): Violacion[] {
+export function verificarRetornoIgnoradoRepo(lineas: string[], rutaArchivo?: string): Violacion[] {
     const violaciones: Violacion[] = [];
+    /* El framework Glory usa metodos void de orquestacion — excluir para evitar falsos positivos */
+    if (rutaArchivo && esRutaGlory(rutaArchivo)) { return violaciones; }
     const patronEscritura = /->\s*(registrar|guardar|insertar|actualizar|crear|grabar|save|update|insert|delete|eliminar|borrar)\w*\s*\(/;
 
     for (let i = 0; i < lineas.length; i++) {

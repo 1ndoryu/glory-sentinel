@@ -64,7 +64,7 @@ export function verificarIntervalSinWhitelist(lineas: string[]): Violacion[] {
   const regexInterval = /INTERVAL\s+['"]?\s*[\$\{]/i;
   const regexInterval2 = /INTERVAL\s+'\s*\$/i;
   const regexWhitelist = /\b(in_array|match\s*\(|switch\s*\(|\$validos|\$ventanas|allowedIntervals|intervalosPermitidos|ventanasValidas)\b/i;
-  const VENTANA_WHITELIST = 40;
+  const VENTANA_WHITELIST = 60;
 
   for (let i = 0; i < lineas.length; i++) {
     if (esComentario(lineas[i])) { continue; }

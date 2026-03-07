@@ -32,6 +32,7 @@ import {
  */
 export function analizarPhp(documento: vscode.TextDocument): Violacion[] {
   const lineas = documento.getText().split('\n');
+  const rutaArchivo = documento.uri.fsPath;
   const violaciones: Violacion[] = [];
 
   if (reglaHabilitada('controller-sin-trycatch')) {
@@ -79,7 +80,7 @@ export function analizarPhp(documento: vscode.TextDocument): Violacion[] {
     violaciones.push(...verificarJsonSinLimiteBd(lineas));
   }
   if (reglaHabilitada('retorno-ignorado-repo')) {
-    violaciones.push(...verificarRetornoIgnoradoRepo(lineas));
+    violaciones.push(...verificarRetornoIgnoradoRepo(lineas, rutaArchivo));
   }
   if (reglaHabilitada('mime-type-cliente')) {
     violaciones.push(...verificarMimeTypeCliente(lineas));

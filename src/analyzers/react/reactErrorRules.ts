@@ -125,9 +125,9 @@ export function verificarPromiseSinCatch(lineas: string[]): Violacion[] {
 
     if (dentroTryCatch) { continue; }
 
-    /* Buscar .catch( en la misma linea o las 5 siguientes */
+    /* Buscar .catch( en la misma linea o las 20 siguientes (cadenas .then() multilinea pueden ser extensas) */
     let tieneCatch = false;
-    for (let j = i; j < Math.min(lineas.length, i + 6); j++) {
+    for (let j = i; j < Math.min(lineas.length, i + 20); j++) {
       if (/\.catch\s*\(/.test(lineas[j])) {
         tieneCatch = true;
         break;

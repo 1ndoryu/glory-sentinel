@@ -84,9 +84,10 @@ export function verificarHardcodedSqlColumn(lineas: string[], rutaArchivo: strin
         const contextoAntes = linea.substring(Math.max(0, match.index - 15), match.index);
         if (/\[['"]?$/.test(contextoAntes) || /:\s*$/.test(contextoAntes)) { continue; }
 
-        /* Excluir si el string es una clave de acceso JSONB (->'' o ->>'') */
-        const precede3 = linea.substring(Math.max(0, match.index - 4), match.index);
-        if (/->('|")$/.test(precede3) || /->>('|")$/.test(precede3)) { continue; }
+        /* Excluir si el string es clave de acceso JSONB (patron: ->'col' o ->>'col').
+         * match.index apunta al caracter de apertura de la cadena; los 2 chars antes son '->'. */
+        const dosCarsAntes = linea.substring(Math.max(0, match.index - 2), match.index);
+        if (dosCarsAntes === '->' || dosCarsAntes.endsWith('->')) { continue; }
 
         violaciones.push({
           reglaId: 'hardcoded-sql-column',
@@ -128,6 +129,9 @@ export function verificarHardcodedEnumValue(lineas: string[], rutaArchivo: strin
   for (let i = 0; i < lineas.length; i++) {
     if (esComentario(lineas[i])) { continue; }
     if (tieneSentinelDisable(lineas, i, 'hardcoded-enum-value')) { continue; }
+    /* Saltar declaraciones de constantes UPPER_CASE (PHP: private const X = 'v' / TS: const X = 'v').
+     * Son definiciones del valor, no usos hardcodeados en logica. */
+    if (/\bconst\s+[A-Z_][A-Z0-9_]+\s*=/.test(lineas[i])) { continue; }
 
     const linea = lineas[i];
     const esLineaLog = /\b(error_log|logInfo|logWarn|logError|console\.(?:log|warn|error)|Log::)\b/.test(linea);

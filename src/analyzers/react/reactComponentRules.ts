@@ -220,7 +220,8 @@ export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArc
     }
 
     if (/<input[\s/]/.test(linea)) {
-      if (/type\s*=\s*["']hidden["']/i.test(linea)) { continue; }
+      /* type="hidden" es un patron comun de formularios; type="file" es un trigger nativo con ref */
+      if (/type\s*=\s*["'](?:hidden|file)["']/i.test(linea)) { continue; }
       violaciones.push({
         reglaId: 'html-nativo-en-vez-de-componente',
         mensaje: 'Usar componente <Input> (o <Checkbox>/<Radio> segun type) en vez de <input> nativo. Import desde components/ui.',
