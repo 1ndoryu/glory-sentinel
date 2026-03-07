@@ -185,7 +185,8 @@ export function verificarComponenteSinHook(lineas: string[], nombreArchivo: stri
  */
 export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArchivo: string): Violacion[] {
   const archivosExcluidos = [
-    'Boton', 'Input', 'Select', 'Textarea', 'Checkbox', 'Radio', 'GloryLink', 'PageRenderer',
+    'Boton', 'BotonBase', 'Input', 'Select', 'SelectorMenu', 'SelectorBase',
+    'Textarea', 'CampoTexto', 'Checkbox', 'Radio', 'GloryLink', 'PageRenderer', 'ModalAcciones',
   ];
   const nombreBase = nombreArchivo.replace(/\.(tsx|jsx)$/, '');
   if (archivosExcluidos.includes(nombreBase)) { return []; }

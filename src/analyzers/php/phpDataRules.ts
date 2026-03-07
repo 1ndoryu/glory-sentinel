@@ -343,6 +343,11 @@ export function verificarQueryDobleVerificacion(lineas: string[]): Violacion[] {
         const tabla = matchVerif[1]?.toLowerCase();
         if (!tabla || tabla.length < 3) { continue; }
 
+        /* Ignorar palabras que son sufijos de clases PHP (LikesCols -> 'likescols')
+         * o el nombre de la variable PHP $tabla, no un alias SQL real. */
+        const ALIAS_EXCLUIDOS = new Set(['tabla', 'col', 'cols', 'id', 'tipo']);
+        if (ALIAS_EXCLUIDOS.has(tabla) || /(?:cols|enums|dto|schema)$/.test(tabla)) { continue; }
+
         /* Buscar query de datos sobre misma tabla en las siguientes 20 lineas */
         for (let j = i + 1; j < Math.min(lineas.length, i + 20); j++) {
             const lineaJ = lineas[j].toLowerCase();

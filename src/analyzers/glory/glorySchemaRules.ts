@@ -80,6 +80,14 @@ export function verificarHardcodedSqlColumn(lineas: string[], rutaArchivo: strin
           continue;
         }
 
+        /* Excluir si el string es clave PDO (:param) o clave de array $params['col'] */
+        const contextoAntes = linea.substring(Math.max(0, match.index - 15), match.index);
+        if (/\[['"]?$/.test(contextoAntes) || /:\s*$/.test(contextoAntes)) { continue; }
+
+        /* Excluir si el string es una clave de acceso JSONB (->'' o ->>'') */
+        const precede3 = linea.substring(Math.max(0, match.index - 4), match.index);
+        if (/->('|")$/.test(precede3) || /->>('|")$/.test(precede3)) { continue; }
+
         violaciones.push({
           reglaId: 'hardcoded-sql-column',
           mensaje: `Columna '${valor}' hardcodeada. Usar ${info.clase}::${info.constante} (tabla: ${info.tabla}).`,

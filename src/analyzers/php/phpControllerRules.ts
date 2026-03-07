@@ -168,7 +168,9 @@ export function verificarLockSinFinally(lineas: string[]): Violacion[] {
     for (let i = 0; i < lineas.length; i++) {
         if (tieneSentinelDisable(lineas, i, 'lock-sin-finally')) { continue; }
 
-        if (!/advisory[Ll]ock|pg_advisory_lock|\bflock\s*\(/.test(lineas[i])) {
+        /* Solo detectar LLAMADAS (::advisoryLock( o ->advisoryLock(), o flock()).
+         * Excluir: definiciones de funcion, comentarios, SQL dentro de wrappers. */
+        if (!/(->|::)advisory[Ll]ock\s*\(|\bflock\s*\(/.test(lineas[i])) {
             continue;
         }
 
