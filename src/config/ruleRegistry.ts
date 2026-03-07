@@ -166,6 +166,9 @@ const REGISTRO: DefinicionRegla[] = [
   { id: 'handler-sin-trycatch', nombre: 'Handler async sin try-catch', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
   { id: 'cola-sin-limite', nombre: 'push() a cola sin limite', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
   { id: 'objeto-mutable-exportado', nombre: 'Objeto mutable exportado', severidadDefault: 'hint', categoria: CategoriaRegla.ReactPatrones },
+
+  /* --- Constantes PHP (gloryAnalyzer.ts) --- */
+  { id: 'undefined-class-constant', nombre: 'Constante de clase indefinida', severidadDefault: 'error', categoria: CategoriaRegla.GlorySchema },
 ];
 
 /* Cache de configuracion: se construye lazily al primer acceso */

@@ -19,6 +19,8 @@ import { verificarHardcodedSqlColumn, verificarHardcodedEnumValue, verificarSele
 import { verificarEndpointAccedeBd, verificarIntervalSinWhitelist, verificarOpenRedirect } from './glory/glorySecurityRules';
 import { verificarReturnVoidCritico, verificarNPlus1Query, verificarFqnInline, verificarPhpSinReturnType } from './glory/gloryQualityRules';
 import { verificarDefaultContentClaves, REGLA_IDS_DEFAULT_CONTENT } from './glory/defaultContentRules';
+import { inicializarConstantIndexer, obtenerIndiceConstantes } from './glory/phpConstantIndexer';
+import { verificarUndefinedClassConstant } from './glory/gloryConstantRules';
 
 /*
  * Inicializa el analyzer Glory: carga schema, islas y watchers.
@@ -27,6 +29,7 @@ import { verificarDefaultContentClaves, REGLA_IDS_DEFAULT_CONTENT } from './glor
 export function inicializarGloryAnalyzer(context: vscode.ExtensionContext): void {
   inicializarSchemaWatcher(context);
   inicializarIslasWatcher(context);
+  inicializarConstantIndexer(context);
 }
 
 /*
@@ -105,6 +108,11 @@ export function analizarGlory(documento: vscode.TextDocument): Violacion[] {
   );
   if (reglasDefaultContent.size > 0) {
     violaciones.push(...verificarDefaultContentClaves(lineas, reglasDefaultContent));
+  }
+
+  /* Constantes de clase indefinidas */
+  if (reglaHabilitada('undefined-class-constant') && obtenerIndiceConstantes()) {
+    violaciones.push(...verificarUndefinedClassConstant(lineas));
   }
 
   return violaciones;
