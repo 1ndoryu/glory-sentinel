@@ -78,6 +78,19 @@ export function obtenerLimiteArchivo(nombreArchivo: string, rutaArchivo: string)
     return { tipo: 'componente', limite: 300 };
   }
 
+  /* TypeScript puro (.ts, excluyendo .d.ts que ya fue filtrado como hook/util).
+   * Servicios, stores y models TS siguen misma logica que PHP. */
+  if (nombreLower.endsWith('.ts') && !nombreLower.endsWith('.d.ts')) {
+    if (rutaLower.includes('/services/') || rutaLower.includes('/models/') ||
+        nombreLower.includes('service') || nombreLower.includes('model')) {
+      return { tipo: 'servicio', limite: 400 };
+    }
+    if (rutaLower.includes('/stores/')) {
+      return { tipo: 'servicio', limite: 400 };
+    }
+    return { tipo: 'componente', limite: 300 };
+  }
+
   /* PHP: categorizar segun ubicacion en el proyecto.
    * El protocolo (Seccion 3) define limites para componentes/estilos/hooks/utils
    * del frontend. Para PHP se usan limites razonables segun la capa. */

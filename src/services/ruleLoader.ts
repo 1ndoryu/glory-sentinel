@@ -59,6 +59,11 @@ export function cargarConfiguracion(): ConfiguracionSentinel {
       /* Caches de herramientas de build/docs que generan archivos automaticos */
       '**/.vitepress/cache/**',
       '**/build/**',
+      /* Subproyectos y temporales que no son codigo principal */
+      '**/desktop/**',
+      '**/Mezclador/**',
+      '**/temp/**',
+      '**/.vscode-test/**',
       /* La extension no debe analizarse a si misma */
       '**/.agent/code-sentinel/**',
     ]),
