@@ -21,6 +21,8 @@ import { verificarReturnVoidCritico, verificarNPlus1Query, verificarFqnInline, v
 import { verificarDefaultContentClaves, REGLA_IDS_DEFAULT_CONTENT } from './glory/defaultContentRules';
 import { inicializarConstantIndexer, obtenerIndiceConstantes } from './glory/phpConstantIndexer';
 import { verificarUndefinedClassConstant } from './glory/gloryConstantRules';
+import { inicializarApiContractIndexer, obtenerContratos } from './glory/apiContractIndexer';
+import { verificarApiResponseMismatch } from './glory/apiContractRules';
 
 /*
  * Inicializa el analyzer Glory: carga schema, islas y watchers.
@@ -30,6 +32,7 @@ export function inicializarGloryAnalyzer(context: vscode.ExtensionContext): void
   inicializarSchemaWatcher(context);
   inicializarIslasWatcher(context);
   inicializarConstantIndexer(context);
+  inicializarApiContractIndexer(context);
 }
 
 /*
@@ -54,6 +57,10 @@ export function analizarGlory(documento: vscode.TextDocument): Violacion[] {
   if (extension === '.tsx' || extension === '.jsx') {
     if (reglaHabilitada('isla-no-registrada')) {
       violaciones.push(...verificarIslaNoRegistrada(rutaNormalizada, texto));
+    }
+    /* Contrato API: cruzar claves TS vs PHP */
+    if (reglaHabilitada('api-response-mismatch') && obtenerContratos()) {
+      violaciones.push(...verificarApiResponseMismatch(lineas));
     }
     return violaciones;
   }

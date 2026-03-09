@@ -35,6 +35,8 @@ Estas son las reglas que la IA debe verificar en cada archivo. Edita este archiv
 - [componente-artesanal] PROHIBIDO reimplementar componentes que ya existen en el sistema (MenuContextual, Modal, etc.). Detectado: outside-click handlers manuales (document.addEventListener mousedown/click en useEffect) y overlays/backdrops artesanales.
 - [fetch-sin-timeout] fetch() DEBE usar AbortController con signal/timeout. Sin timeout puede colgar indefinidamente. Excluye archivos que SON el wrapper HTTP.
 - [non-null-assertion-excesivo] Archivos con 5+ non-null assertions (variable!.prop) indican tipos mal definidos. Tipar correctamente para evitar !.
+- [acceso-api-sin-fallback] Al asignar `data.campo` a un estado que fue inicializado como array (`useState([])`), OBLIGATORIO usar fallback: `data.campo ?? []`. Sin esto, si la API no incluye la clave, el estado sera `undefined` y cualquier `.length`, `.map()` o `.filter()` en el render provocara un crash en produccion (ErrorBoundary: "Contenido no disponible").
+- [api-response-mismatch] Las claves en el tipo generico de `fetchAdmin<{campo: T}>('endpoint')` DEBEN coincidir con las claves que devuelve `WP_REST_Response([...])` en el controller PHP correspondiente. Si hay desajuste, el dato sera `undefined` en runtime. Sentinel cruza automaticamente el indice PHP con los generics TS.
 
 ---
 

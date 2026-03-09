@@ -38,6 +38,7 @@ import {
   verificarColaSinLimite,
   verificarObjetoMutableExportado,
 } from './react/reactComponentRules';
+import { verificarAccesoApiSinFallback } from './glory/apiContractRules';
 
 /*
  * Analiza un archivo React en busca de violaciones especificas.
@@ -120,6 +121,9 @@ export function analizarReact(documento: vscode.TextDocument): Violacion[] {
     }
     if (reglaHabilitada('objeto-mutable-exportado')) {
       violaciones.push(...verificarObjetoMutableExportado(lineas));
+    }
+    if (reglaHabilitada('acceso-api-sin-fallback')) {
+      violaciones.push(...verificarAccesoApiSinFallback(lineas));
     }
   }
 

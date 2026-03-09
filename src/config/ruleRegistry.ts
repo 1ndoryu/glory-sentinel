@@ -169,6 +169,10 @@ const REGISTRO: DefinicionRegla[] = [
 
   /* --- Constantes PHP (gloryAnalyzer.ts) --- */
   { id: 'undefined-class-constant', nombre: 'Constante de clase indefinida', severidadDefault: 'error', categoria: CategoriaRegla.GlorySchema },
+
+  /* --- Contrato API (apiContractRules.ts) --- */
+  { id: 'api-response-mismatch', nombre: 'Mismatch clave API PHP vs TS', severidadDefault: 'error', categoria: CategoriaRegla.GlorySchema },
+  { id: 'acceso-api-sin-fallback', nombre: 'Acceso a data.campo sin fallback', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
 ];
 
 /* Cache de configuracion: se construye lazily al primer acceso */
