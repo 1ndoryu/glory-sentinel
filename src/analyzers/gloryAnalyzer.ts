@@ -23,6 +23,8 @@ import { inicializarConstantIndexer, obtenerIndiceConstantes } from './glory/php
 import { verificarUndefinedClassConstant } from './glory/gloryConstantRules';
 import { inicializarApiContractIndexer, obtenerContratos } from './glory/apiContractIndexer';
 import { verificarApiResponseMismatch } from './glory/apiContractRules';
+import { inicializarTsTypeResolver, obtenerIndiceTipos } from './glory/tsTypeResolver';
+import { verificarArrayAsociativoComoLista, verificarServiceRetornaAsociativo } from './php/phpArrayShapeRules';
 
 /*
  * Inicializa el analyzer Glory: carga schema, islas y watchers.
@@ -33,6 +35,7 @@ export function inicializarGloryAnalyzer(context: vscode.ExtensionContext): void
   inicializarIslasWatcher(context);
   inicializarConstantIndexer(context);
   inicializarApiContractIndexer(context);
+  inicializarTsTypeResolver(context);
 }
 
 /*
@@ -58,9 +61,13 @@ export function analizarGlory(documento: vscode.TextDocument): Violacion[] {
     if (reglaHabilitada('isla-no-registrada')) {
       violaciones.push(...verificarIslaNoRegistrada(rutaNormalizada, texto));
     }
-    /* Contrato API: cruzar claves TS vs PHP */
+    /* Contrato API: cruzar claves TS vs PHP (ahora tambien resuelve tipos importados) */
     if (reglaHabilitada('api-response-mismatch') && obtenerContratos()) {
       violaciones.push(...verificarApiResponseMismatch(lineas));
+    }
+    /* Shape mismatch: array asociativo PHP vs Type[] TS (requiere ambos indices) */
+    if (reglaHabilitada('api-shape-mismatch') && obtenerContratos() && obtenerIndiceTipos()) {
+      /* api-shape-mismatch se detecta dentro de verificarApiResponseMismatch */
     }
     return violaciones;
   }
@@ -120,6 +127,14 @@ export function analizarGlory(documento: vscode.TextDocument): Violacion[] {
   /* Constantes de clase indefinidas */
   if (reglaHabilitada('undefined-class-constant') && obtenerIndiceConstantes()) {
     violaciones.push(...verificarUndefinedClassConstant(lineas));
+  }
+
+  /* Sprint 11: Array shapes — detectar arrays asociativos que deberian ser listas */
+  if (reglaHabilitada('php-array-asociativo-como-lista')) {
+    violaciones.push(...verificarArrayAsociativoComoLista(lineas));
+  }
+  if (reglaHabilitada('php-service-retorna-asociativo') && !rutaNormalizada.includes('/Glory/')) {
+    violaciones.push(...verificarServiceRetornaAsociativo(lineas));
   }
 
   return violaciones;

@@ -173,6 +173,13 @@ const REGISTRO: DefinicionRegla[] = [
   /* --- Contrato API (apiContractRules.ts) --- */
   { id: 'api-response-mismatch', nombre: 'Mismatch clave API PHP vs TS', severidadDefault: 'error', categoria: CategoriaRegla.GlorySchema },
   { id: 'acceso-api-sin-fallback', nombre: 'Acceso a data.campo sin fallback', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
+
+  /* --- Sprint 11: Shape mismatch PHP↔TS (apiContractRules.ts + phpArrayShapeRules.ts) ---
+   * Detectan cuando PHP devuelve array asociativo (→ JSON {}) pero TS espera Type[] (→ JSON []).
+   * El caso clasico: $arr[$key] = valor en PHP causa 'h.map is not a function' en React. */
+  { id: 'api-shape-mismatch', nombre: 'Shape mismatch array PHP vs TS', severidadDefault: 'error', categoria: CategoriaRegla.GlorySchema },
+  { id: 'php-array-asociativo-como-lista', nombre: 'Array asociativo retornado como lista', severidadDefault: 'warning', categoria: CategoriaRegla.WordPressPhp },
+  { id: 'php-service-retorna-asociativo', nombre: 'Service retorna asociativo en vez de lista', severidadDefault: 'warning', categoria: CategoriaRegla.WordPressPhp },
 ];
 
 /* Cache de configuracion: se construye lazily al primer acceso */
