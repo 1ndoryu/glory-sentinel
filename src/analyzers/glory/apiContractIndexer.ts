@@ -24,7 +24,8 @@ export type ShapeValor = 'array_indexado' | 'array_asociativo' | 'escalar' | 'de
 export interface ContratoEndpoint {
   ruta: string;           /* e.g. '/admin/estadisticas' */
   metodo: string;         /* e.g. 'estadisticas' */
-  claves: Set<string>;    /* e.g. Set{'success','estadisticas'} */
+  claves: Set<string>;    /* top-level: ok, data, error... */
+  payloadClaves: Set<string>; /* sub-claves dentro de data:{} — lo que TS realmente consume */
   shapes: Map<string, ShapeValor>;  /* clave → forma del valor */
   archivo: string;        /* ruta del controller */
   linea: number;          /* linea del WP_REST_Response */
@@ -212,11 +213,12 @@ function indexarController(contenido: string, rutaArchivo: string): void {
 
     /* Extraer claves del array asociativo en las proximas lineas */
     const claves = new Set<string>();
+    const payloadClaves = new Set<string>(); /* sub-claves dentro de data:{} */
     const shapes = new Map<string, ShapeValor>();
     let profArray = 0;
     let inicioArray = false;
 
-    for (let j = i; j < Math.min(i + 30, lineas.length); j++) {
+    for (let j = i; j < Math.min(i + 40, lineas.length); j++) {
       const lineaResp = lineas[j];
 
       for (const c of lineaResp) {
@@ -224,13 +226,23 @@ function indexarController(contenido: string, rutaArchivo: string): void {
         if (c === ']') { profArray--; }
       }
 
-      /* Solo extraer claves del primer nivel del array */
+      /* Extraer claves del primer nivel (ok, data, error...) */
       if (inicioArray && profArray === 1) {
         const matchClave = regexClave.exec(lineaResp);
         if (matchClave) {
           const clave = matchClave[1];
           claves.add(clave);
           shapes.set(clave, inferirShapeValor(lineaResp, lineas, j, contenido));
+        }
+      }
+
+      /* Extraer sub-claves del nivel 2 — dentro de 'data' => [...]
+       * En el patron Glory/Kamples, el payload SIEMPRE esta dentro de data.
+       * Estas son las claves que el TS realmente ve via resp.data */
+      if (inicioArray && profArray === 2) {
+        const matchSubClave = regexClave.exec(lineaResp);
+        if (matchSubClave) {
+          payloadClaves.add(matchSubClave[1]);
         }
       }
 
@@ -245,6 +257,7 @@ function indexarController(contenido: string, rutaArchivo: string): void {
         ruta: rutaNorm,
         metodo: metodoActual,
         claves,
+        payloadClaves,
         shapes,
         archivo: rutaArchivo,
         linea: i,

@@ -169,20 +169,25 @@ function verificarTipoImportado(nombreTipo: string, endpoint: string, linea: num
   );
   if (!contrato) { return violaciones; }
 
-  const clavesPhp = new Set<string>();
-  for (const c of contrato.claves) {
-    if (c !== 'success') { clavesPhp.add(c); }
-  }
+  /*
+   * Usar payloadClaves (sub-claves dentro de data:{}) si existen.
+   * En el patron Glory/Kamples, el TS consume resp.data, no el wrapper completo.
+   * Filtrar meta-claves del nivel superior para evitar falsos positivos.
+   */
+  const META_CLAVES = new Set(['ok', 'data', 'error', 'message', 'success']);
+  const clavesEfectivas: Set<string> = (contrato.payloadClaves && contrato.payloadClaves.size > 0)
+    ? contrato.payloadClaves
+    : new Set([...contrato.claves].filter(c => !META_CLAVES.has(c)));
 
   /* Verificar claves: TS espera pero PHP no devuelve */
   for (const [campoNombre, campoInfo] of campos) {
     if (campoNombre === 'success') { continue; }
 
-    if (!clavesPhp.has(campoNombre)) {
+    if (!clavesEfectivas.has(campoNombre)) {
       violaciones.push({
         reglaId: 'api-response-mismatch',
         mensaje: `Tipo '${nombreTipo}' espera clave '${campoNombre}' pero PHP no la devuelve en '${contrato.ruta}'. ` +
-          `Claves PHP: ${[...clavesPhp].join(', ') || '(ninguna)'}.`,
+          `Claves PHP (data): ${[...clavesEfectivas].join(', ') || '(ninguna)'}.`,
         severidad: obtenerSeveridadRegla('api-response-mismatch'),
         linea,
         sugerencia: `Verificar que el controller PHP devuelva '${campoNombre}' o corregir el tipo '${nombreTipo}'.`,
@@ -214,7 +219,7 @@ function verificarTipoImportado(nombreTipo: string, endpoint: string, linea: num
   }
 
   /* Verificar shapes para campos con valor inline que llama a metodos */
-  for (const clavePHP of clavesPhp) {
+  for (const clavePHP of clavesEfectivas) {
     const campoTs = campos.get(clavePHP);
     if (!campoTs) { continue; }
     if (!campoTs.esArray) { continue; }

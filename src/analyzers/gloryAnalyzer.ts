@@ -57,18 +57,17 @@ export function analizarGlory(documento: vscode.TextDocument): Violacion[] {
   const extension = path.extname(rutaArchivo).toLowerCase();
 
   /* Reglas TSX/JSX */
-  if (extension === '.tsx' || extension === '.jsx') {
-    if (reglaHabilitada('isla-no-registrada')) {
+  /* Reglas TSX/JSX/TS (services, hooks, islands) */
+  if (extension === '.tsx' || extension === '.jsx' || extension === '.ts') {
+    /* isla-no-registrada: solo aplica a islands (.tsx/.jsx) */
+    if ((extension === '.tsx' || extension === '.jsx') && reglaHabilitada('isla-no-registrada')) {
       violaciones.push(...verificarIslaNoRegistrada(rutaNormalizada, texto));
     }
-    /* Contrato API: cruzar claves TS vs PHP (ahora tambien resuelve tipos importados) */
+    /* Contrato API: cruzar claves TS vs PHP — aplica a services (.ts) e islands (.tsx) */
     if (reglaHabilitada('api-response-mismatch') && obtenerContratos()) {
       violaciones.push(...verificarApiResponseMismatch(lineas));
     }
-    /* Shape mismatch: array asociativo PHP vs Type[] TS (requiere ambos indices) */
-    if (reglaHabilitada('api-shape-mismatch') && obtenerContratos() && obtenerIndiceTipos()) {
-      /* api-shape-mismatch se detecta dentro de verificarApiResponseMismatch */
-    }
+    /* Shape mismatch: api-shape-mismatch se detecta dentro de verificarApiResponseMismatch */
     return violaciones;
   }
 
