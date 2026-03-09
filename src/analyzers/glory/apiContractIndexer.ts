@@ -31,7 +31,6 @@ export interface ContratoEndpoint {
 }
 
 let cacheContratos: Map<string, ContratoEndpoint> | null = null;
-let apiWatcher: vscode.FileSystemWatcher | null = null;
 
 /* Acceso publico al indice */
 export function obtenerContratos(): Map<string, ContratoEndpoint> | null {
@@ -39,7 +38,18 @@ export function obtenerContratos(): Map<string, ContratoEndpoint> | null {
 }
 
 /*
- * Inicializa el indexer: escanea controllers y configura watcher.
+ * Rutas donde pueden vivir controllers PHP en el proyecto.
+ * Se escanean todos en orden. Si el proyecto crece con nuevas
+ * ubicaciones, agregarlas aqui.
+ */
+const RUTAS_CONTROLLERS = [
+  ['App', 'Api'],                               /* controllers generales */
+  ['App', 'Kamples', 'Api', 'Controladores'],   /* controllers modulo Kamples */
+];
+
+/*
+ * Inicializa el indexer: escanea todos los directorios de controllers
+ * y configura watchers para cada uno.
  */
 export function inicializarApiContractIndexer(context: vscode.ExtensionContext): void {
   cargarContratos();
@@ -48,28 +58,31 @@ export function inicializarApiContractIndexer(context: vscode.ExtensionContext):
   if (!folders) { return; }
 
   for (const folder of folders) {
-    const rutaApi = path.join(folder.uri.fsPath, 'App', 'Api');
-    if (!fs.existsSync(rutaApi)) { continue; }
+    for (const segmentos of RUTAS_CONTROLLERS) {
+      const rutaApi = path.join(folder.uri.fsPath, ...segmentos);
+      if (!fs.existsSync(rutaApi)) { continue; }
 
-    const patron = new vscode.RelativePattern(rutaApi, '*Controller.php');
-    apiWatcher = vscode.workspace.createFileSystemWatcher(patron);
+      const patron = new vscode.RelativePattern(rutaApi, '*Controller.php');
+      const watcher = vscode.workspace.createFileSystemWatcher(patron);
 
-    const recargar = () => {
-      logInfo('ApiContractIndexer: controller cambio, recargando...');
-      cacheContratos = null;
-      cargarContratos();
-    };
+      const recargar = () => {
+        logInfo('ApiContractIndexer: controller cambio, recargando...');
+        cacheContratos = null;
+        cargarContratos();
+      };
 
-    apiWatcher.onDidChange(recargar);
-    apiWatcher.onDidCreate(recargar);
-    apiWatcher.onDidDelete(recargar);
-    context.subscriptions.push(apiWatcher);
+      watcher.onDidChange(recargar);
+      watcher.onDidCreate(recargar);
+      watcher.onDidDelete(recargar);
+      context.subscriptions.push(watcher);
+    }
+    /* Solo procesar el primer workspace folder */
     break;
   }
 }
 
 /*
- * Escanea todos los *Controller.php en App/Api/ y construye el mapa.
+ * Escanea todos los *Controller.php en las rutas configuradas y construye el mapa.
  */
 export function cargarContratos(): void {
   const folders = vscode.workspace.workspaceFolders;
@@ -78,24 +91,42 @@ export function cargarContratos(): void {
   cacheContratos = new Map();
 
   for (const folder of folders) {
-    const rutaApi = path.join(folder.uri.fsPath, 'App', 'Api');
-    if (!fs.existsSync(rutaApi)) { continue; }
+    for (const segmentos of RUTAS_CONTROLLERS) {
+      const rutaApi = path.join(folder.uri.fsPath, ...segmentos);
+      if (!fs.existsSync(rutaApi)) { continue; }
 
-    const archivos = fs.readdirSync(rutaApi)
-      .filter(f => f.endsWith('Controller.php'));
+      const archivos = readdirRecursivo(rutaApi)
+        .filter(f => f.endsWith('Controller.php'));
 
-    for (const archivo of archivos) {
-      const rutaCompleta = path.join(rutaApi, archivo);
-      try {
-        const contenido = fs.readFileSync(rutaCompleta, 'utf-8');
-        indexarController(contenido, rutaCompleta);
-      } catch (err) {
-        logWarn(`ApiContractIndexer: error al leer ${archivo} — ${err}`);
+      for (const archivo of archivos) {
+        try {
+          const contenido = fs.readFileSync(archivo, 'utf-8');
+          indexarController(contenido, archivo);
+        } catch (err) {
+          logWarn(`ApiContractIndexer: error al leer ${archivo} — ${err}`);
+        }
       }
     }
   }
 
   logInfo(`ApiContractIndexer: ${cacheContratos.size} endpoints indexados.`);
+}
+
+/*
+ * Devuelve todas las rutas de archivos en un directorio de forma recursiva.
+ * Necesario porque Kamples tiene subdirectorios dentro de Api/Controladores/.
+ */
+function readdirRecursivo(dir: string): string[] {
+  const resultados: string[] = [];
+  for (const entrada of fs.readdirSync(dir, { withFileTypes: true })) {
+    const ruta = path.join(dir, entrada.name);
+    if (entrada.isDirectory()) {
+      resultados.push(...readdirRecursivo(ruta));
+    } else {
+      resultados.push(ruta);
+    }
+  }
+  return resultados;
 }
 
 /*

@@ -56,6 +56,14 @@ export function verificarApiResponseMismatch(lineas: string[]): Violacion[] {
   const regexUseApi = /useWordPressApi<(\w+)>\s*\(\s*['"`]([^'"`]+)['"`]/;
   const regexUseApiTemplate = /useWordPressApi<(\w+)>\s*\(\s*`([^`]+)`/;
 
+  /*
+   * Patron 3: apiGet<TipoImportado>('endpoint') | apiPost<TipoImportado>('endpoint')
+   * Cubre el helper del modulo Kamples (apiCanciones.ts, etc.)
+   * Grupo 1: nombre del tipo importado
+   * Grupo 2: endpoint string
+   */
+  const regexApiGet = /api(?:Get|Post|Put|Delete|Patch)<(\w+)>\s*\(\s*['"`]([^'"`]+)['"`]/;
+
   for (let i = 0; i < lineas.length; i++) {
     if (esComentario(lineas[i])) { continue; }
     if (tieneSentinelDisable(lineas, i, 'api-response-mismatch')) { continue; }
@@ -71,6 +79,13 @@ export function verificarApiResponseMismatch(lineas: string[]): Violacion[] {
     const matchApi = regexUseApi.exec(lineas[i]) || regexUseApiTemplate.exec(lineas[i]);
     if (matchApi) {
       violaciones.push(...verificarTipoImportado(matchApi[1], matchApi[2], i));
+      continue;
+    }
+
+    /* Intentar Patron 3: apiGet<Tipo>('ruta') — services de Kamples */
+    const matchApiGet = regexApiGet.exec(lineas[i]);
+    if (matchApiGet) {
+      violaciones.push(...verificarTipoImportado(matchApiGet[1], matchApiGet[2], i));
     }
   }
 
