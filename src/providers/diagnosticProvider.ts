@@ -101,6 +101,8 @@ function ejecutarAnalisisEstatico(uri: vscode.Uri): void {
   } else if (tipo === 'tsx' || tipo === 'jsx') {
     violaciones.push(...analizarReact(doc));
     violaciones.push(...analizarGlory(doc));
+  } else if (tipo === 'ts') {
+    violaciones.push(...analizarGlory(doc));
   }
 
   /* Convertir violaciones a diagnosticos */
@@ -280,6 +282,9 @@ export async function analizarWorkspace(): Promise<void> {
               violaciones.push(...analizarGlory(doc));
             } else if (tipo === 'tsx' || tipo === 'jsx') {
               violaciones.push(...analizarReact(doc));
+              violaciones.push(...analizarGlory(doc));
+            } else if (tipo === 'ts') {
+              /* Services y hooks TS: solo contrato API (no React-specific) */
               violaciones.push(...analizarGlory(doc));
             }
 
