@@ -142,7 +142,11 @@ function indexarController(contenido: string, rutaArchivo: string): void {
 
   /* Paso 1: mapear ruta → nombre de metodo */
   const rutaMetodo = new Map<string, string>();
-  const regexRuta = /register_rest_route\s*\(\s*['"][^'"]+['"]\s*,\s*['"]([^'"]+)['"]/;
+  /*
+   * regexRuta: soporta tanto namespace como string literal o variable $var.
+   * Ej: register_rest_route('ns', '/path') o \register_rest_route($namespace, '/path')
+   */
+  const regexRuta = /register_rest_route\s*\(\s*(?:['"][^'"]+['"]|\$\w+)\s*,\s*['"]([^'"]+)['"]/;
   const regexCallback = /['"]callback['"]\s*=>\s*\[\s*self::class\s*,\s*['"](\w+)['"]\s*\]/;
 
   for (let i = 0; i < lineas.length; i++) {
@@ -169,7 +173,8 @@ function indexarController(contenido: string, rutaArchivo: string): void {
 
   /* Paso 2: para cada metodo, extraer claves de WP_REST_Response([...]) */
   const regexMetodo = /(?:public\s+)?(?:static\s+)?function\s+(\w+)\s*\(/;
-  const regexResponse = /new\s+WP_REST_Response\s*\(\[/;
+  /* Soporta new WP_REST_Response([ y new \WP_REST_Response([ */
+  const regexResponse = /new\s+\\?WP_REST_Response\s*\(\[/;
   const regexClave = /['"](\w+)['"]\s*=>/;
 
   let metodoActual: string | null = null;
