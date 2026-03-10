@@ -183,18 +183,24 @@ function indexarArchivoTipos(contenido: string, rutaArchivo: string): void {
     for (let j = i; j < lineas.length; j++) {
       const lineaCampo = lineas[j];
 
-      for (const c of lineaCampo) {
-        if (c === '{') { profundidad++; inicioBloque = true; }
-        if (c === '}') { profundidad--; }
-      }
-
-      /* Solo extraer campos del primer nivel */
+      /*
+       * Extraer campo ANTES de contar llaves.
+       * Sin esto, 'campo: Array<{' incrementa profundidad a 2
+       * por el '{' inline, y el campo se pierde.
+       */
       if (inicioBloque && profundidad === 1) {
         const campo = parsearCampo(lineaCampo);
         if (campo) {
           campos.set(campo.nombre, campo);
         }
       }
+
+      for (const c of lineaCampo) {
+        if (c === '{') { profundidad++; inicioBloque = true; }
+        if (c === '}') { profundidad--; }
+      }
+
+      /* (campo ya extraido arriba) */
 
       if (inicioBloque && profundidad <= 0) { break; }
     }

@@ -226,12 +226,11 @@ function indexarController(contenido: string, rutaArchivo: string): void {
     for (let j = i; j < Math.min(i + 40, lineas.length); j++) {
       const lineaResp = lineas[j];
 
-      for (const c of lineaResp) {
-        if (c === '[') { profArray++; inicioArray = true; }
-        if (c === ']') { profArray--; }
-      }
-
-      /* Extraer claves del primer nivel (ok, data, error...) */
+      /*
+       * Extraer claves ANTES de contar brackets.
+       * Sin esto, 'data' => [ incrementa profArray a 2
+       * por el [ inline, y 'data' se pierde del nivel 1.
+       */
       if (inicioArray && profArray === 1) {
         const matchClave = regexClave.exec(lineaResp);
         if (matchClave) {
@@ -241,14 +240,18 @@ function indexarController(contenido: string, rutaArchivo: string): void {
         }
       }
 
-      /* Extraer sub-claves del nivel 2 — dentro de 'data' => [...]
-       * En el patron Glory/Kamples, el payload SIEMPRE esta dentro de data.
-       * Estas son las claves que el TS realmente ve via resp.data */
+      /* Sub-claves nivel 2: extraer ANTES de contar brackets (misma razon) */
       if (inicioArray && profArray === 2) {
         const matchSubClave = regexClave.exec(lineaResp);
         if (matchSubClave) {
           payloadClaves.add(matchSubClave[1]);
         }
+      }
+
+      /* Contar brackets DESPUES de extraer claves */
+      for (const c of lineaResp) {
+        if (c === '[') { profArray++; inicioArray = true; }
+        if (c === ']') { profArray--; }
       }
 
       /* Fin del array principal */
