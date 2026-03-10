@@ -194,9 +194,24 @@ function verificarTipoImportado(nombreTipo: string, endpoint: string, linea: num
     return violaciones;
   }
 
+  /*
+   * Heuristica overlap cero: si NINGUNO de los campos TS obligatorios coincide
+   * con las claves PHP y hay >3 campos, el contrato matcheado es probablemente
+   * incorrecto (mismo endpoint, diferente HTTP method o controller delegado).
+   */
+  const camposObligatorios = [...campos.entries()]
+    .filter(([n, c]) => n !== 'success' && !c.opcional)
+    .map(([n]) => n);
+  const tieneOverlap = camposObligatorios.some(c => clavesEfectivas.has(c));
+  if (!tieneOverlap && camposObligatorios.length > 3) {
+    return violaciones;
+  }
+
   /* Verificar claves: TS espera pero PHP no devuelve */
   for (const [campoNombre, campoInfo] of campos) {
     if (campoNombre === 'success') { continue; }
+    /* Campos opcionales (?) pueden estar ausentes en PHP — no es mismatch */
+    if (campoInfo.opcional) { continue; }
 
     if (!clavesEfectivas.has(campoNombre)) {
       violaciones.push({

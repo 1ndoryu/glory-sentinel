@@ -23,6 +23,7 @@ export interface CampoTipo {
   tipoRaw: string;       /* e.g. 'VehiculoDetalle', 'string[]', 'PrecioTemporada[]' */
   esArray: boolean;       /* true si el tipo termina en [] o es Array<X> */
   tipoElemento: string;   /* Si esArray, el tipo del elemento (e.g. 'PrecioTemporada') */
+  opcional: boolean;      /* true si el campo usa ? (e.g. campo?: Tipo) */
 }
 
 /* Definicion completa de un tipo TS */
@@ -228,11 +229,12 @@ function parsearCampo(linea: string): CampoTipo | null {
   const trim = linea.trim();
 
   /* Regex: captura nombre y tipo de un campo */
-  const match = /^(?:readonly\s+)?(\w+)\??\s*:\s*(.+?)\s*;?\s*$/.exec(trim);
+  const match = /^(?:readonly\s+)?(\w+)(\?)?\s*:\s*(.+?)\s*;?\s*$/.exec(trim);
   if (!match) { return null; }
 
   const nombre = match[1];
-  const tipoRaw = match[2].replace(/;$/, '').trim();
+  const opcional = match[2] === '?';
+  const tipoRaw = match[3].replace(/;$/, '').trim();
 
   /* Detectar si es array */
   const esArraySufijo = /\[\]\s*$/.test(tipoRaw);
@@ -246,5 +248,5 @@ function parsearCampo(linea: string): CampoTipo | null {
     tipoElemento = matchArrayGeneric[1];
   }
 
-  return { nombre, tipoRaw, esArray, tipoElemento };
+  return { nombre, tipoRaw, esArray, tipoElemento, opcional };
 }

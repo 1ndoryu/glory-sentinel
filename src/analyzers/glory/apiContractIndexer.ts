@@ -234,19 +234,20 @@ function indexarController(contenido: string, rutaArchivo: string): void {
        * por el [ inline, y 'data' se pierde del nivel 1.
        */
       if (inicioArray && profArray === 1) {
-        const matchClave = regexClave.exec(lineaResp);
-        if (matchClave) {
-          const clave = matchClave[1];
-          claves.add(clave);
-          shapes.set(clave, inferirShapeValor(lineaResp, lineas, j, contenido));
+        for (const m of lineaResp.matchAll(/['"]\w+['"]\s*=>/g)) {
+          const matchClave = /['"]([\w]+)['"]\s*=>/.exec(m[0]);
+          if (matchClave) {
+            const clave = matchClave[1];
+            claves.add(clave);
+            shapes.set(clave, inferirShapeValor(lineaResp, lineas, j, contenido));
+          }
         }
       }
 
       /* Sub-claves nivel 2: extraer ANTES de contar brackets (misma razon) */
       if (inicioArray && profArray === 2) {
-        const matchSubClave = regexClave.exec(lineaResp);
-        if (matchSubClave) {
-          payloadClaves.add(matchSubClave[1]);
+        for (const m of lineaResp.matchAll(/['"]([\w]+)['"]\s*=>/g)) {
+          payloadClaves.add(m[1]);
         }
       }
 
@@ -354,8 +355,13 @@ export function buscarContratoPorRuta(rutaEndpoint: string): ContratoEndpoint | 
     for (let s = 0; s < segRuta.length; s++) {
       if (segRuta[s] === segNorm[s]) {
         score += 2; /* match exacto */
-      } else if (segRuta[s] === ':id' || segNorm[s] === ':id') {
-        score += 1; /* match por wildcard */
+      } else if (segRuta[s] === ':id' && segNorm[s] === ':id') {
+        score += 2; /* ambos dinamicos — match estructural */
+      } else if (segRuta[s] === ':id') {
+        score += 1; /* PHP dinamico, TS literal — valido */
+      } else if (segNorm[s] === ':id') {
+        compatible = false; /* TS dinamico vs PHP literal — match incorrecto */
+        break;
       } else {
         compatible = false;
         break;
