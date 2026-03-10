@@ -181,6 +181,7 @@ function indexarController(contenido: string, rutaArchivo: string): void {
   let metodoLinea = 0;
   let profundidad = 0;
   let dentroDeMetodo = false;
+  const metodosIndexados = new Set<string>(); /* evitar indexar el WP_REST_Response de error */
 
   for (let i = 0; i < lineas.length; i++) {
     const linea = lineas[i];
@@ -210,6 +211,7 @@ function indexarController(contenido: string, rutaArchivo: string): void {
 
     /* Buscar WP_REST_Response dentro del metodo actual */
     if (!metodoActual || !dentroDeMetodo) { continue; }
+    if (metodosIndexados.has(metodoActual)) { continue; } /* ya indexado, saltar response de error */
     if (!regexResponse.test(linea)) { continue; }
 
     /* Solo tomar el primer WP_REST_Response con status 200 (exito) */
@@ -270,8 +272,8 @@ function indexarController(contenido: string, rutaArchivo: string): void {
         archivo: rutaArchivo,
         linea: i,
       });
-      /* Solo tomar el primer response exitoso del metodo */
-      break;
+      /* Marcar metodo como indexado para saltar su WP_REST_Response de error */
+      metodosIndexados.add(metodoActual);
     }
   }
 }
