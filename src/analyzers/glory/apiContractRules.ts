@@ -179,6 +179,21 @@ function verificarTipoImportado(nombreTipo: string, endpoint: string, linea: num
     ? contrato.payloadClaves
     : new Set([...contrato.claves].filter(c => !META_CLAVES.has(c)));
 
+  /*
+   * Claves tipicas de wrappers/paginacion — no son campos de datos reales.
+   * Si clavesEfectivas solo tiene estas claves, el indexer no pudo ver el
+   * payload real (data contiene una variable, no claves inline).
+   * Verificar contra estos campos produciria falsos positivos masivos.
+   */
+  const CLAVES_WRAPPER = new Set([
+    'data', 'pagination', 'paginacion', 'total', 'page', 'per_page',
+    'pages', 'total_pages', 'has_more', 'next_page',
+  ]);
+  if (clavesEfectivas.size === 0 ||
+      [...clavesEfectivas].every(c => CLAVES_WRAPPER.has(c))) {
+    return violaciones;
+  }
+
   /* Verificar claves: TS espera pero PHP no devuelve */
   for (const [campoNombre, campoInfo] of campos) {
     if (campoNombre === 'success') { continue; }

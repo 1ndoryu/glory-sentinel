@@ -84,6 +84,9 @@ export function verificarHardcodedSqlColumn(lineas: string[], rutaArchivo: strin
         const contextoAntes = linea.substring(Math.max(0, match.index - 15), match.index);
         if (/\[['"]?$/.test(contextoAntes) || /:\s*$/.test(contextoAntes)) { continue; }
 
+        /* Excluir si el string es parametro de request (get_param, sanitize_*) */
+        if (/get_param\s*\(\s*$/.test(contextoAntes) || /sanitize_\w+\(\s*$/.test(contextoAntes)) { continue; }
+
         /* Excluir si el string es clave de acceso JSONB (patron: ->'col' o ->>'col').
          * match.index apunta al caracter de apertura de la cadena; los 2 chars antes son '->'. */
         const dosCarsAntes = linea.substring(Math.max(0, match.index - 2), match.index);

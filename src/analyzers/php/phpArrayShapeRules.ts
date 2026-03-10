@@ -257,9 +257,19 @@ export function verificarServiceRetornaAsociativo(lineas: string[]): Violacion[]
     }
 
     if (dentroDeMetodo) {
-      /* Detectar $var[$key] = ... (asociativo) */
+      /* Detectar $var[$key] = ... (asociativo) — excluir params de query y foreach */
       if (/\$\w+\[(?:\$\w+|['"][^'"]+['"])\]\s*=/.test(linea) && !esComentario(linea.trim())) {
-        tieneAsociativo = true;
+        /* Excluir variables comunes de parametros (PDO/request/config) */
+        const esParamVar = /\$(?:params|args|where|datos|body|options|headers|filtros|paramsCount)\[/.test(linea);
+        /* Excluir modificaciones dentro de foreach (iteracion por referencia) */
+        let esDentroForeach = false;
+        for (let k = i - 1; k >= Math.max(0, i - 10); k--) {
+          if (/foreach\s*\(/.test(lineas[k])) { esDentroForeach = true; break; }
+          if (/^\s*(?:public|private|protected|static|function)\b/.test(lineas[k])) { break; }
+        }
+        if (!esParamVar && !esDentroForeach) {
+          tieneAsociativo = true;
+        }
       }
       /* Detectar $var[] = ... (indexado) */
       if (/\$\w+\[\]\s*=/.test(linea)) {

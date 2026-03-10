@@ -260,7 +260,15 @@ function indexarController(contenido: string, rutaArchivo: string): void {
       if (inicioArray && profArray <= 0) { break; }
     }
 
-    if (claves.size > 0) {
+    /*
+     * Saltar respuestas que solo contienen claves de error (code, error, message, status).
+     * Estas son responses de catch/validacion, no el payload real del endpoint.
+     * No agregarlas a metodosIndexados permite que el response de exito posterior se indexe.
+     */
+    const CLAVES_ERROR = new Set(['code', 'error', 'message', 'status']);
+    const esErrorResponse = claves.size > 0 && [...claves].every(c => CLAVES_ERROR.has(c));
+
+    if (claves.size > 0 && !esErrorResponse) {
       /* Normalizar ruta: quitar regex de params y namespace */
       const rutaNorm = normalizarRutaEndpoint(ruta);
       cacheContratos.set(rutaNorm, {
@@ -323,14 +331,48 @@ export function buscarContratoPorRuta(rutaEndpoint: string): ContratoEndpoint | 
     .replace(/\$\{[^}]+\}/g, ':id')
     .replace(/\/+$/, '');
 
+  const segNorm = normalizada.split('/').filter(Boolean);
+
+  /* Fase 1: match exacto */
   for (const [ruta, contrato] of cacheContratos) {
-    if (ruta === normalizada || ruta.endsWith(normalizada) || normalizada.endsWith(ruta)) {
-      return contrato;
+    if (ruta === normalizada) { return contrato; }
+  }
+
+  /* Fase 2: match con misma cantidad de segmentos (priorizar especificidad) */
+  let mejorMatch: ContratoEndpoint | null = null;
+  let mejorScore = 0;
+
+  for (const [ruta, contrato] of cacheContratos) {
+    const segRuta = ruta.split('/').filter(Boolean);
+
+    /* Solo considerar rutas con la misma cantidad de segmentos */
+    if (segRuta.length !== segNorm.length) { continue; }
+
+    /* Contar segmentos que coinciden (excluyendo :id que matchea cualquier cosa) */
+    let score = 0;
+    let compatible = true;
+    for (let s = 0; s < segRuta.length; s++) {
+      if (segRuta[s] === segNorm[s]) {
+        score += 2; /* match exacto */
+      } else if (segRuta[s] === ':id' || segNorm[s] === ':id') {
+        score += 1; /* match por wildcard */
+      } else {
+        compatible = false;
+        break;
+      }
     }
-    /* Match parcial: vehiculos/slug → vehiculos/slug/:id */
-    const rutaSinParams = ruta.replace(/:id/g, '').replace(/\/+$/, '');
-    const normSinParams = normalizada.replace(/:id/g, '').replace(/\/+$/, '');
-    if (rutaSinParams === normSinParams || rutaSinParams.endsWith(normSinParams) || normSinParams.endsWith(rutaSinParams)) {
+
+    if (compatible && score > mejorScore) {
+      mejorScore = score;
+      mejorMatch = contrato;
+    }
+  }
+
+  if (mejorMatch) { return mejorMatch; }
+
+  /* Fase 3: match parcial por sufijo (solo si no hay match por segmentos) */
+  for (const [ruta, contrato] of cacheContratos) {
+    if (ruta.endsWith(normalizada) || normalizada.endsWith(ruta)) {
       return contrato;
     }
   }
