@@ -137,7 +137,7 @@ export function verificarRequestJsonDirecto(lineas: string[]): Violacion[] {
 
             const lineaSinSubscript = lineaJ.replace(new RegExp(`${varEscapada}\\s*\\[[^\\]]*\\]`, 'g'), '__subscript__');
 
-            const esFuncionFiltrado = /\b(array_intersect_key|array_filter|array_map|array_keys|array_values|array_diff_key|compact)\s*\(/.test(lineaJ);
+            const esFuncionFiltrado = /\b(array_intersect_key|array_filter|array_map|array_keys|array_values|array_diff_key|compact|empty|isset|count|is_array|is_null)\s*\(/.test(lineaJ);
             if (esFuncionFiltrado) {
                 continue;
             }
@@ -149,6 +149,10 @@ export function verificarRequestJsonDirecto(lineas: string[]): Violacion[] {
         }
 
         if (lineaUso !== -1) {
+            /* Respetar sentinel-disable-next-line request-json-directo en la línea anterior al uso */
+            if (lineas[lineaUso - 1]?.includes('sentinel-disable-next-line request-json-directo')) {
+                continue;
+            }
             violaciones.push({
                 reglaId: 'request-json-directo',
                 mensaje: `${varNombre} de get_json_params() pasado directo como argumento. Filtrar campos esperados antes de pasar a la capa de datos.`,
