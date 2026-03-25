@@ -180,6 +180,10 @@ const REGISTRO: DefinicionRegla[] = [
   { id: 'api-shape-mismatch', nombre: 'Shape mismatch array PHP vs TS', severidadDefault: 'error', categoria: CategoriaRegla.GlorySchema },
   { id: 'php-array-asociativo-como-lista', nombre: 'Array asociativo retornado como lista', severidadDefault: 'warning', categoria: CategoriaRegla.WordPressPhp },
   { id: 'php-service-retorna-asociativo', nombre: 'Service retorna asociativo en vez de lista', severidadDefault: 'warning', categoria: CategoriaRegla.WordPressPhp },
+
+  /* --- React/TS: emoji y estilos inline --- */
+  { id: 'emoji-en-codigo', nombre: 'Emoji Unicode en codigo', severidadDefault: 'warning', categoria: CategoriaRegla.PatronesProhibidos },
+  { id: 'inline-style-prohibido', nombre: 'CSS inline con style={{}}', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
 ];
 
 /* Cache de configuracion: se construye lazily al primer acceso */

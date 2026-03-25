@@ -126,8 +126,7 @@ export const reglasEstaticas: ReglaEstatica[] = [
    * El analyzer contextual distingue uso bare (peligroso) de acceso por subscript (seguro). */
 
 
-  {
-    id: 'at-generico-php',
+  {    id: 'at-generico-php',
     nombre: 'Supresor @ generico en PHP',
     descripcion: 'El operador @ oculta errores. Usar try-catch.',
     patron: /@[a-zA-Z_]\w*\s*\(/,
@@ -135,6 +134,35 @@ export const reglasEstaticas: ReglaEstatica[] = [
     aplicaA: ['.php'],
     categoria: CategoriaRegla.PatronesProhibidos,
     mensaje: 'Operador @ detectado. Oculta errores silenciosamente. Usar try-catch.',
+    porLinea: true,
+  },
+
+  /* Emojis Unicode en codigo renderizable. Los emojis varian entre plataformas,
+   * no escalan bien y no son accesibles. Usar SVG o iconos de libreria.
+   * Excepcion: comentarios de documentacion (no son codigo renderizable). */
+  {
+    id: 'emoji-en-codigo',
+    nombre: 'Emoji Unicode en codigo',
+    descripcion: 'PROHIBIDO usar emojis Unicode en codigo renderizable. Usar SVG o iconos.',
+    patron: /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/u,
+    severidad: 'warning',
+    aplicaA: ['.tsx', '.jsx', '.ts', '.js', '.css', '.html'],
+    categoria: CategoriaRegla.PatronesProhibidos,
+    mensaje: 'Emoji Unicode detectado. Usar SVG o componente de icono en su lugar.',
+    porLinea: true,
+  },
+
+  /* CSS inline con style={{}} en componentes React. Todo estilo debe ir en
+   * archivos .css separados con clases y variables CSS. */
+  {
+    id: 'inline-style-prohibido',
+    nombre: 'CSS inline con style={{}}',
+    descripcion: 'PROHIBIDO usar style={{}} en componentes React. Mover a archivo .css.',
+    patron: /style\s*=\s*\{\{/,
+    severidad: 'warning',
+    aplicaA: ['.tsx', '.jsx'],
+    categoria: CategoriaRegla.ReactPatrones,
+    mensaje: 'CSS inline detectado (style={{}}). Mover estilos a archivo .css con className.',
     porLinea: true,
   },
 ];
