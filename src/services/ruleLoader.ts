@@ -39,6 +39,9 @@ export function cargarConfiguracion(): ConfiguracionSentinel {
       '**/.agent/**',
       '**/target/**',
       '**/scripts/**',
+      /* Archivos auto-generados por codegen (Orval, openapi-typescript, etc.)
+         253A-10: excluir por nombre para no aplicar limite-lineas */
+      '**/api/generated.ts',
     ]),
     languages: config.get<string[]>('languages', [
       'php', 'typescript', 'typescriptreact',
@@ -55,6 +58,7 @@ export function invalidarCacheReglas(): void {
 /*
  * Verifica si un archivo debe ser excluido del analisis
  * segun los patrones glob configurados.
+ * Soporta patrones de carpeta y de archivo individual.
  */
 export function debeExcluirse(rutaArchivo: string, exclusiones: string[]): boolean {
   const rutaNormalizada = rutaArchivo.replace(/\\/g, '/');
@@ -65,10 +69,19 @@ export function debeExcluirse(rutaArchivo: string, exclusiones: string[]): boole
 
     /* Patron con doble asterisco significa cualquier subdirectorio */
     if (patronNormalizado.startsWith('**/')) {
-      const sufijo = patronNormalizado.slice(3).replace(/\*\*/g, '');
-      /* Remover trailing glob wildcard */
-      const carpeta = sufijo.replace(/\/\*\*$/, '').replace(/\/$/, '');
-      if (rutaNormalizada.includes(`/${carpeta}/`) || rutaNormalizada.includes(`\\${carpeta}\\`)) {
+      const sufijo = patronNormalizado.slice(3);
+
+      /* Patron de archivo especifico (ej: api/generated.ts)
+         Soporte para excluir archivos auto-generados por nombre */
+      if (!sufijo.endsWith('/**')) {
+        if (rutaNormalizada.endsWith('/' + sufijo)) {
+          return true;
+        }
+      }
+
+      /* Patron de carpeta (ej: node_modules, vendor) */
+      const carpeta = sufijo.replace(/\*\*/g, '').replace(/\/\*\*$/, '').replace(/\/$/, '');
+      if (carpeta && (rutaNormalizada.includes(`/${carpeta}/`) || rutaNormalizada.includes(`\\${carpeta}\\`))) {
         return true;
       }
     }
