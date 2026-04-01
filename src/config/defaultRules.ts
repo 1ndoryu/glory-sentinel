@@ -165,4 +165,37 @@ export const reglasEstaticas: ReglaEstatica[] = [
     mensaje: 'CSS inline detectado (style={{}}). Mover estilos a archivo .css con className.',
     porLinea: true,
   },
+
+  /* --- Seccion: Rust / SQLx --- */
+
+  /* [014A-11] Detecta sqlx::query_as( y sqlx::query_as::< (sin !) en archivos .rs.
+   * La macro query_as! verifica el SQL contra la BD en tiempo de compilacion;
+   * la version runtime solo detecta errores en ejecucion. Si el caso requiere
+   * query dinamico (OR condicional, filtros variables), justificar con comentario
+   * sentinel-disable-next-line. */
+  {
+    id: 'sqlx-query-as-sin-macro',
+    nombre: 'sqlx::query_as sin macro',
+    descripcion: 'Usar sqlx::query_as! (macro) para verificacion SQL en tiempo de compilacion.',
+    patron: /sqlx::query_as\s*(?:::<|[(])/,
+    severidad: 'warning',
+    aplicaA: ['.rs'],
+    categoria: CategoriaRegla.SeguridadSql,
+    mensaje: 'sqlx::query_as() detectado sin macro. Usar sqlx::query_as! para verificar SQL en compilacion.',
+    porLinea: true,
+  },
+
+  /* [014A-11] Mismo principio para sqlx::query (sin tipo). La macro query!
+   * verifica columnas y tipos; la version runtime no. */
+  {
+    id: 'sqlx-query-sin-macro',
+    nombre: 'sqlx::query sin macro',
+    descripcion: 'Usar sqlx::query! (macro) para verificacion SQL en tiempo de compilacion.',
+    patron: /sqlx::query\s*[(]/,
+    severidad: 'warning',
+    aplicaA: ['.rs'],
+    categoria: CategoriaRegla.SeguridadSql,
+    mensaje: 'sqlx::query() detectado sin macro. Usar sqlx::query! para verificar SQL en compilacion.',
+    porLinea: true,
+  },
 ];
