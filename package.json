@@ -22,7 +22,8 @@
     "onLanguage:typescriptreact",
     "onLanguage:javascript",
     "onLanguage:javascriptreact",
-    "onLanguage:css"
+    "onLanguage:css",
+    "onLanguage:rust"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -95,7 +96,8 @@
             "typescriptreact",
             "javascript",
             "javascriptreact",
-            "css"
+            "css",
+            "rust"
           ],
           "description": "Lenguajes donde se activa el analisis"
         }

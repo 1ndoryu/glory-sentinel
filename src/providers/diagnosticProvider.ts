@@ -241,7 +241,7 @@ export async function analizarWorkspace(): Promise<void> {
     : undefined;
 
   const archivos = await vscode.workspace.findFiles(
-    '**/*.{php,ts,tsx,js,jsx,css}',
+    '**/*.{php,ts,tsx,js,jsx,css,rs}',
     patronExclusion
   );
 

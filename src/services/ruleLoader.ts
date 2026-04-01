@@ -45,7 +45,7 @@ export function cargarConfiguracion(): ConfiguracionSentinel {
     ]),
     languages: config.get<string[]>('languages', [
       'php', 'typescript', 'typescriptreact',
-      'javascript', 'javascriptreact', 'css',
+      'javascript', 'javascriptreact', 'css', 'rust',
     ]),
   };
 }
