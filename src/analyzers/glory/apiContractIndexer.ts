@@ -266,7 +266,12 @@ function indexarController(contenido: string, rutaArchivo: string): void {
      * Estas son responses de catch/validacion, no el payload real del endpoint.
      * No agregarlas a metodosIndexados permite que el response de exito posterior se indexe.
      */
-    const CLAVES_ERROR = new Set(['code', 'error', 'message', 'status']);
+    /*
+     * Claves tipicas de respuestas de error. 'success' se incluye porque TODAS las
+     * respuestas (exito y error) lo traen — sin incluirlo, ['success'=>false,'error'=>'...']
+     * no se clasifica como error y se indexa en vez del success response real.
+     */
+    const CLAVES_ERROR = new Set(['code', 'error', 'message', 'status', 'success']);
     const esErrorResponse = claves.size > 0 && [...claves].every(c => CLAVES_ERROR.has(c));
 
     if (claves.size > 0 && !esErrorResponse) {

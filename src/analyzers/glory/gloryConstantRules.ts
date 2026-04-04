@@ -90,7 +90,8 @@ function extraerClaseActual(lineas: string[]): { nombre: string; padre: string |
  */
 function extraerConstantesLocales(lineas: string[]): Set<string> {
   const constantes = new Set<string>();
-  const regexConst = /\bconst\s+([A-Z][A-Z0-9_]*)\s*=/;
+  /* Unicode: PHP 8+ permite Ñ, É, Á, etc. en identificadores */
+  const regexConst = /\bconst\s+([A-Z\u00C0-\u024F][A-Z0-9_\u00C0-\u024F]*)\s*=/;
 
   for (const linea of lineas) {
     const match = linea.match(regexConst);
@@ -124,8 +125,8 @@ export function verificarUndefinedClassConstant(lineas: string[]): Violacion[] {
     constantesPadre = obtenerConstantesDeClase(nombreRealPadre);
   }
 
-  /* Regex para detectar ClassName::CONSTANT_NAME */
-  const regexRef = /\b(self|static|parent|[A-Z]\w+)\s*::\s*([A-Z][A-Z0-9_]*)\b/g;
+  /* Regex para detectar ClassName::CONSTANT_NAME (Unicode: soporta Ñ, É, Á en PHP 8+) */
+  const regexRef = /\b(self|static|parent|[A-Z][\w\u00C0-\u024F]*)\s*::\s*([A-Z\u00C0-\u024F][A-Z0-9_\u00C0-\u024F]*)\b/g;
 
   for (let i = 0; i < lineas.length; i++) {
     if (esComentario(lineas[i])) { continue; }

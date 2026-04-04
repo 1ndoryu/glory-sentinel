@@ -121,6 +121,11 @@ export function verificarNPlus1Query(lineas: string[], rutaArchivo?: string): Vi
     }
 
     if (tieneQuery && !tieneCache && lineaQuery !== -1 && !lineasYaReportadas.has(lineaQuery)) {
+      /* Verificar disable tanto en la linea del loop como en la linea del query */
+      if (tieneSentinelDisable(lineas, lineaQuery, 'n-plus-1-query')) {
+        if (finBloque > i) { i = finBloque; }
+        continue;
+      }
       lineasYaReportadas.add(lineaQuery);
       violaciones.push({
         reglaId: 'n-plus-1-query',

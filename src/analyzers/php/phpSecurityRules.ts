@@ -29,6 +29,11 @@ export function verificarExecSinEscape(lineas: string[]): Violacion[] {
       continue;
     }
 
+    /* Exclusion: sentinel-disable-next-line */
+    if (tieneSentinelDisable(lineas, i, 'exec-sin-escapeshellarg')) {
+      continue;
+    }
+
     /* Exclusion: argumentos completamente literales */
     if (esComandoLiteral(linea)) {
       continue;
@@ -99,7 +104,7 @@ function esVariableArrayEnContexto(lineas: string[], lineaActual: number, varNom
   }
 
   /* Buscar type hint en firma de funcion */
-  for (let j = Math.max(0, lineaActual - 30); j < lineaActual; j++) {
+  for (let j = Math.max(0, lineaActual - 50); j < lineaActual; j++) {
     if (/function\s+\w+\s*\(/.test(lineas[j])) {
       const firma = lineas.slice(j, Math.min(j + 5, lineas.length)).join(' ');
       if (new RegExp(`array\\s+${varEscapada}`).test(firma)) {
