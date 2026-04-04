@@ -198,4 +198,20 @@ export const reglasEstaticas: ReglaEstatica[] = [
     mensaje: 'sqlx::query() detectado sin macro. Usar sqlx::query! para verificar SQL en compilacion.',
     porLinea: true,
   },
+
+  /* --- Seccion: Deteccion de TODOs y pendientes ---
+   * [044A-20] Detecta marcadores de trabajo pendiente (TODO, FIXME, HACK, PENDIENTE, XXX)
+   * en cualquier archivo de codigo. Severidad hint para no bloquear, pero hacer visible
+   * la deuda tecnica acumulada. Excluye archivos .md y de documentacion. */
+  {
+    id: 'todo-pendiente',
+    nombre: 'TODO/FIXME pendiente detectado',
+    descripcion: 'Marcador de trabajo pendiente encontrado. Resolver o crear tarea en roadmap.',
+    patron: /(?:\/\/|\/\*|#|<!--)\s*(?:TODO|FIXME|HACK|PENDIENTE|XXX)\b/i,
+    severidad: 'hint',
+    aplicaA: ['.php', '.ts', '.tsx', '.js', '.jsx', '.css', '.rs'],
+    categoria: CategoriaRegla.EstructuraNomenclatura,
+    mensaje: 'Marcador pendiente detectado. Resolver o migrar a roadmap como tarea formal.',
+    porLinea: true,
+  },
 ];

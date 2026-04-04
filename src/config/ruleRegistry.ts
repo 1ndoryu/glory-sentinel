@@ -184,6 +184,9 @@ const REGISTRO: DefinicionRegla[] = [
   /* --- React/TS: emoji y estilos inline --- */
   { id: 'emoji-en-codigo', nombre: 'Emoji Unicode en codigo', severidadDefault: 'warning', categoria: CategoriaRegla.PatronesProhibidos },
   { id: 'inline-style-prohibido', nombre: 'CSS inline con style={{}}', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
+
+  /* --- Deteccion de TODOs/pendientes (defaultRules.ts) --- */
+  { id: 'todo-pendiente', nombre: 'TODO/FIXME pendiente detectado', severidadDefault: 'hint', categoria: CategoriaRegla.EstructuraNomenclatura },
 ];
 
 /* Cache de configuracion: se construye lazily al primer acceso */
