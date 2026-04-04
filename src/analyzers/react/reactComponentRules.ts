@@ -470,14 +470,27 @@ export function verificarObjetoMutableExportado(lineas: string[]): Violacion[] {
 
     const nombre = match[1];
 
-    /* Excluir patrones comunes que son intencionalmente mutables (ej: registros, maps) */
-    if (/REGISTRO|registry|MAPA/i.test(nombre)) { continue; }
+    /* Excluir patrones comunes que son intencionalmente mutables (ej: registros, maps, definiciones de bloque) */
+    if (/REGISTRO|registry|MAPA|Definition/i.test(nombre)) { continue; }
 
-    /* Verificar si la linea anterior tiene Object.freeze o as const */
+    /* Verificar si el bloque exportado es inmutable.
+     * [044A-14] Escanea hasta el cierre del bloque (o nueva declaracion) en vez de solo 5 lineas,
+     * para detectar as const satisfies al final de objetos grandes. */
     let esInmutable = false;
-    const contexto = lineas.slice(i, Math.min(lineas.length, i + 5)).join(' ');
-    if (/Object\.freeze/.test(contexto) || /as\s+const/.test(contexto) || /readonly/.test(lineas[i])) {
+    if (/readonly/.test(lineas[i])) {
       esInmutable = true;
+    } else {
+      const limiteLineas = Math.min(lineas.length, i + 100);
+      for (let j = i; j < limiteLineas; j++) {
+        if (/Object\.freeze/.test(lineas[j]) || /as\s+const/.test(lineas[j])) {
+          esInmutable = true;
+          break;
+        }
+        /* Si encontramos otra declaracion top-level, el bloque export termino */
+        if (j > i && /^(export\s|function\s|class\s|interface\s|type\s)/.test(lineas[j].trim())) {
+          break;
+        }
+      }
     }
 
     if (!esInmutable) {

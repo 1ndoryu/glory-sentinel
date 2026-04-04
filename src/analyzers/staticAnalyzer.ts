@@ -120,6 +120,24 @@ function ejecutarReglaPorLinea(texto: string, regla: ReglaEstatica, documento: v
             }
         }
 
+        /* [044A-14] emoji-en-codigo: no flaggear emojis dentro de string literals ni comentarios.
+         * Solo flaggear emojis en codigo renderizable (JSX text content, atributos, etc). */
+        if (regla.id === 'emoji-en-codigo') {
+            const lineaTrimmed = linea.trim();
+            /* Saltar lineas de comentario de bloque o de linea */
+            if (lineaTrimmed.startsWith('*') || lineaTrimmed.startsWith('/*') || lineaTrimmed.startsWith('//')) {
+                continue;
+            }
+            /* Quitar contenido de string literals (comillas simples, dobles, backticks) */
+            const sinStrings = linea.replace(/(['"`])(?:(?!\1|\\).|\\.)*\1/g, '');
+            /* Quitar comentarios inline restantes */
+            const sinContexto = sinStrings.replace(/\/\*.*?\*\//g, '').replace(/\/\/.*$/g, '');
+            const patronLocal = new RegExp(regla.patron.source, regla.patron.flags.replace('g', ''));
+            if (!patronLocal.test(sinContexto)) {
+                continue;
+            }
+        }
+
         const patron = new RegExp(regla.patron.source, regla.patron.flags.replace('g', ''));
         const match = patron.exec(linea);
 
