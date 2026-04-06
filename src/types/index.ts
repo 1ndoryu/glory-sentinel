@@ -21,6 +21,8 @@ export interface ReglaEstatica {
   porLinea: boolean;
   /* ID del quick fix asociado, si existe */
   quickFixId?: string;
+  /* [064A-1] Patrones de nombre de archivo a excluir (ej: 'Button.css') */
+  excluirArchivos?: string[];
 }
 
 

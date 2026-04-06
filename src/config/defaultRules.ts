@@ -214,4 +214,22 @@ export const reglasEstaticas: ReglaEstatica[] = [
     mensaje: 'Marcador pendiente detectado. Resolver o migrar a roadmap como tarea formal.',
     porLinea: true,
   },
+
+  /* --- Seccion: Estilos ad-hoc de botones ---
+   * [064A-1] Detecta cursor:pointer combinado con background/padding en CSS —
+   * patron clasico de un boton ad-hoc que deberia usar el componente Button.
+   * Excluye archivos Button.css y variables.css (los propios del componente).
+   * Severidad warning: no bloquea, pero alerta al desarrollador. */
+  {
+    id: 'css-adhoc-button-style',
+    nombre: 'Estilo de boton ad-hoc en CSS',
+    descripcion: 'Detecta cursor:pointer en clases CSS que no son Button.css. Usar el componente Button con variante.',
+    patron: /cursor\s*:\s*pointer/,
+    severidad: 'warning',
+    aplicaA: ['.css'],
+    categoria: CategoriaRegla.EstructuraNomenclatura,
+    mensaje: 'cursor:pointer detectado fuera de Button.css. Si es un boton, usar <Button variante="..."> en su lugar.',
+    porLinea: true,
+    excluirArchivos: ['Button.css', 'variables.css'],
+  },
 ];

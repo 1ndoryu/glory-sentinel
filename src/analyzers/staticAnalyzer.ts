@@ -40,6 +40,14 @@ export function analizarEstatico(documento: vscode.TextDocument, reglasPersonali
             continue;
         }
 
+        /* [064A-1] Excluir archivos por nombre si la regla lo especifica */
+        if (regla.excluirArchivos) {
+            const nombreArchivo = documento.fileName.replace(/\\/g, '/').split('/').pop() || '';
+            if (regla.excluirArchivos.some(ex => nombreArchivo === ex)) {
+                continue;
+            }
+        }
+
         /* Excluir barras-decorativas en Glory/ */
         if (regla.id === 'barras-decorativas') {
             const rutaNorm = documento.fileName.replace(/\\/g, '/');
