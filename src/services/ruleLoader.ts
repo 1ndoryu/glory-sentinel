@@ -39,6 +39,8 @@ export function cargarConfiguracion(): ConfiguracionSentinel {
       '**/.agent/**',
       '**/target/**',
       '**/scripts/**',
+      /* [054A-19] Assets estáticos legacy (CSS/JS de WordPress) */
+      '**/public/assets/**',
       /* Archivos auto-generados por codegen (Orval, openapi-typescript, etc.)
          253A-10: excluir por nombre para no aplicar limite-lineas */
       '**/api/generated.ts',

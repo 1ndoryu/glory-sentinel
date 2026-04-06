@@ -5,9 +5,46 @@
  * componente artesanal, update optimista sin rollback.
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
+import * as vscode from 'vscode';
 import { Violacion } from '../../types';
 import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
 import { esComentario, tieneSentinelDisable } from '../../utils/analisisHelpers';
+
+const cacheComponentesUi = new Map<string, boolean>();
+
+function existeComponenteUi(nombres: string[]): boolean {
+  const cacheKey = nombres.join('|');
+  const cached = cacheComponentesUi.get(cacheKey);
+  if (cached !== undefined) { return cached; }
+
+  const carpetas = vscode.workspace.workspaceFolders ?? [];
+  const basesRelativas = [
+    path.join('frontend', 'src', 'components', 'ui'),
+    path.join('src', 'components', 'ui'),
+    path.join('App', 'React', 'components', 'ui'),
+    path.join('components', 'ui'),
+  ];
+  const extensiones = ['tsx', 'ts', 'jsx', 'js'];
+
+  for (const carpeta of carpetas) {
+    for (const baseRelativa of basesRelativas) {
+      for (const nombre of nombres) {
+        for (const extension of extensiones) {
+          const rutaArchivo = path.join(carpeta.uri.fsPath, baseRelativa, `${nombre}.${extension}`);
+          if (fs.existsSync(rutaArchivo)) {
+            cacheComponentesUi.set(cacheKey, true);
+            return true;
+          }
+        }
+      }
+    }
+  }
+
+  cacheComponentesUi.set(cacheKey, false);
+  return false;
+}
 
 /*
  * Detecta mutaciones directas de estado React.
@@ -185,7 +222,7 @@ export function verificarComponenteSinHook(lineas: string[], nombreArchivo: stri
  */
 export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArchivo: string): Violacion[] {
   const archivosExcluidos = [
-    'Boton', 'BotonBase', 'Input', 'Select', 'SelectorMenu', 'SelectorBase',
+    'Boton', 'BotonBase', 'Button', 'Input', 'Select', 'SelectorMenu', 'SelectorBase',
     'Textarea', 'CampoTexto', 'Checkbox', 'Radio', 'GloryLink', 'PageRenderer', 'ModalAcciones',
   ];
   const nombreBase = nombreArchivo.replace(/\.(tsx|jsx)$/, '');
@@ -200,6 +237,11 @@ export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArc
   }
 
   const violaciones: Violacion[] = [];
+  const tieneBotonUi = existeComponenteUi(['Button', 'Boton', 'BotonBase']);
+  const tieneInputUi = existeComponenteUi(['Input', 'CampoTexto']);
+  const tieneSelectUi = existeComponenteUi(['Select', 'SelectorMenu', 'SelectorBase']);
+  const tieneTextareaUi = existeComponenteUi(['Textarea']);
+  const tieneGloryLinkUi = existeComponenteUi(['GloryLink']);
 
   for (let i = 0; i < lineas.length; i++) {
     const linea = lineas[i];
@@ -208,7 +250,7 @@ export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArc
     /* Tambien skip inline sentinel-disable */
     if (linea.includes('sentinel-disable html-nativo-en-vez-de-componente')) { continue; }
 
-    if (/<button[\s>]/.test(linea)) {
+    if (tieneBotonUi && /<button[\s>]/.test(linea)) {
       violaciones.push({
         reglaId: 'html-nativo-en-vez-de-componente',
         mensaje: 'Usar componente <Boton> en vez de <button> nativo. Import desde components/ui.',
@@ -219,9 +261,11 @@ export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArc
       continue;
     }
 
-    if (/<input[\s/]/.test(linea)) {
-      /* type="hidden" es un patron comun de formularios; type="file" es un trigger nativo con ref */
-      if (/type\s*=\s*["'](?:hidden|file)["']/i.test(linea)) { continue; }
+    if (tieneInputUi && /<input[\s/]/.test(linea)) {
+      /* type="hidden" es un patron comun de formularios; type="file" es un trigger nativo con ref.
+       * [054A-19] Buscar type en la misma linea o en las siguientes (JSX multi-linea) */
+      const fragmento = lineas.slice(i, Math.min(i + 6, lineas.length)).join(' ');
+      if (/type\s*=\s*["'](?:hidden|file)["']/i.test(fragmento)) { continue; }
       violaciones.push({
         reglaId: 'html-nativo-en-vez-de-componente',
         mensaje: 'Usar componente <Input> (o <Checkbox>/<Radio> segun type) en vez de <input> nativo. Import desde components/ui.',
@@ -232,7 +276,7 @@ export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArc
       continue;
     }
 
-    if (/<select[\s>]/.test(linea)) {
+    if (tieneSelectUi && /<select[\s>]/.test(linea)) {
       violaciones.push({
         reglaId: 'html-nativo-en-vez-de-componente',
         mensaje: 'Usar componente <Select> en vez de <select> nativo. Import desde components/ui.',
@@ -243,7 +287,7 @@ export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArc
       continue;
     }
 
-    if (/<textarea[\s>]/.test(linea)) {
+    if (tieneTextareaUi && /<textarea[\s>]/.test(linea)) {
       violaciones.push({
         reglaId: 'html-nativo-en-vez-de-componente',
         mensaje: 'Usar componente <Textarea> en vez de <textarea> nativo. Import desde components/ui.',
@@ -254,7 +298,7 @@ export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArc
       continue;
     }
 
-    if (/<a\s+(?:[^>]*\s)?href\s*=/i.test(linea)) {
+    if (tieneGloryLinkUi && /<a\s+(?:[^>]*\s)?href\s*=/i.test(linea)) {
       if (/\bdownload\b/i.test(linea)) { continue; }
       if (/href\s*=\s*["']#/i.test(linea)) { continue; }
       if (/href\s*=\s*\{/.test(linea)) { continue; }

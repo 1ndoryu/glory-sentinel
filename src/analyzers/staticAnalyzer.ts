@@ -142,6 +142,23 @@ function ejecutarReglaPorLinea(texto: string, regla: ReglaEstatica, documento: v
         const match = patron.exec(linea);
 
         if (match) {
+            /* [054A-19] inline-style-prohibido: permitir style={{}} cuando solo establece
+             * CSS custom properties (--var). Es el patrón correcto para inyectar
+             * valores dinámicos de JS a CSS sin usar inline styles reales. */
+            if (regla.id === 'inline-style-prohibido') {
+                let soloCssVars = true;
+                for (let j = i + 1; j < Math.min(i + 15, lineas.length); j++) {
+                    const sig = lineas[j].trim();
+                    if (sig === '}}' || sig === '} as React.CSSProperties}') break;
+                    if (sig === '' || sig.startsWith('//') || sig.startsWith('/*') || sig.startsWith('*')) continue;
+                    if (!sig.startsWith("'--") && !sig.startsWith('"--')) {
+                        soloCssVars = false;
+                        break;
+                    }
+                }
+                if (soloCssVars) continue;
+            }
+
             let mensaje = regla.mensaje;
             if (match[1]) {
                 mensaje = mensaje.replace('$1', match[1]);
