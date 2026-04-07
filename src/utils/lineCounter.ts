@@ -54,6 +54,12 @@ export function obtenerLimiteArchivo(nombreArchivo: string, rutaArchivo: string)
   const nombreLower = nombreArchivo.toLowerCase();
   const rutaLower = rutaArchivo.toLowerCase().replace(/\\/g, '/');
 
+  /* [054A-19] Archivos de datos puros (constantes, arrays estaticos) no tienen limite.
+   * Convencional: archivos .ts bajo /data/ que solo exportan constantes. */
+  if (rutaLower.includes('/data/') && (nombreLower.endsWith('.ts') || nombreLower.endsWith('.js'))) {
+    return null;
+  }
+
   /* Hooks: archivos use*.ts o use*.tsx.
    * Feature hooks (extraidos de islands/componentes) necesitan mas espacio
    * que small reusable hooks. Limite ajustado a 300 (protocolo base: 120,

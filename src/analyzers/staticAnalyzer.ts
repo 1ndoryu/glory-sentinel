@@ -29,6 +29,12 @@ export function analizarEstatico(documento: vscode.TextDocument, reglasPersonali
         return violaciones;
     }
 
+    /* [054A-19] Excluir directorio examples/ (seeds, demos, no codigo de produccion) */
+    const rutaNormExclude = documento.fileName.replace(/\\/g, '/');
+    if (rutaNormExclude.includes('/examples/')) {
+        return violaciones;
+    }
+
     const reglas = reglasPersonalizadas || reglasEstaticas;
 
     /* Ejecutar reglas regex por linea o por archivo completo */
