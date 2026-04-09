@@ -153,6 +153,10 @@ export function verificarComponenteSinHook(lineas: string[], nombreArchivo: stri
     return [];
   }
 
+  /* [104A-4] Soporte sentinel-disable-file para esta regla */
+  const texto = lineas.join('\n');
+  if (texto.includes('sentinel-disable-file componente-sin-hook')) { return []; }
+
   const nombreComponente = nombreArchivo.replace(/\.(tsx|jsx)$/, '');
   const regexHookDedicado = new RegExp(`\\buse${nombreComponente}\\b`);
   const tieneHookDedicado = lineas.some(l => regexHookDedicado.test(l));
@@ -237,6 +241,11 @@ export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArc
   }
 
   const violaciones: Violacion[] = [];
+
+  /* [104A-4] Soporte sentinel-disable-file para esta regla */
+  const texto = lineas.join('\n');
+  if (texto.includes('sentinel-disable-file html-nativo-en-vez-de-componente')) { return []; }
+
   const tieneBotonUi = existeComponenteUi(['Button', 'Boton', 'BotonBase']);
   const tieneInputUi = existeComponenteUi(['Input', 'CampoTexto']);
   const tieneSelectUi = existeComponenteUi(['Select', 'SelectorMenu', 'SelectorBase']);

@@ -46,6 +46,9 @@ export function verificarUseStateExcesivo(
   texto: string,
   documento: vscode.TextDocument,
 ): Violacion[] {
+  /* [104A-4] Soporte sentinel-disable-file para esta regla */
+  if (texto.includes('sentinel-disable-file usestate-excesivo')) { return []; }
+
   const componentDeclarations = texto.match(/(?:const|function)\s+[A-Z][A-Za-z]*\s*(?:=|\()/g) || [];
   const numComponentes = Math.max(1, componentDeclarations.length);
 
