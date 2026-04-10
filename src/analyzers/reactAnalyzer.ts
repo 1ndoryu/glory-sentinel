@@ -33,6 +33,7 @@ import {
   verificarKeyIndexLista,
   verificarComponenteSinHook,
   verificarHtmlNativoEnVezDeComponente,
+  verificarButtonClaseEspecifica,
   verificarComponenteArtesanal,
   verificarUpdateOptimistaSinRollback,
   verificarColaSinLimite,
@@ -100,6 +101,9 @@ export function analizarReact(documento: vscode.TextDocument): Violacion[] {
     }
     if (reglaHabilitada('html-nativo-en-vez-de-componente')) {
       violaciones.push(...verificarHtmlNativoEnVezDeComponente(lineas, nombreArchivo));
+    }
+    if (reglaHabilitada('button-clase-especifica')) {
+      violaciones.push(...verificarButtonClaseEspecifica(lineas, nombreArchivo));
     }
     if (reglaHabilitada('componente-artesanal')) {
       violaciones.push(...verificarComponenteArtesanal(lineas, nombreArchivo));

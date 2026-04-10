@@ -2,7 +2,8 @@
  * Reglas de arquitectura de componentes React.
  * Detecta: mutacion directa de estado, key-index en listas,
  * componente sin hook dedicado, HTML nativo en vez de componente,
- * componente artesanal, update optimista sin rollback.
+ * clases especificas en botones, componente artesanal,
+ * update optimista sin rollback.
  */
 
 import * as fs from 'fs';
@@ -319,6 +320,70 @@ export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArc
         fuente: 'estatico',
       });
     }
+  }
+
+  return violaciones;
+}
+
+const CLASES_BOTON_SISTEMA = new Set([
+  'botonBase', 'botonPrimario', 'botonSecundario', 'botonOutline', 'botonTexto',
+  'botonExito', 'botonExitoSuave', 'botonPeligro', 'botonPeligroSuave',
+  'botonAdvertencia', 'botonAdvertenciaSuave', 'botonInfo', 'botonInfoSuave',
+  'botonPequeno', 'botonMediano', 'botonGrande',
+]);
+
+function esClaseBotonEspecifica(nombreClase: string): boolean {
+  if (!nombreClase || CLASES_BOTON_SISTEMA.has(nombreClase)) {
+    return false;
+  }
+
+  return /(?:boton|button)[A-Z]/i.test(nombreClase)
+    || /(?:^|[-_])(?:boton|button)(?:[-_][\w-]+)+$/i.test(nombreClase);
+}
+
+/*
+ * Detecta className especifico aplicado a botones/componentes Button.
+ * Estos estilos suelen duplicar variantes del sistema y degradan consistencia visual.
+ */
+export function verificarButtonClaseEspecifica(lineas: string[], nombreArchivo: string): Violacion[] {
+  const nombreBase = nombreArchivo.replace(/\.(tsx|jsx)$/, '');
+  if (['Boton', 'BotonBase', 'Button'].includes(nombreBase)) { return []; }
+
+  if (nombreArchivo.includes('.test.') || nombreArchivo.includes('.spec.') ||
+      nombreArchivo.includes('_generated')) {
+    return [];
+  }
+
+  const texto = lineas.join('\n');
+  if (texto.includes('sentinel-disable-file button-clase-especifica')) { return []; }
+
+  const violaciones: Violacion[] = [];
+
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i];
+    if (esComentario(linea)) { continue; }
+    if (tieneSentinelDisable(lineas, i, 'button-clase-especifica')) { continue; }
+    if (linea.includes('sentinel-disable button-clase-especifica')) { continue; }
+    if (!/<(?:Button|Boton|button)\b/.test(linea)) { continue; }
+
+    const fragmento = lineas.slice(i, Math.min(i + 6, lineas.length)).join(' ');
+    const classMatch = /className\s*=\s*(?:\{\s*`([^`]+)`\s*\}|`([^`]+)`|["']([^"']+)["'])/.exec(fragmento);
+    if (!classMatch) { continue; }
+
+    const rawClassName = classMatch[1] ?? classMatch[2] ?? classMatch[3] ?? '';
+    const claseProblematica = rawClassName
+      .split(/\s+/)
+      .find(esClaseBotonEspecifica);
+
+    if (!claseProblematica) { continue; }
+
+    violaciones.push({
+      reglaId: 'button-clase-especifica',
+      mensaje: `Clase especifica de boton "${claseProblematica}" detectada. Preferir variantes/tamanos de <Button> y mover la semantica a contenedores o contenido interno.`,
+      severidad: obtenerSeveridadRegla('button-clase-especifica'),
+      linea: i,
+      fuente: 'estatico',
+    });
   }
 
   return violaciones;

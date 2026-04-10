@@ -11,7 +11,7 @@ import {reglaHabilitada, obtenerSeveridadRegla} from '../config/ruleRegistry';
 
 /* Submodulos */
 import {verificarLimiteLineas, verificarUseStateExcesivo, verificarImportsMuertos, verificarAnyType, verificarNonNullAssertion} from './static/staticCodeRules';
-import {verificarNomenclaturaCssIngles} from './static/staticCssRules';
+import {verificarCardIconoExtiendeBase, verificarNomenclaturaCssIngles} from './static/staticCssRules';
 
 /*
  * Ejecuta todas las reglas estaticas aplicables a un documento.
@@ -104,9 +104,37 @@ export function analizarEstatico(documento: vscode.TextDocument, reglasPersonali
         if (reglaHabilitada('nomenclatura-css-ingles') && !rutaNormCss.includes('/Glory/')) {
             violaciones.push(...verificarNomenclaturaCssIngles(texto, documento, nombreArchivo));
         }
+        if (reglaHabilitada('card-icono-debe-extender-base')) {
+            violaciones.push(...verificarCardIconoExtiendeBase(texto, documento, nombreArchivo));
+        }
     }
 
     return violaciones;
+}
+
+export function tieneSentinelDisableFile(texto: string, reglaId: string): boolean {
+    const lineas = texto.split('\n');
+
+    for (const linea of lineas) {
+        const indice = linea.indexOf('sentinel-disable-file');
+        if (indice === -1) {
+            continue;
+        }
+
+        const resto = linea
+            .slice(indice + 'sentinel-disable-file'.length)
+            .replace(/[:*/]/g, ' ');
+        const reglasDeshabilitadas = resto
+            .split(/\s+/)
+            .map(token => token.trim())
+            .filter(Boolean);
+
+        if (reglasDeshabilitadas.includes(reglaId)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 /*
@@ -114,6 +142,11 @@ export function analizarEstatico(documento: vscode.TextDocument, reglasPersonali
  */
 function ejecutarReglaPorLinea(texto: string, regla: ReglaEstatica, documento: vscode.TextDocument): Violacion[] {
     const violaciones: Violacion[] = [];
+
+    if (tieneSentinelDisableFile(texto, regla.id)) {
+        return violaciones;
+    }
+
     const lineas = texto.split('\n');
 
     for (let i = 0; i < lineas.length; i++) {
@@ -200,6 +233,11 @@ function ejecutarReglaPorLinea(texto: string, regla: ReglaEstatica, documento: v
  */
 function ejecutarReglaCompleta(texto: string, regla: ReglaEstatica, documento: vscode.TextDocument): Violacion[] {
     const violaciones: Violacion[] = [];
+
+    if (tieneSentinelDisableFile(texto, regla.id)) {
+        return violaciones;
+    }
+
     const patron = new RegExp(regla.patron.source, regla.patron.flags + (regla.patron.flags.includes('g') ? '' : 'g'));
 
     let match: RegExpExecArray | null;

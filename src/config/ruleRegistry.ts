@@ -147,11 +147,13 @@ const REGISTRO: DefinicionRegla[] = [
   /* habilitadaDefault: false — demasiados falsos positivos con clases nativas (.input, .select, .button)
    * que no conviene renombrar (formularios WordPress, librerías externas). */
   { id: 'nomenclatura-css-ingles', nombre: 'CSS en ingles', severidadDefault: 'hint', habilitadaDefault: false, categoria: CategoriaRegla.EstructuraNomenclatura },
+  { id: 'card-icono-debe-extender-base', nombre: 'CardIcono debe extender base compartida', severidadDefault: 'warning', categoria: CategoriaRegla.EstructuraNomenclatura },
   /* css-hardcoded-value: desactivada. Descomentar para re-activar. */
   // { id: 'css-hardcoded-value', nombre: 'Color CSS hardcodeado', severidadDefault: 'warning', categoria: CategoriaRegla.EstructuraNomenclatura },
 
   /* --- Sprint 4: React (reactAnalyzer.ts) --- */
   { id: 'html-nativo-en-vez-de-componente', nombre: 'HTML nativo en vez de componente', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
+  { id: 'button-clase-especifica', nombre: 'Clase específica en botón', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
 
   /* --- Sprint 5: Detecciones avanzadas (reactAnalyzer.ts + staticAnalyzer.ts) --- */
   { id: 'componente-artesanal', nombre: 'Componente artesanal detectado', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },

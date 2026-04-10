@@ -53,6 +53,72 @@ export function verificarNomenclaturaCssIngles(
 }
 
 /*
+ * Detecta variantes *CardIcono que redefinen la receta base de .panelCardIcono.
+ * La clase variante debe usarse solo para overrides puntuales y no recrear
+ * display/alineacion/flex-shrink desde cero.
+ */
+export function verificarCardIconoExtiendeBase(
+  texto: string,
+  documento: vscode.TextDocument,
+  nombreArchivo: string,
+): Violacion[] {
+  const rutaNorm = documento.fileName.replace(/\\/g, '/');
+  if (rutaNorm.includes('node_modules') || rutaNorm.includes('vendor')) {
+    return [];
+  }
+
+  const nombreLower = nombreArchivo.toLowerCase();
+  if (nombreLower === 'panelisland.css' || nombreLower === 'panelisland.scss') {
+    return [];
+  }
+
+  if (texto.includes('sentinel-disable-file card-icono-debe-extender-base')) {
+    return [];
+  }
+
+  const violaciones: Violacion[] = [];
+  const lineas = texto.split('\n');
+  const regexSelector = /^\.([A-Za-z][\w-]*CardIcono)\s*\{/;
+  const regexPropiedadBase = /^(display\s*:\s*flex|align-items\s*:\s*center|justify-content\s*:\s*center|flex-shrink\s*:\s*0)\b/;
+
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i].trim();
+
+    if (linea.startsWith('/*') || linea.startsWith('*') || linea.startsWith('//')) { continue; }
+
+    const match = regexSelector.exec(linea);
+    if (!match) { continue; }
+
+    const nombreClase = match[1];
+    if (nombreClase === 'panelCardIcono') { continue; }
+    if (i > 0 && lineas[i - 1]?.includes('sentinel-disable-next-line card-icono-debe-extender-base')) { continue; }
+
+    let redefineBase = false;
+    for (let j = i + 1; j < lineas.length; j++) {
+      const lineaBloque = lineas[j].trim();
+      if (lineaBloque.startsWith('/*') || lineaBloque.startsWith('*') || lineaBloque.startsWith('//')) { continue; }
+      if (lineaBloque.includes('}')) { break; }
+      if (regexPropiedadBase.test(lineaBloque)) {
+        redefineBase = true;
+        break;
+      }
+    }
+
+    if (!redefineBase) { continue; }
+
+    violaciones.push({
+      reglaId: 'card-icono-debe-extender-base',
+      mensaje: `La clase CSS ".${nombreClase}" redefine la base compartida de card icon. Usa .panelCardIcono en JSX y deja aqui solo overrides puntuales.`,
+      severidad: obtenerSeveridadRegla('card-icono-debe-extender-base'),
+      linea: i,
+      fuente: 'estatico',
+    });
+  }
+
+  return violaciones;
+}
+
+/*
  * Detecta colores y valores hardcodeados en CSS que deberian usar variables.
  * Desactivada por decision de producto (falsos positivos con valores literales validos).
  */
