@@ -9,10 +9,14 @@ async function main() {
   try {
     const extensionDevelopmentPath = path.resolve(__dirname, '../../');
     const extensionTestsPath = path.resolve(__dirname, './suite/index');
+    const launchArgs = process.env.CODE_SENTINEL_TARGET_WORKSPACE
+      ? [process.env.CODE_SENTINEL_TARGET_WORKSPACE]
+      : [];
 
     await runTests({
       extensionDevelopmentPath,
       extensionTestsPath,
+      launchArgs,
     });
   } catch (err) {
     console.error('Failed to run tests:', err);

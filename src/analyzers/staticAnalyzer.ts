@@ -11,7 +11,7 @@ import {reglaHabilitada, obtenerSeveridadRegla} from '../config/ruleRegistry';
 
 /* Submodulos */
 import {verificarLimiteLineas, verificarUseStateExcesivo, verificarImportsMuertos, verificarAnyType, verificarNonNullAssertion} from './static/staticCodeRules';
-import {verificarCardIconoExtiendeBase, verificarNomenclaturaCssIngles} from './static/staticCssRules';
+import {verificarCardIconoExtiendeBase, verificarCssAdhocButtonStyle, verificarNomenclaturaCssIngles} from './static/staticCssRules';
 
 /*
  * Ejecuta todas las reglas estaticas aplicables a un documento.
@@ -43,6 +43,10 @@ export function analizarEstatico(documento: vscode.TextDocument, reglasPersonali
             continue;
         }
         if (!regla.aplicaA.some(ext => ext === extension || ext === 'todos')) {
+            continue;
+        }
+
+        if (regla.id === 'css-adhoc-button-style') {
             continue;
         }
 
@@ -104,6 +108,9 @@ export function analizarEstatico(documento: vscode.TextDocument, reglasPersonali
         if (reglaHabilitada('nomenclatura-css-ingles') && !rutaNormCss.includes('/Glory/')) {
             violaciones.push(...verificarNomenclaturaCssIngles(texto, documento, nombreArchivo));
         }
+        if (reglaHabilitada('css-adhoc-button-style')) {
+            violaciones.push(...verificarCssAdhocButtonStyle(texto, documento, nombreArchivo));
+        }
         if (reglaHabilitada('card-icono-debe-extender-base')) {
             violaciones.push(...verificarCardIconoExtiendeBase(texto, documento, nombreArchivo));
         }
@@ -135,6 +142,29 @@ export function tieneSentinelDisableFile(texto: string, reglaId: string): boolea
     }
 
     return false;
+}
+
+/* [104A-11] Permite style={{}} cuando solo se inyectan CSS custom properties,
+ * incluso si el objeto completo vive en una sola linea. Evita falsos positivos
+ * en barras de progreso y layouts que dependen de vars dinamicas. */
+function styleInlineSoloCssVars(lineas: string[], indice: number): boolean {
+    const ventana = lineas.slice(indice, Math.min(indice + 15, lineas.length)).join('\n');
+    const match = /style\s*=\s*\{\s*\{([\s\S]*?)\}\s*(?:as\s+[A-Za-z0-9_.]+)?\s*\}/.exec(ventana);
+    if (!match) {
+        return false;
+    }
+
+    const propiedades = match[1]
+        .replace(/\/\*[\s\S]*?\*\//g, ' ')
+        .split(',')
+        .map(token => token.trim())
+        .filter(Boolean);
+
+    if (propiedades.length === 0) {
+        return false;
+    }
+
+    return propiedades.every(propiedad => /^['"]--[\w-]+['"]\s*:/.test(propiedad));
 }
 
 /*
@@ -193,17 +223,7 @@ function ejecutarReglaPorLinea(texto: string, regla: ReglaEstatica, documento: v
              * CSS custom properties (--var). Es el patrón correcto para inyectar
              * valores dinámicos de JS a CSS sin usar inline styles reales. */
             if (regla.id === 'inline-style-prohibido') {
-                let soloCssVars = true;
-                for (let j = i + 1; j < Math.min(i + 15, lineas.length); j++) {
-                    const sig = lineas[j].trim();
-                    if (sig === '}}' || sig === '} as React.CSSProperties}') break;
-                    if (sig === '' || sig.startsWith('//') || sig.startsWith('/*') || sig.startsWith('*')) continue;
-                    if (!sig.startsWith("'--") && !sig.startsWith('"--')) {
-                        soloCssVars = false;
-                        break;
-                    }
-                }
-                if (soloCssVars) continue;
+                if (styleInlineSoloCssVars(lineas, i)) continue;
             }
 
             let mensaje = regla.mensaje;

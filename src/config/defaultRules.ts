@@ -216,20 +216,22 @@ export const reglasEstaticas: ReglaEstatica[] = [
   },
 
   /* --- Seccion: Estilos ad-hoc de botones ---
-   * [064A-1] Detecta cursor:pointer combinado con background/padding en CSS —
-   * patron clasico de un boton ad-hoc que deberia usar el componente Button.
+   * [064A-1] Detecta bloques CSS cuya propia seleccion parece un boton
+   * (clase/selector con boton|button) y ademas usan cursor:pointer.
+   * Esto evita falsos positivos en filas clickeables, cards, tabs y overlays
+   * interactivos que no representan un boton del sistema.
    * Excluye archivos Button.css y variables.css (los propios del componente).
    * Severidad warning: no bloquea, pero alerta al desarrollador. */
   {
     id: 'css-adhoc-button-style',
     nombre: 'Estilo de boton ad-hoc en CSS',
-    descripcion: 'Detecta cursor:pointer en clases CSS que no son Button.css. Usar el componente Button con variante.',
-    patron: /cursor\s*:\s*pointer/,
+    descripcion: 'Detecta bloques CSS con selector de boton y cursor:pointer fuera de Button.css. Usar el componente Button con variante.',
+    patron: /(?:^|})\s*[^{}]*?(?:boton|button)[^{}]*\{[^}]*cursor\s*:\s*pointer[^}]*\}/gim,
     severidad: 'warning',
     aplicaA: ['.css'],
     categoria: CategoriaRegla.EstructuraNomenclatura,
-    mensaje: 'cursor:pointer detectado fuera de Button.css. Si es un boton, usar <Button variante="..."> en su lugar.',
-    porLinea: true,
+    mensaje: 'Bloque CSS de boton detectado fuera de Button.css. Si es un boton, usar <Button variante="..."> en su lugar.',
+    porLinea: false,
     excluirArchivos: ['Button.css', 'variables.css'],
   },
 ];

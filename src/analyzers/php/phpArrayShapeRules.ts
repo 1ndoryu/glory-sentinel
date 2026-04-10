@@ -187,7 +187,7 @@ function analizarShapeMetodoLocal(nombre: string, contenido: string): 'indexado'
   const cuerpo = contenido.slice(inicio, fin);
 
   const tieneAppend = /\$\w+\[\]\s*=/.test(cuerpo);
-  const tieneAsociativo = /\$\w+\[\$\w+\]\s*=|\$\w+\[['"]/.test(cuerpo);
+  const tieneAsociativo = /\$\w+\[(?:\$[^\]]+|['"][^'"]+['"])\]\s*=/.test(cuerpo);
 
   if (tieneAsociativo && !tieneAppend) { return 'asociativo'; }
   if (tieneAppend && !tieneAsociativo) { return 'indexado'; }
@@ -258,16 +258,23 @@ export function verificarServiceRetornaAsociativo(lineas: string[]): Violacion[]
 
     if (dentroDeMetodo) {
       /* Detectar $var[$key] = ... (asociativo) — excluir params de query y foreach */
-      if (/\$\w+\[(?:\$\w+|['"][^'"]+['"])\]\s*=/.test(linea) && !esComentario(linea.trim())) {
+      if (/\$\w+\[(?:\$[^\]]+|['"][^'"]+['"])\]\s*=/.test(linea) && !esComentario(linea.trim())) {
+        const matchVariable = /\$(\w+)\[(?:\$[^\]]+|['"][^'"]+['"])\]\s*=/.exec(linea);
+        const variableAsignada = matchVariable?.[1];
         /* Excluir variables comunes de parametros (PDO/request/config) */
         const esParamVar = /\$(?:params|args|where|datos|body|options|headers|filtros|paramsCount)\[/.test(linea);
-        /* Excluir modificaciones dentro de foreach (iteracion por referencia) */
-        let esDentroForeach = false;
+        /* Excluir solo cuando la asignacion muta la variable iterada del foreach,
+         * no cuando usa un acumulador distinto dentro del loop. */
+        let esVariableForeach = false;
         for (let k = i - 1; k >= Math.max(0, i - 10); k--) {
-          if (/foreach\s*\(/.test(lineas[k])) { esDentroForeach = true; break; }
+          const matchForeach = /foreach\s*\([^)]*\s+as\s+(?:\$\w+\s*=>\s*)?\$(\w+)/.exec(lineas[k]);
+          if (matchForeach) {
+            esVariableForeach = !!variableAsignada && matchForeach[1] === variableAsignada;
+            break;
+          }
           if (/^\s*(?:public|private|protected|static|function)\b/.test(lineas[k])) { break; }
         }
-        if (!esParamVar && !esDentroForeach) {
+        if (!esParamVar && !esVariableForeach) {
           tieneAsociativo = true;
         }
       }

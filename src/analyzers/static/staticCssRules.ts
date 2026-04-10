@@ -8,6 +8,14 @@ import * as vscode from 'vscode';
 import { Violacion } from '../../types';
 import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
 
+const CLASES_BOTON_SISTEMA = new Set([
+  'menuContextualBoton',
+  'boton', 'botonBase', 'botonPrimario', 'botonSecundario', 'botonOutline', 'botonTexto',
+  'botonExito', 'botonExitoSuave', 'botonPeligro', 'botonPeligroSuave',
+  'botonAdvertencia', 'botonAdvertenciaSuave', 'botonInfo', 'botonInfoSuave',
+  'botonPequeno', 'botonMediano', 'botonGrande',
+]);
+
 /*
  * Detecta clases CSS con nombres en ingles.
  * El protocolo requiere nombres en espanol (ej: .contenedor, .boton).
@@ -111,6 +119,82 @@ export function verificarCardIconoExtiendeBase(
       mensaje: `La clase CSS ".${nombreClase}" redefine la base compartida de card icon. Usa .panelCardIcono en JSX y deja aqui solo overrides puntuales.`,
       severidad: obtenerSeveridadRegla('card-icono-debe-extender-base'),
       linea: i,
+      fuente: 'estatico',
+    });
+  }
+
+  return violaciones;
+}
+
+/* [104A-11]
+ * Detecta estilos CSS de botones ad-hoc fuera del sistema Button.
+ * A diferencia de la regex plana, esta version:
+ * - ignora comentarios con la palabra boton/button
+ * - ignora selectores nativos tipo button.tarjetaBase
+ * - ignora clases base del sistema (menuContextualBoton, botonBase, etc.)
+ * - ignora assets legacy y glory-rs, donde el sistema define sus propios estilos
+ */
+export function verificarCssAdhocButtonStyle(
+  texto: string,
+  documento: vscode.TextDocument,
+  nombreArchivo: string,
+): Violacion[] {
+  const nombreLower = nombreArchivo.toLowerCase();
+  const rutaNorm = documento.fileName.replace(/\\/g, '/');
+
+  if (nombreLower === 'button.css' || nombreLower === 'variables.css') {
+    return [];
+  }
+
+  if (rutaNorm.includes('/node_modules/') || rutaNorm.includes('/vendor/') ||
+      rutaNorm.includes('/glory-rs/') || rutaNorm.includes('/public/assets/')) {
+    return [];
+  }
+
+  if (texto.includes('sentinel-disable-file css-adhoc-button-style')) {
+    return [];
+  }
+
+  const violaciones: Violacion[] = [];
+  const regexBloques = /([^{}]+)\{([^{}]*)\}/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = regexBloques.exec(texto)) !== null) {
+    const selectorRaw = match[1];
+    const cuerpo = match[2];
+    const selector = selectorRaw.replace(/\/\*[\s\S]*?\*\//g, ' ').trim();
+
+    if (!selector || selector.startsWith('@')) {
+      continue;
+    }
+
+    if (!/cursor\s*:\s*pointer/i.test(cuerpo)) {
+      continue;
+    }
+
+    const clasesSelector = Array.from(selector.matchAll(/[.#]([A-Za-z_][\w-]*)/g)).map(grupo => grupo[1]);
+    if (clasesSelector.length === 0) {
+      continue;
+    }
+
+    const claseProblematica = clasesSelector.find(nombreClase => {
+      if (!/(?:boton|button)/i.test(nombreClase)) {
+        return false;
+      }
+
+      return !CLASES_BOTON_SISTEMA.has(nombreClase);
+    });
+
+    if (!claseProblematica) {
+      continue;
+    }
+
+    const linea = texto.slice(0, match.index).split('\n').length - 1;
+    violaciones.push({
+      reglaId: 'css-adhoc-button-style',
+      mensaje: 'Bloque CSS de boton detectado fuera de Button.css. Si es un boton, usar <Button variante="..."> en su lugar.',
+      severidad: obtenerSeveridadRegla('css-adhoc-button-style'),
+      linea,
       fuente: 'estatico',
     });
   }
