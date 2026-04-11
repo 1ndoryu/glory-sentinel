@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 export type SeveridadRegla = 'error' | 'warning' | 'information' | 'hint';
 
 /* Tipo de archivo para segmentar reglas */
-export type TipoArchivo = 'php' | 'tsx' | 'jsx' | 'ts' | 'js' | 'general';
+export type TipoArchivo = 'php' | 'tsx' | 'jsx' | 'ts' | 'js' | 'rust' | 'general';
 
 /* Regla estatica basada en regex */
 export interface ReglaEstatica {
@@ -35,6 +35,7 @@ export enum CategoriaRegla {
   SeguridadSql = 'seguridad-sql',
   ReactPatrones = 'react-patrones',
   GlorySchema = 'glory-schema',
+  RustPatrones = 'rust-patrones',
 }
 
 /* Violacion detectada (formato intermedio antes de convertir a Diagnostic) */
@@ -87,6 +88,7 @@ export function obtenerTipoArchivo(languageId: string, nombreArchivo: string): T
     case 'javascriptreact': return 'jsx';
     case 'typescript': return 'ts';
     case 'javascript': return 'js';
+    case 'rust': return 'rust';
     default: return 'general';
   }
 }
@@ -103,6 +105,7 @@ export function tipoCoincideConRegla(tipo: TipoArchivo, aplicaA: string[]): bool
     jsx: ['.jsx'],
     ts: ['.ts'],
     js: ['.js'],
+    rust: ['.rs'],
     general: [],
   };
 

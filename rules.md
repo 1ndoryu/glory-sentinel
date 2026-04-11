@@ -53,3 +53,14 @@ Estas son las reglas que la IA debe verificar en cada archivo. Edita este archiv
 - [srp-violado] Cada archivo debe tener una unica responsabilidad. Si mezcla logica de dominio con presentacion, o multiples features distintas, es violacion.
 - [import-sin-usar] Imports que no se usan en el archivo son violacion.
 - [catch-vacio] PROHIBIDO bloques `catch` vacios o que solo tengan un comentario. Siempre loguear o propagar el error.
+
+---
+
+## Rust SOLID & Seguridad
+
+- [unwrap-produccion-rs] PROHIBIDO `.unwrap()` en codigo de produccion. Usar `?`, `.unwrap_or()`, `.unwrap_or_default()` o `.ok_or()`. Solo permitido en bloques `#[cfg(test)]`. Bypass: `sentinel-disable-next-line unwrap-produccion-rs`.
+- [panic-produccion-rs] PROHIBIDO `panic!()`, `todo!()`, `unimplemented!()` en codigo de produccion. Retornar error con `?` y tipos `Result`. Solo permitido en bloques `#[cfg(test)]`.
+- [handler-accede-bd-rs] Handlers Rust NO deben hacer `sqlx::query` directamente. La logica de datos va en repositorios (DIP). Aplica solo a archivos en `handlers/`.
+- [funcion-larga-rs] Funciones Rust no deben exceder 100 lineas efectivas (excluyendo comentarios y lineas vacias). Dividir en funciones auxiliares.
+- [parametros-excesivos-rs] Funciones Rust con mas de 5 parametros (excluyendo &self) deben agrupar parametros en struct. Severidad: hint.
+- [limite-lineas-rs] Archivos .rs tienen limites por capa: handlers 500, services 500, repositories 400, models 300, general 500. Excluidos: bin/, migrations/, examples/. Bypass: `sentinel-disable-file limite-lineas`.

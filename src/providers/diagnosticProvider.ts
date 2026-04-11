@@ -10,6 +10,7 @@ import { analizarEstatico } from '../analyzers/staticAnalyzer';
 import { analizarPhp } from '../analyzers/phpAnalyzer';
 import { analizarReact } from '../analyzers/reactAnalyzer';
 import { analizarGlory } from '../analyzers/gloryAnalyzer';
+import { analizarRust } from '../analyzers/rustAnalyzer';
 import { guardarEnCache, obtenerDelCache, limpiarCacheCompleto } from '../services/cacheService';
 import { logInfo, logWarn } from '../utils/logger';
 import {
@@ -103,6 +104,8 @@ function ejecutarAnalisisEstatico(uri: vscode.Uri): void {
     violaciones.push(...analizarGlory(doc));
   } else if (tipo === 'ts') {
     violaciones.push(...analizarGlory(doc));
+  } else if (tipo === 'rust') {
+    violaciones.push(...analizarRust(doc));
   }
 
   /* Convertir violaciones a diagnosticos */
@@ -286,6 +289,8 @@ export async function analizarWorkspace(): Promise<void> {
             } else if (tipo === 'ts') {
               /* Services y hooks TS: solo contrato API (no React-specific) */
               violaciones.push(...analizarGlory(doc));
+            } else if (tipo === 'rust') {
+              violaciones.push(...analizarRust(doc));
             }
 
             const diagnosticos = violaciones.map(v => crearDiagnostico(doc, v));

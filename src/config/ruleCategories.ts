@@ -16,7 +16,7 @@ export const categoriasRegla: MetadataCategoria[] = [
   {
     id: CategoriaRegla.LimitesArchivo,
     nombre: 'Limites de Archivo',
-    descripcion: 'Componentes max 300 lineas, hooks max 120, utils max 150',
+    descripcion: 'Componentes max 300 lineas, hooks max 120, utils max 150, handlers Rust max 500',
     seccionProtocolo: 'Seccion 3',
   },
   {
@@ -54,5 +54,11 @@ export const categoriasRegla: MetadataCategoria[] = [
     nombre: 'Glory Schema & Seguridad',
     descripcion: 'Enforcement del Schema System (Cols/Enums), repository pattern, INTERVAL seguro, redirects',
     seccionProtocolo: 'Seccion 7',
+  },
+  {
+    id: CategoriaRegla.RustPatrones,
+    nombre: 'Rust SOLID & Seguridad',
+    descripcion: 'Limites de archivo, unwrap/panic en produccion, repository pattern, funciones largas',
+    seccionProtocolo: 'Secciones 5, 6, 8',
   },
 ];

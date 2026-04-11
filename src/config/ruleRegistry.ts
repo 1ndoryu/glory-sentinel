@@ -189,6 +189,13 @@ const REGISTRO: DefinicionRegla[] = [
 
   /* --- Deteccion de TODOs/pendientes (defaultRules.ts) --- */
   { id: 'todo-pendiente', nombre: 'TODO/FIXME pendiente detectado', severidadDefault: 'hint', categoria: CategoriaRegla.EstructuraNomenclatura },
+
+  /* --- Rust SOLID (rustAnalyzer.ts) --- */
+  { id: 'unwrap-produccion-rs', nombre: '.unwrap() en produccion', severidadDefault: 'warning', categoria: CategoriaRegla.RustPatrones },
+  { id: 'panic-produccion-rs', nombre: 'panic!/todo!/unimplemented! en produccion', severidadDefault: 'warning', categoria: CategoriaRegla.RustPatrones },
+  { id: 'handler-accede-bd-rs', nombre: 'Handler Rust accede BD directamente', severidadDefault: 'warning', categoria: CategoriaRegla.RustPatrones },
+  { id: 'funcion-larga-rs', nombre: 'Funcion Rust excede 100 lineas', severidadDefault: 'warning', categoria: CategoriaRegla.RustPatrones },
+  { id: 'parametros-excesivos-rs', nombre: 'Funcion Rust con 6+ parametros', severidadDefault: 'hint', categoria: CategoriaRegla.RustPatrones },
 ];
 
 /* Cache de configuracion: se construye lazily al primer acceso */

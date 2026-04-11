@@ -126,5 +126,34 @@ export function obtenerLimiteArchivo(nombreArchivo: string, rutaArchivo: string)
     return { tipo: 'componente', limite: 300 };
   }
 
+  /* Rust: categorizar segun ubicacion en el proyecto.
+   * Handlers y services: 500 lineas (logica compleja pero acotada)
+   * Repositories y models: 400/300 lineas (deben ser delgados)
+   * bin/, migrations/, examples/: sin limite (runners, scripts de datos) */
+  if (nombreLower.endsWith('.rs')) {
+    if (rutaLower.includes('/bin/') || rutaLower.includes('/migrations/') ||
+        rutaLower.includes('/examples/') || nombreLower === 'build.rs') {
+      return null;
+    }
+
+    if (rutaLower.includes('/handlers/')) {
+      return { tipo: 'controlador', limite: 500 };
+    }
+
+    if (rutaLower.includes('/services/')) {
+      return { tipo: 'servicio', limite: 500 };
+    }
+
+    if (rutaLower.includes('/repositories/')) {
+      return { tipo: 'servicio', limite: 400 };
+    }
+
+    if (rutaLower.includes('/models/')) {
+      return { tipo: 'componente', limite: 300 };
+    }
+
+    return { tipo: 'servicio', limite: 500 };
+  }
+
   return null;
 }
