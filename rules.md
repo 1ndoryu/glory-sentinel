@@ -50,6 +50,7 @@ Estas son las reglas que la IA debe verificar en cada archivo. Edita este archiv
 ## General (todos los archivos)
 
 - [archivo-monolito] Ningun archivo debe superar 300 lineas (componentes/estilos), 120 lineas (hooks) o 150 lineas (utils). Si supera el limite, marcar como violacion.
+- [directorio-abarrotado] Directorios con mas de 10 archivos se marcan como warning. Excepciones: agregar nombre del directorio a `codeSentinel.directoryExceptions` en settings.json, o `sentinel-disable-file directorio-abarrotado` en el archivo. Directorios de infra (node_modules, target, .git, dist, build) excluidos automaticamente.
 - [srp-violado] Cada archivo debe tener una unica responsabilidad. Si mezcla logica de dominio con presentacion, o multiples features distintas, es violacion.
 - [import-sin-usar] Imports que no se usan en el archivo son violacion.
 - [catch-vacio] PROHIBIDO bloques `catch` vacios o que solo tengan un comentario. Siempre loguear o propagar el error.

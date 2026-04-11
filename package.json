@@ -2,7 +2,7 @@
   "name": "glory-sentinel",
   "displayName": "Glory Sentinel",
   "description": "Analiza automaticamente el codigo del workspace con reglas estaticas para detectar problemas de arquitectura, seguridad y calidad.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "1ndoryu",
   "icon": "media/7599515f2b8981a49a057e0e9a75b8b6.jpg",
   "repository": {
@@ -87,6 +87,11 @@
             "**/scripts/**"
           ],
           "description": "Globs de exclusion para analisis"
+        },
+        "codeSentinel.directoryExceptions": {
+          "type": "array",
+          "default": [],
+          "description": "Nombres de directorio excluidos de la regla directorio-abarrotado (max 10 archivos). Ejemplo: [\"panel\", \"hooks\"]"
         },
         "codeSentinel.languages": {
           "type": "array",

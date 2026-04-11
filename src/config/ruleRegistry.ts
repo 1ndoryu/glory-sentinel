@@ -196,6 +196,9 @@ const REGISTRO: DefinicionRegla[] = [
   { id: 'handler-accede-bd-rs', nombre: 'Handler Rust accede BD directamente', severidadDefault: 'warning', categoria: CategoriaRegla.RustPatrones },
   { id: 'funcion-larga-rs', nombre: 'Funcion Rust excede 100 lineas', severidadDefault: 'warning', categoria: CategoriaRegla.RustPatrones },
   { id: 'parametros-excesivos-rs', nombre: 'Funcion Rust con 6+ parametros', severidadDefault: 'hint', categoria: CategoriaRegla.RustPatrones },
+
+  /* --- Organizacion de directorios (staticCodeRules.ts) --- */
+  { id: 'directorio-abarrotado', nombre: 'Directorio con demasiados archivos', severidadDefault: 'warning', categoria: CategoriaRegla.LimitesArchivo },
 ];
 
 /* Cache de configuracion: se construye lazily al primer acceso */

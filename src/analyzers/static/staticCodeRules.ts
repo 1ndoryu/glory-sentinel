@@ -211,3 +211,101 @@ export function verificarNonNullAssertion(texto: string, documento: vscode.TextD
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+/* [114A-7] Cache de conteo de archivos por directorio para evitar
+ * lecturas repetidas del filesystem durante un scan de workspace. */
+const cacheConteoDirectorios = new Map<string, number>();
+let ultimaLimpiezaCache = Date.now();
+
+/* Limpia el cache periodicamente (cada 30s) para reflejar cambios */
+function limpiarCacheSiNecesario(): void {
+  const ahora = Date.now();
+  if (ahora - ultimaLimpiezaCache > 30_000) {
+    cacheConteoDirectorios.clear();
+    ultimaLimpiezaCache = ahora;
+  }
+}
+
+/* Fuerza limpieza del cache (exponer para tests o invalidacion manual) */
+export function invalidarCacheDirectorios(): void {
+  cacheConteoDirectorios.clear();
+}
+
+/* Limite default de archivos por directorio */
+const LIMITE_ARCHIVOS_DIRECTORIO = 10;
+
+/* [114A-7] Verifica si la carpeta del archivo tiene demasiados archivos.
+ * Soporte de excepciones:
+ * 1. sentinel-disable-file directorio-abarrotado en el archivo
+ * 2. codeSentinel.directoryExceptions en settings.json (patrones glob)
+ * 3. Directorios de infraestructura (node_modules, target, .git, etc.) */
+export function verificarDirectorioAbarrotado(
+  documento: vscode.TextDocument,
+): Violacion[] {
+  const texto = documento.getText();
+  if (texto.includes('sentinel-disable-file directorio-abarrotado')) {
+    return [];
+  }
+
+  limpiarCacheSiNecesario();
+
+  const rutaArchivo = documento.fileName.replace(/\\/g, '/');
+  const partes = rutaArchivo.split('/');
+  partes.pop();
+  const directorio = partes.join('/');
+  const nombreDirectorio = partes[partes.length - 1] || '';
+
+  /* Excluir directorios de infraestructura */
+  const dirExcluidos = ['node_modules', 'target', '.git', 'dist', 'build', '.sqlx', 'completados'];
+  if (dirExcluidos.includes(nombreDirectorio)) {
+    return [];
+  }
+
+  /* Obtener excepciones del usuario desde settings.json */
+  let excepciones: string[] = [];
+  try {
+    const config = vscode.workspace.getConfiguration('codeSentinel');
+    excepciones = config.get<string[]>('directoryExceptions', []);
+  } catch {
+    /* Si falla la config, usar defaults */
+  }
+
+  /* Verificar si el directorio esta en la lista de excepciones */
+  const rutaRelativa = rutaArchivo.replace(/\/[^/]+$/, '');
+  for (const excepcion of excepciones) {
+    if (rutaRelativa.includes(excepcion) || nombreDirectorio === excepcion) {
+      return [];
+    }
+  }
+
+  /* Contar archivos en el directorio (con cache) */
+  let conteo = cacheConteoDirectorios.get(directorio);
+  if (conteo === undefined) {
+    try {
+      const fs = require('fs') as typeof import('fs');
+      const entradas = fs.readdirSync(directorio);
+      conteo = entradas.filter((e: string) => {
+        try {
+          return fs.statSync(directorio + '/' + e).isFile();
+        } catch {
+          return false;
+        }
+      }).length;
+      cacheConteoDirectorios.set(directorio, conteo);
+    } catch {
+      return [];
+    }
+  }
+
+  if (conteo <= LIMITE_ARCHIVOS_DIRECTORIO) {
+    return [];
+  }
+
+  return [{
+    reglaId: 'directorio-abarrotado',
+    mensaje: `Directorio "${nombreDirectorio}/" contiene ${conteo} archivos (max ${LIMITE_ARCHIVOS_DIRECTORIO}). Reorganizar en subdirectorios por dominio. Excepcion: agregar "${nombreDirectorio}" a codeSentinel.directoryExceptions en settings.json.`,
+    severidad: obtenerSeveridadRegla('directorio-abarrotado'),
+    linea: 0,
+    fuente: 'estatico',
+  }];
+}

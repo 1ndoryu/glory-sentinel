@@ -10,7 +10,7 @@ import {reglasEstaticas} from '../config/defaultRules';
 import {reglaHabilitada, obtenerSeveridadRegla} from '../config/ruleRegistry';
 
 /* Submodulos */
-import {verificarLimiteLineas, verificarUseStateExcesivo, verificarImportsMuertos, verificarAnyType, verificarNonNullAssertion} from './static/staticCodeRules';
+import {verificarLimiteLineas, verificarUseStateExcesivo, verificarImportsMuertos, verificarAnyType, verificarNonNullAssertion, verificarDirectorioAbarrotado} from './static/staticCodeRules';
 import {verificarCardIconoExtiendeBase, verificarCssAdhocButtonStyle, verificarNomenclaturaCssIngles} from './static/staticCssRules';
 
 /*
@@ -79,6 +79,11 @@ export function analizarEstatico(documento: vscode.TextDocument, reglasPersonali
         if (!rutaNormLimite.includes('/Glory/')) {
             violaciones.push(...verificarLimiteLineas(documento, nombreArchivo));
         }
+    }
+
+    /* [114A-7] Densidad de directorio (todos los archivos de codigo) */
+    if (reglaHabilitada('directorio-abarrotado')) {
+        violaciones.push(...verificarDirectorioAbarrotado(documento));
     }
 
     /* useState excesivo (excluir hooks  son el destino de extraccion) */
