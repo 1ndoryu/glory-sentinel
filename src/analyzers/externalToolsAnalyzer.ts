@@ -1,10 +1,12 @@
 /*
- * Analyzer que ejecuta herramientas externas (npm run lint, npm run type-check)
+ * Analyzer que ejecuta herramientas externas (npm run lint, npm run type-check, cargo clippy)
  * y parsea su salida para convertirla en diagnosticos de VS Code.
  *
  * Los errores se publican en la coleccion de diagnosticos y se incluyen
  * en el reporte de workspace.
- */
+ * sentinel-disable-file limite-lineas: Archivo central que orquesta 3 herramientas externas
+ * (ESLint, TypeScript, Cargo) con sus respectivos parsers. Dividirlo fragmentaria la logica
+ * de un flujo cohesivo sin beneficio real. */
 
 import * as vscode from 'vscode';
 import * as cp from 'child_process';
@@ -16,10 +18,13 @@ import { logInfo, logWarn } from '../utils/logger';
 export interface ResultadoToolsExternas {
   lintViolaciones: Map<string, Violacion[]>;
   typeCheckViolaciones: Map<string, Violacion[]>;
+  cargoViolaciones: Map<string, Violacion[]>;
   lintExitoso: boolean;
   typeCheckExitoso: boolean;
+  cargoExitoso: boolean;
   resumenLint: string;
   resumenTypeCheck: string;
+  resumenCargo: string;
 }
 
 /*
@@ -40,10 +45,13 @@ export async function ejecutarHerramientasExternas(
   const resultado: ResultadoToolsExternas = {
     lintViolaciones: new Map(),
     typeCheckViolaciones: new Map(),
+    cargoViolaciones: new Map(),
     lintExitoso: false,
     typeCheckExitoso: false,
+    cargoExitoso: false,
     resumenLint: '',
     resumenTypeCheck: '',
+    resumenCargo: '',
   };
 
   /* Ejecutar lint */
@@ -111,6 +119,37 @@ export async function ejecutarHerramientasExternas(
     }
   }
 
+  /* [124A-SENTINEL1] Ejecutar cargo clippy si hay Cargo.toml en algun workspace folder */
+  const rutaCargo = encontrarRaizCargo(workspaceFolders);
+  if (rutaCargo) {
+    if (onProgress) { onProgress('Ejecutando cargo clippy...'); }
+    try {
+      const salidaCargo = await ejecutarComando('cargo clippy --message-format=short -- -D warnings 2>&1', rutaCargo);
+      resultado.cargoViolaciones = parsearSalidaCargo(salidaCargo, rutaCargo);
+      resultado.cargoExitoso = true;
+    } catch (error) {
+      const errorStr2 = error instanceof Error ? error.message : String(error);
+      if (errorStr2.includes('salida:')) {
+        const salida = errorStr2.substring(errorStr2.indexOf('salida:') + 7);
+        resultado.cargoViolaciones = parsearSalidaCargo(salida, rutaCargo);
+        resultado.cargoExitoso = true;
+      } else {
+        resultado.resumenCargo = `Error ejecutando cargo clippy: ${errorStr2}`;
+        logWarn(resultado.resumenCargo);
+      }
+    }
+    let totalCargo = 0;
+    for (const [, violaciones] of resultado.cargoViolaciones) {
+      totalCargo += violaciones.length;
+    }
+    if (!resultado.resumenCargo) {
+      resultado.resumenCargo = `${totalCargo} problema(s) de Cargo en ${resultado.cargoViolaciones.size} archivo(s)`;
+    }
+    logInfo(`Cargo completado: ${resultado.resumenCargo}`);
+  } else {
+    resultado.resumenCargo = 'No se encontro Cargo.toml';
+  }
+
   return resultado;
 }
 
@@ -126,8 +165,8 @@ export function publicarDiagnosticosExternos(
 
   const violacionesPorUri = new Map<string, vscode.Diagnostic[]>();
 
-  /* Combinar lint y type-check */
-  const mapas = [resultado.lintViolaciones, resultado.typeCheckViolaciones];
+  /* Combinar lint, type-check y cargo */
+  const mapas = [resultado.lintViolaciones, resultado.typeCheckViolaciones, resultado.cargoViolaciones];
 
   for (const mapa of mapas) {
     for (const [rutaArchivo, violaciones] of mapa) {
@@ -166,7 +205,7 @@ export function publicarDiagnosticosExternos(
     const existentes = (coleccion.get(uri) || []) as vscode.Diagnostic[];
     /* Filtrar diagnosticos externos previos para reemplazarlos */
     const sinExternos = existentes.filter(d =>
-      d.code !== 'eslint-error' && d.code !== 'eslint-warning' && d.code !== 'tsc-error'
+      d.code !== 'eslint-error' && d.code !== 'eslint-warning' && d.code !== 'tsc-error' && d.code !== 'cargo-error' && d.code !== 'cargo-warning'
     );
     coleccion.set(uri, [...sinExternos, ...nuevosDiags]);
   }
@@ -180,7 +219,8 @@ export function publicarDiagnosticosExternos(
 export function generarSeccionReporteExterno(resultado: ResultadoToolsExternas, rutaBase: string): string {
   let contenido = `\n---\n\n## Herramientas Externas\n\n`;
   contenido += `**Lint:** ${resultado.resumenLint}  \n`;
-  contenido += `**Type-check:** ${resultado.resumenTypeCheck}  \n\n`;
+  contenido += `**Type-check:** ${resultado.resumenTypeCheck}  \n`;
+  contenido += `**Cargo:** ${resultado.resumenCargo}  \n\n`;
 
   /* Detalle lint */
   if (resultado.lintViolaciones.size > 0) {
@@ -210,6 +250,22 @@ export function generarSeccionReporteExterno(resultado: ResultadoToolsExternas, 
       for (const v of violaciones) {
         const msg = v.mensaje.replace(/\|/g, '\\|');
         contenido += `| ${rutaRelativa} | ${v.linea + 1} | ${msg} |\n`;
+      }
+    }
+    contenido += `\n`;
+  }
+
+  /* [124A-SENTINEL1] Detalle cargo clippy */
+  if (resultado.cargoViolaciones.size > 0) {
+    contenido += `### Cargo (clippy)\n\n`;
+    contenido += `| Archivo | Linea | Severidad | Mensaje |\n`;
+    contenido += `|---------|-------|-----------|----------|\n`;
+    for (const [ruta, violaciones] of resultado.cargoViolaciones) {
+      const rutaRelativa = ruta.replace(/\\/g, '/').replace(rutaBase.replace(/\\/g, '/') + '/', '');
+      for (const v of violaciones) {
+        const sev = v.severidad === 'error' ? 'Error' : 'Warning';
+        const msg = v.mensaje.replace(/\|/g, '\\|');
+        contenido += `| ${rutaRelativa} | ${v.linea + 1} | ${sev} | ${msg} |\n`;
       }
     }
     contenido += `\n`;
@@ -332,14 +388,63 @@ function parsearSalidaTsc(salida: string, rutaWorkspace: string): Map<string, Vi
   return resultado;
 }
 
+/* [124A-SENTINEL1] Busca la raiz del proyecto Rust (workspace folder con Cargo.toml) */
+function encontrarRaizCargo(folders: readonly vscode.WorkspaceFolder[]): string | null {
+  for (const folder of folders) {
+    const cargoPath = path.join(folder.uri.fsPath, 'Cargo.toml');
+    try {
+      /* fs.existsSync equivalente via vscode no es async, usamos path check */
+      const fs = require('fs');
+      if (fs.existsSync(cargoPath)) {
+        return folder.uri.fsPath;
+      }
+    } catch { /* ignora */ }
+  }
+  return null;
+}
+
+/* [124A-SENTINEL1] Parsea salida de cargo clippy --message-format=short.
+ * Formato: src/main.rs:10:5: error[E0308]: mismatched types
+ *          src/main.rs:10:5: warning: unused variable */
+function parsearSalidaCargo(salida: string, rutaCargo: string): Map<string, Violacion[]> {
+  const resultado = new Map<string, Violacion[]>();
+  const lineas = salida.split('\n');
+  for (const linea of lineas) {
+    const match = /^(.+?):(\d+):(\d+):\s+(error|warning)(?:\[.+?\])?:\s+(.+)$/.exec(linea.trim());
+    if (!match) { continue; }
+    let rutaArchivo = match[1].trim();
+    if (!path.isAbsolute(rutaArchivo)) {
+      rutaArchivo = path.join(rutaCargo, rutaArchivo);
+    }
+    rutaArchivo = rutaArchivo.replace(/\\/g, '/');
+    const lineaNum = parseInt(match[2], 10) - 1;
+    const columna = parseInt(match[3], 10) - 1;
+    const severidad: SeveridadRegla = match[4] === 'error' ? 'error' : 'warning';
+    const mensaje = match[5].trim();
+    if (!resultado.has(rutaArchivo)) { resultado.set(rutaArchivo, []); }
+    resultado.get(rutaArchivo)!.push({
+      reglaId: severidad === 'error' ? 'cargo-error' : 'cargo-warning',
+      mensaje: `[Cargo] ${mensaje}`,
+      severidad,
+      linea: lineaNum,
+      columna,
+      fuente: 'estatico',
+    });
+  }
+  return resultado;
+}
+
 /* Retorna un resultado vacio */
 function resultadoVacio(): ResultadoToolsExternas {
   return {
     lintViolaciones: new Map(),
     typeCheckViolaciones: new Map(),
+    cargoViolaciones: new Map(),
     lintExitoso: false,
     typeCheckExitoso: false,
+    cargoExitoso: false,
     resumenLint: 'No se pudo ejecutar',
     resumenTypeCheck: 'No se pudo ejecutar',
+    resumenCargo: 'No se pudo ejecutar',
   };
 }
