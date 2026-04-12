@@ -201,8 +201,10 @@ export function verificarComponenteSinHook(lineas: string[], nombreArchivo: stri
     if (regexLogicaEstado.test(lineaTrimmed)) { lineasLogicaEstado++; }
   }
 
-  /* Criterio dual: logica con estado >5 O logica pura >10 */
-  const necesitaHook = (lineasLogicaEstado > 0 && lineasLogicaTotal > 5) || lineasLogicaTotal > 10;
+  /* [124A-FP4] Criterio dual: logica con estado >8 O logica pura >10.
+   * Threshold subido de 5→8 para evitar falsos positivos en componentes
+   * simples que tienen un useState + pocos condicionales. */
+  const necesitaHook = (lineasLogicaEstado > 0 && lineasLogicaTotal > 8) || lineasLogicaTotal > 10;
 
   if (necesitaHook) {
     violaciones.push({

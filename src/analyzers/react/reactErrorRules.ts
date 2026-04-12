@@ -116,6 +116,10 @@ export function verificarPromiseSinCatch(lineas: string[]): Violacion[] {
     if (!/\.then\s*\(/.test(linea)) { continue; }
     if (esComentario(linea)) { continue; }
 
+    /* [124A-FP3] React.lazy(() => import().then()) no necesita .catch():
+     * Suspense/ErrorBoundary manejan errores de carga lazy. */
+    if (/\blazy\s*\(/.test(linea)) { continue; }
+
     /* Verificar si estamos dentro de un bloque try */
     let dentroTryCatch = false;
     for (let j = Math.max(0, i - 20); j < i; j++) {

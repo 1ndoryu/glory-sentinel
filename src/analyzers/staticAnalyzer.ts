@@ -13,6 +13,14 @@ import {reglaHabilitada, obtenerSeveridadRegla} from '../config/ruleRegistry';
 import {verificarLimiteLineas, verificarUseStateExcesivo, verificarImportsMuertos, verificarAnyType, verificarNonNullAssertion, verificarDirectorioAbarrotado} from './static/staticCodeRules';
 import {verificarCardIconoExtiendeBase, verificarCssAdhocButtonStyle, verificarNomenclaturaCssIngles} from './static/staticCssRules';
 
+/* [124A-FP1] Deduplicacion de directorio-abarrotado: se reporta 1 vez por
+ * directorio por ciclo de analisis, en vez de 1 vez por archivo.
+ * limpiarDirectoriosReportados() debe llamarse al inicio de cada scan completo. */
+const directoriosYaReportados = new Set<string>();
+export function limpiarDirectoriosReportados(): void {
+  directoriosYaReportados.clear();
+}
+
 /*
  * Ejecuta todas las reglas estaticas aplicables a un documento.
  * Retorna un array de violaciones detectadas.
@@ -81,9 +89,18 @@ export function analizarEstatico(documento: vscode.TextDocument, reglasPersonali
         }
     }
 
-    /* [114A-7] Densidad de directorio (todos los archivos de codigo) */
+    /* [114A-7] Densidad de directorio (todos los archivos de codigo).
+     * [124A-FP1] Deduplicado: solo se reporta 1 vez por directorio por scan,
+     * evitando N warnings identicos cuando un directorio tiene N archivos. */
     if (reglaHabilitada('directorio-abarrotado')) {
-        violaciones.push(...verificarDirectorioAbarrotado(documento));
+        const dirPadre = documento.fileName.replace(/\\/g, '/').replace(/\/[^/]+$/, '');
+        if (!directoriosYaReportados.has(dirPadre)) {
+            const resultado = verificarDirectorioAbarrotado(documento);
+            if (resultado.length > 0) {
+                directoriosYaReportados.add(dirPadre);
+            }
+            violaciones.push(...resultado);
+        }
     }
 
     /* useState excesivo (excluir hooks  son el destino de extraccion) */

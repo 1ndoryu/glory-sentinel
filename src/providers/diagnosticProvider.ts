@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import { Violacion, severidadADiagnostic, obtenerTipoArchivo, ConfiguracionSentinel } from '../types';
-import { analizarEstatico } from '../analyzers/staticAnalyzer';
+import { analizarEstatico, limpiarDirectoriosReportados } from '../analyzers/staticAnalyzer';
 import { analizarPhp } from '../analyzers/phpAnalyzer';
 import { analizarReact } from '../analyzers/reactAnalyzer';
 import { analizarGlory } from '../analyzers/gloryAnalyzer';
@@ -238,6 +238,9 @@ export function forzarAnalisisArchivo(uri: vscode.Uri): void {
 }
 
 export async function analizarWorkspace(): Promise<void> {
+  /* [124A-FP1] Limpiar dedup de directorio-abarrotado al inicio de cada scan */
+  limpiarDirectoriosReportados();
+
   /* Construir patron de exclusion desde configuracion (no hardcodeado) */
   const patronExclusion = configuracion.exclude.length > 0
     ? `{${configuracion.exclude.join(',')}}`
