@@ -91,14 +91,26 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 }
 
+/* [124A-AUDIT1] Panel singleton para evitar crear múltiples webviews al ejecutar showRulesSummary */
+let panelReglas: vscode.WebviewPanel | null = null;
+
 /* Muestra un webview con el resumen de reglas activas, incluyendo estado habilitada/deshabilitada */
 function mostrarResumenReglas(): void {
-  const panel = vscode.window.createWebviewPanel(
+  if (panelReglas) {
+    panelReglas.reveal(vscode.ViewColumn.Beside);
+    return;
+  }
+
+  panelReglas = vscode.window.createWebviewPanel(
     'codeSentinelRules',
     'Code Sentinel - Reglas',
     vscode.ViewColumn.Beside,
     {}
   );
+
+  panelReglas.onDidDispose(() => {
+    panelReglas = null;
+  });
 
   const todasLasReglas = obtenerTodasLasReglas();
   const reglasActivas = todasLasReglas.filter(r => r.habilitada);
@@ -159,7 +171,7 @@ function mostrarResumenReglas(): void {
 </body>
 </html>`;
 
-  panel.webview.html = html;
+  panelReglas.webview.html = html;
 }
 
 /* Comando: ejecutar lint y type-check externos y mostrar resultados como diagnosticos */

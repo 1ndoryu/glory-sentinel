@@ -71,6 +71,10 @@ export function verificarUseStateExcesivo(
   return [];
 }
 
+/* [124A-AUDIT1] Regex precompiladas para imports — antes se recreaban por cada línea del archivo */
+const REGEX_IMPORT_NOMBRADO = /import\s+\{([^}]+)\}\s+from\s+['"][^'"]+['"]/;
+const REGEX_IMPORT_DEFAULT = /^import\s+(?!type\s)(\w+)\s+from\s+['"][^'"]+['"]/;
+
 /* Detecta imports sin uso en archivos JS/TS (heuristico simplificado) */
 export function verificarImportsMuertos(
   texto: string,
@@ -89,7 +93,7 @@ export function verificarImportsMuertos(
     }
 
     /* Import nombrado: import { X, Y } from '...' */
-    const matchNombrado = /import\s+\{([^}]+)\}\s+from\s+['"][^'"]+['"]/.exec(linea);
+    const matchNombrado = REGEX_IMPORT_NOMBRADO.exec(linea);
     if (matchNombrado) {
       const nombres = matchNombrado[1]
         .split(',')
@@ -116,7 +120,7 @@ export function verificarImportsMuertos(
     }
 
     /* Import default: import Nombre from '...' (excluyendo type imports) */
-    const matchDefault = /^import\s+(?!type\s)(\w+)\s+from\s+['"][^'"]+['"]/.exec(linea);
+    const matchDefault = REGEX_IMPORT_DEFAULT.exec(linea);
     if (matchDefault) {
       const nombre = matchDefault[1];
       const restoTexto = texto.substring(texto.indexOf('\n', texto.indexOf(linea)) + 1);

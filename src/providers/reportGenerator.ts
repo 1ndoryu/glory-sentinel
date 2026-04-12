@@ -43,21 +43,24 @@ export async function generarReporteWorkspace(
 
   const fecha = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
-  let contenido = `# Code Sentinel - Reporte de Workspace\n\n`;
-  contenido += `**Fecha:** ${fecha}  \n`;
-  contenido += `**Archivos analizados:** ${totalArchivos}  \n`;
-  contenido += `**Archivos con violaciones:** ${resultados.size}  \n`;
-  contenido += `**Total violaciones:** ${totalViolaciones}  \n\n`;
+  /* [124A-AUDIT1] Usar array + join en vez de concatenación repetida (O(n²) → O(n)) */
+  const lineas: string[] = [];
 
-  contenido += `| Severidad | Cantidad |\n`;
-  contenido += `|-----------|----------|\n`;
-  contenido += `| Error | ${totalErrores} |\n`;
-  contenido += `| Warning | ${totalWarnings} |\n`;
-  contenido += `| Info | ${totalInfo} |\n`;
-  contenido += `| Hint | ${totalHints} |\n\n`;
+  lineas.push(`# Code Sentinel - Reporte de Workspace\n`);
+  lineas.push(`**Fecha:** ${fecha}  `);
+  lineas.push(`**Archivos analizados:** ${totalArchivos}  `);
+  lineas.push(`**Archivos con violaciones:** ${resultados.size}  `);
+  lineas.push(`**Total violaciones:** ${totalViolaciones}  \n`);
+
+  lineas.push(`| Severidad | Cantidad |`);
+  lineas.push(`|-----------|----------|`);
+  lineas.push(`| Error | ${totalErrores} |`);
+  lineas.push(`| Warning | ${totalWarnings} |`);
+  lineas.push(`| Info | ${totalInfo} |`);
+  lineas.push(`| Hint | ${totalHints} |\n`);
 
   if (totalViolaciones === 0) {
-    contenido += `> Sin violaciones detectadas. El workspace esta limpio.\n`;
+    lineas.push(`> Sin violaciones detectadas. El workspace esta limpio.`);
   }
 
   /* Ordenar archivos: primero los que tienen mas errores */
@@ -71,10 +74,10 @@ export async function generarReporteWorkspace(
   for (const [, entrada] of archivosOrdenados) {
     const rutaRelativa = entrada.ruta.replace(/\\/g, '/').replace(rutaBase + '/', '');
 
-    contenido += `---\n\n`;
-    contenido += `## ${rutaRelativa} (${entrada.diagnosticos.length} violaciones)\n\n`;
-    contenido += `| Linea | Severidad | Regla | Mensaje |\n`;
-    contenido += `|-------|-----------|-------|---------|\n`;
+    lineas.push(`---\n`);
+    lineas.push(`## ${rutaRelativa} (${entrada.diagnosticos.length} violaciones)\n`);
+    lineas.push(`| Linea | Severidad | Regla | Mensaje |`);
+    lineas.push(`|-------|-----------|-------|---------|`);
 
     const diagOrdenados = [...entrada.diagnosticos].sort((a, b) => a.range.start.line - b.range.start.line);
 
@@ -83,11 +86,13 @@ export async function generarReporteWorkspace(
       const severidad = severidadTexto(d.severity);
       const regla = d.code ?? 'general';
       const mensaje = d.message.split('\n')[0].replace(/\|/g, '\\|');
-      contenido += `| ${linea} | ${severidad} | ${regla} | ${mensaje} |\n`;
+      lineas.push(`| ${linea} | ${severidad} | ${regla} | ${mensaje} |`);
     }
 
-    contenido += `\n`;
+    lineas.push('');
   }
+
+  const contenido = lineas.join('\n');
 
   /* Escribir archivo y abrirlo */
   try {

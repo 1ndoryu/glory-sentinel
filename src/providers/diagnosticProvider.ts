@@ -320,6 +320,8 @@ export function limpiarDiagnosticos(): void {
   coleccionDiagnosticos.clear();
   limpiarTodo();
   limpiarCacheCompleto();
+  /* [124A-AUDIT1] Limpiar set de editores analizados para evitar acumulación sin límite */
+  editoresAnalizados.clear();
 }
 
 /* Expone la coleccion de diagnosticos para uso desde otros modulos (ej: externalToolsAnalyzer) */
