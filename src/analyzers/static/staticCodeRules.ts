@@ -24,7 +24,8 @@ export function verificarLimiteLineas(
   const limite = obtenerLimiteArchivo(nombreArchivo, documento.fileName);
   if (!limite) { return []; }
 
-  const lineasEfectivas = contarLineasEfectivas(texto);
+  const esRust = nombreArchivo.endsWith('.rs');
+  const lineasEfectivas = contarLineasEfectivas(texto, esRust);
   if (lineasEfectivas <= limite.limite) { return []; }
 
   const ultimaLinea = Math.max(0, documento.lineCount - 1);

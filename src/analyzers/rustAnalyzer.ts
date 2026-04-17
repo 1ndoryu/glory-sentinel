@@ -20,8 +20,11 @@ import { reglaHabilitada, obtenerSeveridadRegla } from '../config/ruleRegistry';
  * pero Sentinel lo muestra inline sin necesidad de compilar) */
 const LIMITE_LINEAS_FUNCION = 100;
 
-/* Maximo parametros antes de sugerir agrupar en struct */
-const LIMITE_PARAMETROS = 5;
+/* Maximo parametros antes de sugerir agrupar en struct.
+ * Ajustado a 8: en Rust, pool: &PgPool siempre es el primer parametro
+ * (infraestructura, no diseño) y repos/services tienen multiples campos
+ * tipados por operacion. Umbral 5 generaba falsos positivos masivos. */
+const LIMITE_PARAMETROS = 8;
 
 /* Ejecuta todas las reglas Rust contextuales sobre un documento .rs */
 export function analizarRust(documento: vscode.TextDocument): Violacion[] {

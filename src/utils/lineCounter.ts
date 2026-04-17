@@ -3,8 +3,18 @@
  * Se usa para verificar limites de archivo segun el protocolo (Seccion 3).
  */
 
-/* Cuenta lineas efectivas excluyendo comentarios (bloque y linea) y lineas vacias */
-export function contarLineasEfectivas(texto: string): number {
+/* Cuenta lineas efectivas excluyendo comentarios (bloque y linea) y lineas vacias.
+ * Si esRust=true, excluye bloques #[cfg(test)] (tests no son complejidad de produccion,
+ * y en Rust es convencion tenerlos al final del mismo archivo). */
+export function contarLineasEfectivas(texto: string, esRust: boolean = false): number {
+  /* Para Rust: truncar en #[cfg(test)] — los tests viven al final del archivo
+   * y no contribuyen a la complejidad de mantenimiento del codigo de produccion. */
+  if (esRust) {
+    const idxTest = texto.indexOf('#[cfg(test)]');
+    if (idxTest !== -1) {
+      texto = texto.substring(0, idxTest);
+    }
+  }
   const lineas = texto.split('\n');
   let enComentarioBloque = false;
   let cuenta = 0;
@@ -140,12 +150,14 @@ export function obtenerLimiteArchivo(nombreArchivo: string, rutaArchivo: string)
       return { tipo: 'controlador', limite: 500 };
     }
 
+    /* Rust es mas verboso que TS/PHP: type annotations, macros SQL,
+     * error handling con ?, lifetimes. Limites calibrados +40% vs PHP. */
     if (rutaLower.includes('/services/')) {
-      return { tipo: 'servicio', limite: 500 };
+      return { tipo: 'servicio', limite: 700 };
     }
 
     if (rutaLower.includes('/repositories/')) {
-      return { tipo: 'repositorio', limite: 400 };
+      return { tipo: 'repositorio', limite: 550 };
     }
 
     if (rutaLower.includes('/models/')) {
