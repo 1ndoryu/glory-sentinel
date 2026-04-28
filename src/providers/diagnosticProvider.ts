@@ -292,9 +292,11 @@ export async function analizarWorkspace(): Promise<void> {
             } else if (tipo === 'tsx' || tipo === 'jsx') {
               violaciones.push(...analizarReact(doc));
               violaciones.push(...analizarGlory(doc));
+              violaciones.push(...analizarApiEndpoints(doc));
             } else if (tipo === 'ts') {
               /* Services y hooks TS: solo contrato API (no React-specific) */
               violaciones.push(...analizarGlory(doc));
+              violaciones.push(...analizarApiEndpoints(doc));
             } else if (tipo === 'rust') {
               violaciones.push(...analizarRust(doc));
             }

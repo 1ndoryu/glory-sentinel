@@ -23,6 +23,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Violacion } from '../types';
+import { logInfo, logWarn } from '../utils/logger';
 
 /* --- Reglas de mapeo (replica de wpJsonStub.ts del frontend Kamples) --- */
 
@@ -189,14 +190,29 @@ function archivoAplica(fileName: string): boolean {
 export function analizarApiEndpoints(documento: vscode.TextDocument): Violacion[] {
   if (!archivoAplica(documento.fileName)) return [];
 
-  const wsFolder = vscode.workspace.getWorkspaceFolder(documento.uri);
-  if (!wsFolder) return [];
+  let wsFolder = vscode.workspace.getWorkspaceFolder(documento.uri);
+  if (!wsFolder) {
+    /* Fallback: buscar el workspaceFolder que contenga el path. Necesario en
+     * multi-root workspaces donde getWorkspaceFolder a veces devuelve undefined
+     * para archivos no abiertos en pestana visible. */
+    const folders = vscode.workspace.workspaceFolders || [];
+    const fileNorm = documento.fileName.replace(/\\/g, '/');
+    wsFolder = folders.find(f => fileNorm.startsWith(f.uri.fsPath.replace(/\\/g, '/'))) || undefined;
+    if (!wsFolder) {
+      logWarn(`[apiEndpoint] sin workspaceFolder para ${documento.fileName}`);
+      return [];
+    }
+  }
 
   const indice = obtenerIndice(wsFolder);
-  if (!indice) return [];
+  if (!indice) {
+    logWarn(`[apiEndpoint] no se pudo cargar openapi.json en ${wsFolder.uri.fsPath}`);
+    return [];
+  }
 
   const violaciones: Violacion[] = [];
   const calls = extraerCalls(documento.getText());
+  logInfo(`[apiEndpoint] ${path.basename(documento.fileName)}: ${calls.length} calls escaneados, openapi=${indice.pathCount} paths`);
 
   for (const call of calls) {
     const mapped = mapPath(call.legacyPath);
