@@ -11,6 +11,7 @@ import { analizarPhp } from '../analyzers/phpAnalyzer';
 import { analizarReact } from '../analyzers/reactAnalyzer';
 import { analizarGlory } from '../analyzers/gloryAnalyzer';
 import { analizarRust } from '../analyzers/rustAnalyzer';
+import { analizarApiEndpoints } from '../analyzers/apiEndpointAnalyzer';
 import { guardarEnCache, obtenerDelCache, limpiarCacheCompleto } from '../services/cacheService';
 import { logInfo, logWarn } from '../utils/logger';
 import {
@@ -102,8 +103,10 @@ function ejecutarAnalisisEstatico(uri: vscode.Uri): void {
   } else if (tipo === 'tsx' || tipo === 'jsx') {
     violaciones.push(...analizarReact(doc));
     violaciones.push(...analizarGlory(doc));
+    violaciones.push(...analizarApiEndpoints(doc));
   } else if (tipo === 'ts') {
     violaciones.push(...analizarGlory(doc));
+    violaciones.push(...analizarApiEndpoints(doc));
   } else if (tipo === 'rust') {
     violaciones.push(...analizarRust(doc));
   }
