@@ -269,7 +269,7 @@ export function verificarDirectorioAbarrotado(
   /* Obtener excepciones del usuario desde settings.json */
   let excepciones: string[] = [];
   try {
-    const config = vscode.workspace.getConfiguration('codeSentinel');
+    const config = vscode.workspace.getConfiguration('codeSentinel', documento.uri);
     excepciones = config.get<string[]>('directoryExceptions', []);
   } catch {
     /* Si falla la config, usar defaults */
