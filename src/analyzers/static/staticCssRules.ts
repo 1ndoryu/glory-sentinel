@@ -272,3 +272,77 @@ export function verificarCssHardcoded(
 
   return violaciones;
 }
+
+/*
+ * Detecta selectores CSS que apuntan directamente a elementos HTML nativos
+ * (button, h1-h6) dentro de una clase de componente.
+ *
+ * Patron problemático: .{componenteEspecifico} button { ... }
+ *                      .{componenteEspecifico} h3 { ... }
+ *
+ * El correcto es dar className al componente React:
+ *   - Para botones: usar className="..." en <Button>, no selector raw.
+ *   - Para titulos en modales/panel: usar className="modalTitulo" en JSX.
+ *
+ * Excepciones válidas (no se reportan):
+ *   - .tiptap h* (contenido renderizado del editor rico)
+ *   - .{algo}Texto h* (contenido HTML de artículos, blog)
+ *   - .{algo}Vacio h* (estados vacíos con h neutral)
+ *   - init.css, Button.css, Modal.css, variables.css (base del sistema)
+ */
+export function verificarCssElementoHTMLDirecto(
+  texto: string,
+  documento: vscode.TextDocument,
+  nombreArchivo: string,
+): Violacion[] {
+  const nombreLower = nombreArchivo.toLowerCase();
+  if (/^(button|init|variables|modal|reset)\.css$/.test(nombreLower)) {
+    return [];
+  }
+
+  const rutaNorm = documento.fileName.replace(/\\/g, '/');
+  if (rutaNorm.includes('/node_modules/') || rutaNorm.includes('/vendor/') ||
+      rutaNorm.includes('/glory-rs/') || rutaNorm.includes('/public/assets/')) {
+    return [];
+  }
+
+  if (texto.includes('sentinel-disable-file css-elemento-html-directo')) {
+    return [];
+  }
+
+  const violaciones: Violacion[] = [];
+  const lineas = texto.split('\n');
+
+  /* Selector: .{class} button { o .{class} h1-h6 { */
+  const regexElementoHTML = /^\s*\.[\w-]+\s+(button|h[1-6])\s*[{,]/;
+
+  /* Excepciones: contextos donde estilar h* directamente es válido */
+  const excepcionH = /\.(tiptap|[a-zA-Z]+Texto|[a-zA-Z]+Vacio|[a-zA-Z]+Single)\s+h[1-6]/;
+
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i].trim();
+
+    if (linea.startsWith('/*') || linea.startsWith('*') || linea.startsWith('//')) { continue; }
+    if (tieneSentinelDisable(lineas, i, 'css-elemento-html-directo')) { continue; }
+
+    const match = regexElementoHTML.exec(linea);
+    if (!match) { continue; }
+
+    const elemento = match[1];
+    if (elemento !== 'button' && excepcionH.test(linea)) { continue; }
+
+    const mensaje = elemento === 'button'
+      ? `Selector ".{clase} button" detectado. Pasar className al <Button> en lugar de apuntar al elemento raw.`
+      : `Selector ".{clase} ${elemento}" detectado. Usar className="modalTitulo" en JSX en lugar de estilar por selector de elemento.`;
+
+    violaciones.push({
+      reglaId: 'css-elemento-html-directo',
+      mensaje,
+      severidad: obtenerSeveridadRegla('css-elemento-html-directo'),
+      linea: i,
+      fuente: 'estatico',
+    });
+  }
+
+  return violaciones;
+}
