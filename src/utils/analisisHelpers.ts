@@ -22,13 +22,27 @@ export function esComentario(linea: string): boolean {
   );
 }
 
-/*
- * Retorna true si la linea anterior contiene `sentinel-disable-next-line <reglaId>`.
- * Verifica bounds del array automaticamente.
- */
+/* Retorna true si el bloque de comentario que precede inmediatamente a la linea
+ * contiene `sentinel-disable-next-line <reglaId>`. Escanea hacia atras a traves
+ * de lineas vacias y lineas de comentario (/* ... * ... *\/  // ...) para soportar
+ * comentarios multi-linea como:
+ *   /* sentinel-disable-next-line rule
+ *    * razon explicativa *\/
+ *   codigo-que-dispara-la-regla
+ * [25A-SENT-FP] Fix falsos positivos por disable comments de 2+ lineas. */
 export function tieneSentinelDisable(lineas: string[], indice: number, reglaId: string): boolean {
-  if (indice <= 0) { return false; }
-  return lineas[indice - 1]?.includes(`sentinel-disable-next-line ${reglaId}`) ?? false;
+  for (let k = indice - 1; k >= 0 && k >= indice - 5; k--) {
+    const linea = lineas[k] ?? '';
+    if (linea.includes(`sentinel-disable-next-line ${reglaId}`)) { return true; }
+    const trimmed = linea.trim();
+    /* Si no es parte de un bloque de comentario, parar la busqueda */
+    if (trimmed !== '' &&
+        !trimmed.startsWith('/*') && !trimmed.startsWith('*') &&
+        !trimmed.startsWith('//') && !trimmed.endsWith('*/')) {
+      break;
+    }
+  }
+  return false;
 }
 
 /*

@@ -17,9 +17,20 @@ export function verificarLimiteLineas(
 ): Violacion[] {
   const texto = documento.getText();
 
-  if (texto.includes('sentinel-disable-file limite-lineas')) {
-    return [];
-  }
+  /* [25A-SENT-FP] Parser de tokens: soporta multiples reglas en el mismo sentinel-disable-file
+   * (ej: sentinel-disable-file regla-a regla-b limite-lineas: comentario).
+   * El includes() literal fallaba cuando habia otras reglas entre la directiva y 'limite-lineas'. */
+  const deshabilitado = texto.split('\n').some(linea => {
+    const idx = linea.indexOf('sentinel-disable-file');
+    if (idx === -1) { return false; }
+    const tokens = linea
+      .slice(idx + 'sentinel-disable-file'.length)
+      .replace(/[:*/]/g, ' ')
+      .split(/\s+/)
+      .filter(Boolean);
+    return tokens.includes('limite-lineas');
+  });
+  if (deshabilitado) { return []; }
 
   const limite = obtenerLimiteArchivo(nombreArchivo, documento.fileName);
   if (!limite) { return []; }

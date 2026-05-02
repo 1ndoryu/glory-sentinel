@@ -7,6 +7,7 @@
 import * as vscode from 'vscode';
 import { Violacion } from '../../types';
 import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
+import { tieneSentinelDisable } from '../../utils/analisisHelpers';
 
 const CLASES_BOTON_SISTEMA = new Set([
   'menuContextualBoton',
@@ -99,7 +100,8 @@ export function verificarCardIconoExtiendeBase(
 
     const nombreClase = match[1];
     if (nombreClase === 'panelCardIcono') { continue; }
-    if (i > 0 && lineas[i - 1]?.includes('sentinel-disable-next-line card-icono-debe-extender-base')) { continue; }
+    /* [25A-SENT-FP] Usa tieneSentinelDisable para soportar disable comments multi-linea */
+    if (tieneSentinelDisable(lineas, i, 'card-icono-debe-extender-base')) { continue; }
 
     let redefineBase = false;
     for (let j = i + 1; j < lineas.length; j++) {
