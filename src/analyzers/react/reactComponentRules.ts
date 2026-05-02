@@ -628,3 +628,89 @@ export function verificarObjetoMutableExportado(lineas: string[]): Violacion[] {
 
   return violaciones;
 }
+
+/*
+ * Detecta titulos (<h1-h6>) dentro de bloques <Modal>.
+ * Contrato: los modales son minimalistas — sin titulos, solo contenido y modalAcciones.
+ * Gotcha: rastrea profundidad JSX de <Modal> para no fallar en h* fuera del modal.
+ */
+export function verificarModalConTitulo(lineas: string[]): Violacion[] {
+  const texto = lineas.join('\n');
+  if (texto.includes('sentinel-disable-file modal-con-titulo')) { return []; }
+
+  const violaciones: Violacion[] = [];
+  let profundidadModal = 0;
+
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i];
+    if (esComentario(linea)) { continue; }
+    if (tieneSentinelDisable(lineas, i, 'modal-con-titulo')) { continue; }
+
+    /* Apertura de Modal (no self-closing) */
+    if (/<Modal[\s>]/.test(linea) && !/<Modal[^>]*\/>/.test(linea)) {
+      profundidadModal++;
+    }
+    /* Cierre de Modal */
+    if (/<\/Modal>/.test(linea)) {
+      profundidadModal = Math.max(0, profundidadModal - 1);
+    }
+
+    if (profundidadModal > 0 && /<h[1-6][\s/>]/.test(linea)) {
+      const numH = linea.match(/<h([1-6])/)?.[1] ?? '?';
+      violaciones.push({
+        reglaId: 'modal-con-titulo',
+        mensaje: `<h${numH}> detectado dentro de <Modal>. Los modales no llevan titulo — contenido directo + modalAcciones solamente.`,
+        severidad: obtenerSeveridadRegla('modal-con-titulo'),
+        linea: i,
+        fuente: 'estatico',
+      });
+    }
+  }
+
+  return violaciones;
+}
+
+/*
+ * Detecta clases tipo "*Acciones" no canonicas dentro de bloques <Modal>.
+ * Contrato: el unico contenedor de botones valido en un modal es className="modalAcciones".
+ * Gotcha: excluye clases que no terminan en "Acciones" para evitar falsos positivos.
+ */
+export function verificarModalAccionesNoCanonico(lineas: string[]): Violacion[] {
+  const texto = lineas.join('\n');
+  if (texto.includes('sentinel-disable-file modal-acciones-no-canonico')) { return []; }
+
+  const violaciones: Violacion[] = [];
+  let profundidadModal = 0;
+
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i];
+    if (esComentario(linea)) { continue; }
+    if (tieneSentinelDisable(lineas, i, 'modal-acciones-no-canonico')) { continue; }
+
+    if (/<Modal[\s>]/.test(linea) && !/<Modal[^>]*\/>/.test(linea)) {
+      profundidadModal++;
+    }
+    if (/<\/Modal>/.test(linea)) {
+      profundidadModal = Math.max(0, profundidadModal - 1);
+    }
+
+    if (profundidadModal > 0) {
+      const classMatch = /className\s*=\s*["']([^"']+)["']/.exec(linea);
+      if (classMatch) {
+        const clases = classMatch[1].split(/\s+/);
+        const accionesNoCanonica = clases.find(c => c.endsWith('Acciones') && c !== 'modalAcciones');
+        if (accionesNoCanonica) {
+          violaciones.push({
+            reglaId: 'modal-acciones-no-canonico',
+            mensaje: `Clase "${accionesNoCanonica}" dentro de <Modal> no es canonical. Usar className="modalAcciones" para la zona de botones.`,
+            severidad: obtenerSeveridadRegla('modal-acciones-no-canonico'),
+            linea: i,
+            fuente: 'estatico',
+          });
+        }
+      }
+    }
+  }
+
+  return violaciones;
+}

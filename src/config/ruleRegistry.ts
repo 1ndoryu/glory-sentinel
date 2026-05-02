@@ -155,6 +155,8 @@ const REGISTRO: DefinicionRegla[] = [
   /* --- Sprint 4: React (reactAnalyzer.ts) --- */
   { id: 'html-nativo-en-vez-de-componente', nombre: 'HTML nativo en vez de componente', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
   { id: 'button-clase-especifica', nombre: 'Clase específica en botón', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
+  { id: 'modal-con-titulo', nombre: 'Título dentro de Modal', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
+  { id: 'modal-acciones-no-canonico', nombre: 'Clase de acciones no canónica en Modal', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
 
   /* --- Sprint 5: Detecciones avanzadas (reactAnalyzer.ts + staticAnalyzer.ts) --- */
   { id: 'componente-artesanal', nombre: 'Componente artesanal detectado', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },

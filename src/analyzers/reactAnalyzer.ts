@@ -38,6 +38,8 @@ import {
   verificarUpdateOptimistaSinRollback,
   verificarColaSinLimite,
   verificarObjetoMutableExportado,
+  verificarModalConTitulo,
+  verificarModalAccionesNoCanonico,
 } from './react/reactComponentRules';
 import { verificarAccesoApiSinFallback } from './glory/apiContractRules';
 
@@ -125,6 +127,12 @@ export function analizarReact(documento: vscode.TextDocument): Violacion[] {
     }
     if (reglaHabilitada('objeto-mutable-exportado')) {
       violaciones.push(...verificarObjetoMutableExportado(lineas));
+    }
+    if (reglaHabilitada('modal-con-titulo')) {
+      violaciones.push(...verificarModalConTitulo(lineas));
+    }
+    if (reglaHabilitada('modal-acciones-no-canonico')) {
+      violaciones.push(...verificarModalAccionesNoCanonico(lineas));
     }
     if (reglaHabilitada('acceso-api-sin-fallback')) {
       violaciones.push(...verificarAccesoApiSinFallback(lineas));
