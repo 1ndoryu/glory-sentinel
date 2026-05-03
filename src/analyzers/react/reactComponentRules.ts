@@ -733,9 +733,13 @@ function extraerClasesEstaticas(linea: string): string[] {
     .filter(token => token && !token.includes('${'));
 }
 
-/* [035A-24] Detecta formularios/campos locales que reescriben la receta compartida del modal.
- * Casos como .hostingFormCrear o .usuariosCrearCampo deben migrar a modalFormulario/modalCampo
- * o a los helpers de Modal.tsx para no redefinir la misma estructura en cada componente. */
+const CLASES_CONTENEDOR_MODAL_CANONICAS = new Set([
+  'modalSinPadding',
+]);
+
+/* [035A-24] Detecta contenedor/formulario/campos locales que reescriben la receta compartida del modal.
+ * Casos como .usuariosModal, .hostingFormCrear o .usuariosCrearCampo deben migrar
+ * al sistema compartido de Modal en vez de redefinir estructura en cada componente. */
 export function verificarModalEstructuraNoCanonica(lineas: string[], nombreArchivo: string): Violacion[] {
   const texto = lineas.join('\n');
   if (texto.includes('sentinel-disable-file modal-estructura-no-canonica')) { return []; }
@@ -749,7 +753,9 @@ export function verificarModalEstructuraNoCanonica(lineas: string[], nombreArchi
     if (esComentario(linea)) { continue; }
     if (tieneSentinelDisable(lineas, i, 'modal-estructura-no-canonica')) { continue; }
 
-    if (/<Modal[\s>]/.test(linea) && !/<Modal[^>]*\/>/.test(linea)) {
+    const esLineaModal = /<Modal[\s>]/.test(linea);
+
+    if (esLineaModal && !/<Modal[^>]*\/>/.test(linea)) {
       profundidadModal++;
     }
 
@@ -757,10 +763,23 @@ export function verificarModalEstructuraNoCanonica(lineas: string[], nombreArchi
     const clases = extraerClasesEstaticas(linea);
 
     if (clases.length > 0) {
+      const claseContenedorLocal = esLineaModal
+        ? clases.find(clase => !CLASES_CONTENEDOR_MODAL_CANONICAS.has(clase))
+        : undefined;
       const usaFormularioCanonico = clases.includes('modalFormulario');
       const usaCampoCanonico = clases.includes('modalCampo');
       const claseFormularioLocal = clases.find(clase => /(?:Formulario|FormCrear)$/.test(clase));
       const claseCampoLocal = clases.find(clase => /Campo$/.test(clase) && clase !== 'modalCampo');
+
+      if (claseContenedorLocal) {
+        violaciones.push({
+          reglaId: 'modal-estructura-no-canonica',
+          mensaje: `Clase "${claseContenedorLocal}" redefine el contenedor compartido de <Modal>. Usa el contenedor base y, si hace falta una variante, agrégala al sistema UI en vez de una className local.`,
+          severidad: obtenerSeveridadRegla('modal-estructura-no-canonica'),
+          linea: i,
+          fuente: 'estatico',
+        });
+      }
 
       if ((enContextoModal || Boolean(claseFormularioLocal)) && /<(?:form|div)[\s>]/.test(linea) && claseFormularioLocal && !usaFormularioCanonico) {
         violaciones.push({

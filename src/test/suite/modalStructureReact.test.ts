@@ -2,6 +2,15 @@ import * as assert from 'assert';
 import { verificarModalEstructuraNoCanonica } from '../../analyzers/react/reactComponentRules';
 
 suite('modal-estructura-no-canonica', () => {
+  test('detecta clase local en el contenedor de Modal', () => {
+    const violaciones = verificarModalEstructuraNoCanonica([
+      '<Modal abierto={abierto} onCerrar={onCerrar} className="usuariosModal">',
+    ], 'SeccionUsuarios.tsx');
+
+    assert.strictEqual(violaciones.length, 1);
+    assert.match(violaciones[0]?.mensaje || '', /contenedor compartido de <Modal>/);
+  });
+
   test('detecta formulario local dentro de archivo modal', () => {
     const violaciones = verificarModalEstructuraNoCanonica([
       '<form className="agregarTarjetaFormulario" onSubmit={handleSubmit}>',
@@ -35,6 +44,14 @@ suite('modal-estructura-no-canonica', () => {
       '<form className="modalFormulario" onSubmit={handleSubmit}>',
       '<div className="modalCampo">',
     ], 'ModalAutenticacion.tsx');
+
+    assert.strictEqual(violaciones.length, 0);
+  });
+
+  test('ignora clase compartida del contenedor Modal', () => {
+    const violaciones = verificarModalEstructuraNoCanonica([
+      '<Modal abierto={abierto} onCerrar={onCerrar} className="modalSinPadding">',
+    ], 'EditorServicio.tsx');
 
     assert.strictEqual(violaciones.length, 0);
   });
