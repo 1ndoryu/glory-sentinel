@@ -11,7 +11,7 @@ import {reglaHabilitada, obtenerSeveridadRegla} from '../config/ruleRegistry';
 
 /* Submodulos */
 import {verificarLimiteLineas, verificarUseStateExcesivo, verificarImportsMuertos, verificarAnyType, verificarNonNullAssertion, verificarDirectorioAbarrotado} from './static/staticCodeRules';
-import {verificarCardIconoExtiendeBase, verificarCssAdhocButtonStyle, verificarNomenclaturaCssIngles, verificarCssElementoHTMLDirecto} from './static/staticCssRules';
+import {verificarCardIconoExtiendeBase, verificarCssAdhocButtonStyle, verificarModalSemanticaNoCanonica, verificarNomenclaturaCssIngles, verificarCssElementoHTMLDirecto} from './static/staticCssRules';
 
 /* [124A-FP1] Deduplicacion de directorio-abarrotado: se reporta 1 vez por
  * directorio por ciclo de analisis, en vez de 1 vez por archivo.
@@ -135,6 +135,9 @@ export function analizarEstatico(documento: vscode.TextDocument, reglasPersonali
         }
         if (reglaHabilitada('card-icono-debe-extender-base')) {
             violaciones.push(...verificarCardIconoExtiendeBase(texto, documento, nombreArchivo));
+        }
+        if (reglaHabilitada('modal-semantica-no-canonica')) {
+            violaciones.push(...verificarModalSemanticaNoCanonica(texto, documento, nombreArchivo));
         }
         if (reglaHabilitada('css-elemento-html-directo')) {
             violaciones.push(...verificarCssElementoHTMLDirecto(texto, documento, nombreArchivo));

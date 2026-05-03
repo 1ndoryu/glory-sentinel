@@ -17,6 +17,45 @@ const CLASES_BOTON_SISTEMA = new Set([
   'botonPequeno', 'botonMediano', 'botonGrande',
 ]);
 
+const CLASES_MODAL_CANONICAS = new Set([
+  'modalTitulo',
+  'modalTexto',
+  'modalAcciones',
+]);
+
+const REGLA_MODAL_SEMANTICA = 'modal-semantica-no-canonica';
+
+function detectarSufijoSemanticoModal(nombreClase: string): 'Titulo' | 'Texto' | 'Descripcion' | 'Acciones' | null {
+  if (CLASES_MODAL_CANONICAS.has(nombreClase)) {
+    return null;
+  }
+
+  const match = /(?:^modal[A-Z][\w-]*|^[A-Za-z][\w-]*Modal)(Titulo|Texto|Descripcion|Acciones)$/.exec(nombreClase);
+  return (match?.[1] as 'Titulo' | 'Texto' | 'Descripcion' | 'Acciones' | undefined) ?? null;
+}
+
+function claseCanonicaModal(sufijo: 'Titulo' | 'Texto' | 'Descripcion' | 'Acciones'): 'modalTitulo' | 'modalTexto' | 'modalAcciones' {
+  if (sufijo === 'Titulo') {
+    return 'modalTitulo';
+  }
+
+  if (sufijo === 'Acciones') {
+    return 'modalAcciones';
+  }
+
+  return 'modalTexto';
+}
+
+function bloqueDefineSemanticaModal(cuerpo: string, sufijo: 'Titulo' | 'Texto' | 'Descripcion' | 'Acciones'): boolean {
+  const cuerpoLimpio = cuerpo.replace(/\/\*[\s\S]*?\*\//g, ' ');
+
+  if (sufijo === 'Acciones') {
+    return /(display\s*:\s*flex|justify-content\s*:|align-items\s*:|gap\s*:)/i.test(cuerpoLimpio);
+  }
+
+  return /(font-size\s*:|font-family\s*:|font-weight\s*:|line-height\s*:|color\s*:|text-align\s*:|letter-spacing\s*:|margin(?:-top|-bottom)?\s*:)/i.test(cuerpoLimpio);
+}
+
 /*
  * Detecta clases CSS con nombres en ingles.
  * El protocolo requiere nombres en espanol (ej: .contenedor, .boton).
@@ -196,6 +235,80 @@ export function verificarCssAdhocButtonStyle(
       reglaId: 'css-adhoc-button-style',
       mensaje: 'Bloque CSS de boton detectado fuera de Button.css. Si es un boton, usar <Button variante="..."> en su lugar.',
       severidad: obtenerSeveridadRegla('css-adhoc-button-style'),
+      linea,
+      fuente: 'estatico',
+    });
+  }
+
+  return violaciones;
+}
+
+/*
+ * Detecta clases de modal por componente que duplican semantica compartida.
+ * Casos como .ordenDetalleModalTexto o .modalCompraDescripcion deben reutilizar
+ * .modalTexto/.modalTitulo/.modalAcciones y dejar solo layout o estado local.
+ */
+export function verificarModalSemanticaNoCanonica(
+  texto: string,
+  documento: vscode.TextDocument,
+  nombreArchivo: string,
+): Violacion[] {
+  const nombreLower = nombreArchivo.toLowerCase();
+  const rutaNorm = documento.fileName.replace(/\\/g, '/');
+
+  if (/^variables\.css$/.test(nombreLower)) {
+    return [];
+  }
+
+  if (rutaNorm.includes('/node_modules/') || rutaNorm.includes('/vendor/') ||
+      rutaNorm.includes('/glory-rs/') || rutaNorm.includes('/public/assets/')) {
+    return [];
+  }
+
+  if (texto.includes(`sentinel-disable-file ${REGLA_MODAL_SEMANTICA}`)) {
+    return [];
+  }
+
+  const violaciones: Violacion[] = [];
+  const lineas = texto.split('\n');
+  const regexBloques = /([^{}]+)\{([^{}]*)\}/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = regexBloques.exec(texto)) !== null) {
+    const selectorRaw = match[1];
+    const selector = selectorRaw.replace(/\/\*[\s\S]*?\*\//g, ' ').trim();
+    const cuerpo = match[2];
+    const lineaBase = texto.slice(0, match.index).split('\n').length - 1;
+    const linea = lineaBase + (selectorRaw.split('\n').length - 1);
+
+    if (!selector || selector.startsWith('@')) {
+      continue;
+    }
+
+    if (tieneSentinelDisable(lineas, linea, REGLA_MODAL_SEMANTICA)) {
+      continue;
+    }
+
+    const clasesSelector = Array.from(selector.matchAll(/\.([A-Za-z_][\w-]*)/g)).map(grupo => grupo[1]);
+    const claseProblematica = clasesSelector.find(nombreClase => {
+      const sufijo = detectarSufijoSemanticoModal(nombreClase);
+      return sufijo ? bloqueDefineSemanticaModal(cuerpo, sufijo) : false;
+    });
+
+    if (!claseProblematica) {
+      continue;
+    }
+
+    const sufijo = detectarSufijoSemanticoModal(claseProblematica);
+    if (!sufijo) {
+      continue;
+    }
+
+    const claseCanonica = claseCanonicaModal(sufijo);
+    violaciones.push({
+      reglaId: REGLA_MODAL_SEMANTICA,
+      mensaje: `La clase "${claseProblematica}" duplica semantica visual compartida de Modal. Usa className="${claseCanonica}" y deja el layout/estado en clases locales separadas.`,
+      severidad: obtenerSeveridadRegla(REGLA_MODAL_SEMANTICA),
       linea,
       fuente: 'estatico',
     });
