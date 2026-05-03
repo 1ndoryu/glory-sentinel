@@ -40,6 +40,7 @@ import {
   verificarObjetoMutableExportado,
   verificarModalConTitulo,
   verificarModalAccionesNoCanonico,
+  verificarModalEstructuraNoCanonica,
 } from './react/reactComponentRules';
 import { verificarAccesoApiSinFallback } from './glory/apiContractRules';
 
@@ -133,6 +134,9 @@ export function analizarReact(documento: vscode.TextDocument): Violacion[] {
     }
     if (reglaHabilitada('modal-acciones-no-canonico')) {
       violaciones.push(...verificarModalAccionesNoCanonico(lineas));
+    }
+    if (reglaHabilitada('modal-estructura-no-canonica')) {
+      violaciones.push(...verificarModalEstructuraNoCanonica(lineas, nombreArchivo));
     }
     if (reglaHabilitada('acceso-api-sin-fallback')) {
       violaciones.push(...verificarAccesoApiSinFallback(lineas));

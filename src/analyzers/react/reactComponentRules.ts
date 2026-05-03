@@ -714,3 +714,79 @@ export function verificarModalAccionesNoCanonico(lineas: string[]): Violacion[] 
 
   return violaciones;
 }
+
+function archivoPareceModal(nombreArchivo: string): boolean {
+  return /(?:^Modal[A-Z].*|.*Modal)\.(?:tsx|jsx)$/.test(nombreArchivo);
+}
+
+function extraerClasesEstaticas(linea: string): string[] {
+  const match = /className\s*=\s*(?:["']([^"']+)["']|\{\s*`([^`]+)`\s*\})/.exec(linea);
+  const raw = match?.[1] ?? match?.[2];
+
+  if (!raw) {
+    return [];
+  }
+
+  return raw
+    .split(/\s+/)
+    .map(token => token.trim())
+    .filter(token => token && !token.includes('${'));
+}
+
+/* [035A-24] Detecta formularios/campos locales que reescriben la receta compartida del modal.
+ * Casos como .hostingFormCrear o .usuariosCrearCampo deben migrar a modalFormulario/modalCampo
+ * o a los helpers de Modal.tsx para no redefinir la misma estructura en cada componente. */
+export function verificarModalEstructuraNoCanonica(lineas: string[], nombreArchivo: string): Violacion[] {
+  const texto = lineas.join('\n');
+  if (texto.includes('sentinel-disable-file modal-estructura-no-canonica')) { return []; }
+
+  const violaciones: Violacion[] = [];
+  const archivoModal = archivoPareceModal(nombreArchivo);
+  let profundidadModal = 0;
+
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i];
+    if (esComentario(linea)) { continue; }
+    if (tieneSentinelDisable(lineas, i, 'modal-estructura-no-canonica')) { continue; }
+
+    if (/<Modal[\s>]/.test(linea) && !/<Modal[^>]*\/>/.test(linea)) {
+      profundidadModal++;
+    }
+
+    const enContextoModal = archivoModal || profundidadModal > 0;
+    const clases = extraerClasesEstaticas(linea);
+
+    if (clases.length > 0) {
+      const usaFormularioCanonico = clases.includes('modalFormulario');
+      const usaCampoCanonico = clases.includes('modalCampo');
+      const claseFormularioLocal = clases.find(clase => /(?:Formulario|FormCrear)$/.test(clase));
+      const claseCampoLocal = clases.find(clase => /Campo$/.test(clase) && clase !== 'modalCampo');
+
+      if ((enContextoModal || Boolean(claseFormularioLocal)) && /<(?:form|div)[\s>]/.test(linea) && claseFormularioLocal && !usaFormularioCanonico) {
+        violaciones.push({
+          reglaId: 'modal-estructura-no-canonica',
+          mensaje: `Clase "${claseFormularioLocal}" redefine el cuerpo/formulario compartido del modal. Usa className="modalFormulario" o <ModalBody ...>.`,
+          severidad: obtenerSeveridadRegla('modal-estructura-no-canonica'),
+          linea: i,
+          fuente: 'estatico',
+        });
+      }
+
+      if (enContextoModal && /<(?:div|label|fieldset)[\s>]/.test(linea) && claseCampoLocal && !usaCampoCanonico) {
+        violaciones.push({
+          reglaId: 'modal-estructura-no-canonica',
+          mensaje: `Clase "${claseCampoLocal}" redefine un campo compartido de Modal. Usa className="modalCampo" o <ModalField>.`,
+          severidad: obtenerSeveridadRegla('modal-estructura-no-canonica'),
+          linea: i,
+          fuente: 'estatico',
+        });
+      }
+    }
+
+    if (/<\/Modal>/.test(linea)) {
+      profundidadModal = Math.max(0, profundidadModal - 1);
+    }
+  }
+
+  return violaciones;
+}
