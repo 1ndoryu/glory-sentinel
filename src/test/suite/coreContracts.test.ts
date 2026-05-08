@@ -1,8 +1,12 @@
 import * as assert from 'assert';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { createCoreDocument, createCoreRange, serializeCoreFindings, CoreFinding } from '../../core/types';
 import { findingToDiagnostic } from '../../core/vscodeAdapter';
 import { analyzeDocument } from '../../core/analyzeDocument';
 import { generarReporteMarkdown } from '../../core/report';
+import { analyzeCliTarget, languageIdForFile, parseCliArgs } from '../../cli';
 
 suite('Sentinel editor-agnostic core contracts', () => {
   test('creates a document with stable line helpers', () => {
@@ -89,5 +93,34 @@ suite('Sentinel editor-agnostic core contracts', () => {
     assert.ok(markdown.includes('**Total violaciones:** 1'));
     assert.ok(markdown.includes('## src/app.ts (1 violaciones)'));
     assert.ok(markdown.includes('Secret \\| detectado'));
+  });
+
+  test('parses CLI analyze arguments', () => {
+    const args = parseCliArgs(['analyze', '--file', 'src/app.ts', '--format', 'json']);
+
+    assert.strictEqual(args.command, 'analyze');
+    assert.strictEqual(args.filePath, 'src/app.ts');
+    assert.strictEqual(args.format, 'json');
+  });
+
+  test('maps file extensions to language ids for CLI documents', () => {
+    assert.strictEqual(languageIdForFile('src/App.tsx'), 'typescriptreact');
+    assert.strictEqual(languageIdForFile('src/lib.rs'), 'rust');
+  });
+
+  test('analyzes a workspace through the CLI core path', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-cli-'));
+    fs.mkdirSync(path.join(root, 'src'));
+    fs.writeFileSync(path.join(root, 'src', 'secret.ts'), 'const password = "abcd1234";');
+
+    try {
+      const result = await analyzeCliTarget(parseCliArgs(['analyze', '--workspace', root, '--format', 'json']));
+
+      assert.strictEqual(result.totalArchivos, 1);
+      assert.ok(result.hasErrors);
+      assert.ok(result.entries[0].findings.some(finding => finding.ruleId === 'hardcoded-secret'));
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
   });
 });

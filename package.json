@@ -26,6 +26,9 @@
     "onLanguage:rust"
   ],
   "main": "./out/extension.js",
+  "bin": {
+    "sentinel": "./out/cli/index.js"
+  },
   "contributes": {
     "commands": [
       {
@@ -112,6 +115,7 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
+    "cli": "npm run compile && node ./out/cli/index.js",
     "watch": "tsc -watch -p ./",
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js",

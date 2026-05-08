@@ -43,7 +43,7 @@ import {
   verificarModalEstructuraNoCanonica,
   configurarWorkspaceRootsReact,
 } from './react/reactComponentRules';
-import { verificarAccesoApiSinFallback } from './glory/apiContractRules';
+import { verificarAccesoApiSinFallback } from './glory/apiFallbackRules';
 
 export interface ReactAnalysisOptions {
   workspaceRoots?: string[];
