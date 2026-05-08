@@ -22,6 +22,15 @@ export function severityToDiagnosticSeverity(severity: CoreSeverity): vscode.Dia
   }
 }
 
+export function diagnosticSeverityToSeverity(severity: vscode.DiagnosticSeverity): CoreSeverity {
+  switch (severity) {
+    case vscode.DiagnosticSeverity.Error: return 'error';
+    case vscode.DiagnosticSeverity.Warning: return 'warning';
+    case vscode.DiagnosticSeverity.Information: return 'information';
+    case vscode.DiagnosticSeverity.Hint: return 'hint';
+  }
+}
+
 export function rangeToVsCodeRange(range: CoreRange): vscode.Range {
   return new vscode.Range(
     range.start.line,
@@ -43,4 +52,28 @@ export function findingToDiagnostic(finding: CoreFinding): vscode.Diagnostic {
   diagnostic.source = finding.source;
   diagnostic.code = finding.ruleId;
   return diagnostic;
+}
+
+export function diagnosticToFinding(diagnostic: vscode.Diagnostic): CoreFinding {
+  const code = diagnostic.code;
+  const ruleId = typeof code === 'object' && code !== null && 'value' in code
+    ? String(code.value)
+    : String(code ?? 'general');
+
+  return {
+    ruleId,
+    message: diagnostic.message,
+    severity: diagnosticSeverityToSeverity(diagnostic.severity),
+    range: {
+      start: {
+        line: diagnostic.range.start.line,
+        character: diagnostic.range.start.character,
+      },
+      end: {
+        line: diagnostic.range.end.line,
+        character: diagnostic.range.end.character,
+      },
+    },
+    source: diagnostic.source ?? 'Code Sentinel',
+  };
 }

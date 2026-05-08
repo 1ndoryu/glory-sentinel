@@ -6,6 +6,8 @@
 
 import * as vscode from 'vscode';
 import { logInfo, logWarn } from '../utils/logger';
+import { generarReporteMarkdown, severidadTextoCore } from '../core/report';
+import { diagnosticSeverityToSeverity, diagnosticToFinding } from '../core/vscodeAdapter';
 
 /*
  * Genera un archivo markdown con el resumen de todas las violaciones
@@ -21,78 +23,17 @@ export async function generarReporteWorkspace(
   const config = vscode.workspace.getConfiguration('codeSentinel');
   const reportPath = config.get<string>('reportPath', '.sentinel-report.md');
   const rutaBase = workspaceFolders[0].uri.fsPath.replace(/\\/g, '/');
+  const entries = Array.from(resultados.values()).map(entrada => ({
+    ruta: entrada.ruta,
+    findings: entrada.diagnosticos.map(diagnosticToFinding),
+  }));
 
-  /* Contadores por severidad */
-  let totalErrores = 0;
-  let totalWarnings = 0;
-  let totalInfo = 0;
-  let totalHints = 0;
-  let totalViolaciones = 0;
-
-  for (const [, entrada] of resultados) {
-    for (const d of entrada.diagnosticos) {
-      totalViolaciones++;
-      switch (d.severity) {
-        case vscode.DiagnosticSeverity.Error: totalErrores++; break;
-        case vscode.DiagnosticSeverity.Warning: totalWarnings++; break;
-        case vscode.DiagnosticSeverity.Information: totalInfo++; break;
-        case vscode.DiagnosticSeverity.Hint: totalHints++; break;
-      }
-    }
-  }
-
-  const fecha = new Date().toISOString().replace('T', ' ').substring(0, 19);
-
-  /* [124A-AUDIT1] Usar array + join en vez de concatenación repetida (O(n²) → O(n)) */
-  const lineas: string[] = [];
-
-  lineas.push(`# Code Sentinel - Reporte de Workspace\n`);
-  lineas.push(`**Fecha:** ${fecha}  `);
-  lineas.push(`**Archivos analizados:** ${totalArchivos}  `);
-  lineas.push(`**Archivos con violaciones:** ${resultados.size}  `);
-  lineas.push(`**Total violaciones:** ${totalViolaciones}  \n`);
-
-  lineas.push(`| Severidad | Cantidad |`);
-  lineas.push(`|-----------|----------|`);
-  lineas.push(`| Error | ${totalErrores} |`);
-  lineas.push(`| Warning | ${totalWarnings} |`);
-  lineas.push(`| Info | ${totalInfo} |`);
-  lineas.push(`| Hint | ${totalHints} |\n`);
-
-  if (totalViolaciones === 0) {
-    lineas.push(`> Sin violaciones detectadas. El workspace esta limpio.`);
-  }
-
-  /* Ordenar archivos: primero los que tienen mas errores */
-  const archivosOrdenados = Array.from(resultados.entries())
-    .sort((a, b) => {
-      const erroresA = a[1].diagnosticos.filter(d => d.severity === vscode.DiagnosticSeverity.Error).length;
-      const erroresB = b[1].diagnosticos.filter(d => d.severity === vscode.DiagnosticSeverity.Error).length;
-      return erroresB - erroresA || b[1].diagnosticos.length - a[1].diagnosticos.length;
-    });
-
-  for (const [, entrada] of archivosOrdenados) {
-    const rutaRelativa = entrada.ruta.replace(/\\/g, '/').replace(rutaBase + '/', '');
-
-    lineas.push(`---\n`);
-    lineas.push(`## ${rutaRelativa} (${entrada.diagnosticos.length} violaciones)\n`);
-    lineas.push(`| Linea | Severidad | Regla | Mensaje |`);
-    lineas.push(`|-------|-----------|-------|---------|`);
-
-    const diagOrdenados = [...entrada.diagnosticos].sort((a, b) => a.range.start.line - b.range.start.line);
-
-    for (const d of diagOrdenados) {
-      const linea = d.range.start.line + 1;
-      const severidad = severidadTexto(d.severity);
-      const regla = d.code ?? 'general';
-      const mensaje = d.message.split('\n')[0].replace(/\|/g, '\\|');
-      lineas.push(`| ${linea} | ${severidad} | ${regla} | ${mensaje} |`);
-    }
-
-    lineas.push('');
-  }
-
-  const contenido = lineas.join('\n');
+  const contenido = generarReporteMarkdown({
+    entries,
+    totalArchivos,
+    rutaBase,
+  });
+  const totalViolaciones = entries.reduce((total, entrada) => total + entrada.findings.length, 0);
 
   /* Escribir archivo y abrirlo */
   try {
@@ -108,11 +49,5 @@ export async function generarReporteWorkspace(
 
 /* Convierte DiagnosticSeverity a texto legible para reportes */
 export function severidadTexto(severity: vscode.DiagnosticSeverity): string {
-  switch (severity) {
-    case vscode.DiagnosticSeverity.Error: return 'Error';
-    case vscode.DiagnosticSeverity.Warning: return 'Warning';
-    case vscode.DiagnosticSeverity.Information: return 'Info';
-    case vscode.DiagnosticSeverity.Hint: return 'Hint';
-    default: return 'Unknown';
-  }
+  return severidadTextoCore(diagnosticSeverityToSeverity(severity));
 }

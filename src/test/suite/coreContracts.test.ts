@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import { createCoreDocument, createCoreRange, serializeCoreFindings, CoreFinding } from '../../core/types';
 import { findingToDiagnostic } from '../../core/vscodeAdapter';
 import { analyzeDocument } from '../../core/analyzeDocument';
+import { generarReporteMarkdown } from '../../core/report';
 
 suite('Sentinel editor-agnostic core contracts', () => {
   test('creates a document with stable line helpers', () => {
@@ -66,5 +67,27 @@ suite('Sentinel editor-agnostic core contracts', () => {
 
     assert.ok(findings.some(finding => finding.ruleId === 'hardcoded-secret'));
     assert.strictEqual(findings[0].source, 'Code Sentinel');
+  });
+
+  test('generates workspace reports without editor objects', () => {
+    const markdown = generarReporteMarkdown({
+      totalArchivos: 2,
+      rutaBase: '/workspace',
+      fecha: new Date('2026-05-08T10:30:00Z'),
+      entries: [{
+        ruta: '/workspace/src/app.ts',
+        findings: [{
+          ruleId: 'hardcoded-secret',
+          message: 'Secret | detectado',
+          severity: 'error',
+          range: createCoreRange(2, 4, 2, 18),
+          source: 'Code Sentinel',
+        }],
+      }],
+    });
+
+    assert.ok(markdown.includes('**Total violaciones:** 1'));
+    assert.ok(markdown.includes('## src/app.ts (1 violaciones)'));
+    assert.ok(markdown.includes('Secret \\| detectado'));
   });
 });
