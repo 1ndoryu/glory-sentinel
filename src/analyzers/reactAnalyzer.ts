@@ -5,9 +5,9 @@
  * Antes: 1082 lineas monoliticas. Ahora: fachada ~85 lineas.
  */
 
-import * as vscode from 'vscode';
 import * as path from 'path';
 import { Violacion } from '../types';
+import { CoreTextDocument } from '../core/types';
 import { reglaHabilitada } from '../config/ruleRegistry';
 import { esRutaGlory } from '../utils/analisisHelpers';
 
@@ -41,14 +41,20 @@ import {
   verificarModalConTitulo,
   verificarModalAccionesNoCanonico,
   verificarModalEstructuraNoCanonica,
+  configurarWorkspaceRootsReact,
 } from './react/reactComponentRules';
 import { verificarAccesoApiSinFallback } from './glory/apiContractRules';
+
+export interface ReactAnalysisOptions {
+  workspaceRoots?: string[];
+}
 
 /*
  * Analiza un archivo React en busca de violaciones especificas.
  * Complementa al staticAnalyzer con detecciones mas contextuales.
  */
-export function analizarReact(documento: vscode.TextDocument): Violacion[] {
+export function analizarReact(documento: CoreTextDocument, opciones: ReactAnalysisOptions = {}): Violacion[] {
+  configurarWorkspaceRootsReact(opciones.workspaceRoots ?? []);
   const texto = documento.getText();
   const lineas = texto.split('\n');
   const nombreArchivo = path.basename(documento.fileName);

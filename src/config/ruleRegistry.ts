@@ -9,7 +9,6 @@
  * antes de reportar violaciones.
  */
 
-import * as vscode from 'vscode';
 import { SeveridadRegla, CategoriaRegla } from '../types';
 
 /* Definicion inmutable de una regla en el sistema */
@@ -23,7 +22,7 @@ export interface DefinicionRegla {
 }
 
 /* Formato que el usuario escribe en settings.json */
-interface ConfigReglaUsuario {
+export interface ConfigReglaUsuario {
   habilitada?: boolean;
   severidad?: SeveridadRegla;
 }
@@ -211,6 +210,20 @@ let configCache: Map<string, ConfigReglaEfectiva> | null = null;
 
 /* Severidades validas para validacion de input del usuario */
 const SEVERIDADES_VALIDAS = new Set<SeveridadRegla>(['error', 'warning', 'information', 'hint']);
+let proveedorOverridesReglas: () => Record<string, ConfigReglaUsuario> = () => ({});
+
+/* [085A-1] El registro queda editor-agnostico: VS Code inyecta settings desde ruleLoader,
+ * mientras CLI/LSP podran inyectar JSON sin cargar la API del editor. */
+export function configurarProveedorOverridesReglas(
+  proveedor: () => Record<string, ConfigReglaUsuario>
+): void {
+  proveedorOverridesReglas = proveedor;
+  invalidarRegistroReglas();
+}
+
+export function configurarOverridesReglas(overrides: Record<string, ConfigReglaUsuario>): void {
+  configurarProveedorOverridesReglas(() => overrides);
+}
 
 /* Construye el cache leyendo los overrides del usuario desde settings.json */
 function construirCache(): Map<string, ConfigReglaEfectiva> {
@@ -218,8 +231,7 @@ function construirCache(): Map<string, ConfigReglaEfectiva> {
 
   let overrides: Record<string, ConfigReglaUsuario> = {};
   try {
-    const config = vscode.workspace.getConfiguration('codeSentinel');
-    overrides = config.get<Record<string, ConfigReglaUsuario>>('rules', {});
+    overrides = proveedorOverridesReglas();
   } catch {
     /* Si falla la lectura de config, usar defaults */
   }

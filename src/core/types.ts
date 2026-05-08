@@ -48,6 +48,8 @@ export interface CoreAnalysisConfig {
   includePatterns: string[];
   excludePatterns: string[];
   ruleOverrides: Record<string, CoreRuleOverride>;
+  directoryExceptions?: string[];
+  useConfiguredRuleProvider?: boolean;
 }
 
 export interface CoreWorkspaceContext {
@@ -89,6 +91,18 @@ export function createCoreDocument(input: CreateCoreDocumentInput): CoreTextDocu
       }
       return { lineNumber: line, text: lines[line] };
     },
+  };
+}
+
+export function positionAtOffset(document: CoreTextDocument, offset: number): CorePosition {
+  const text = document.getText();
+  const boundedOffset = Math.max(0, Math.min(offset, text.length));
+  const before = text.slice(0, boundedOffset);
+  const lines = before.split(/\r\n|\r|\n/);
+
+  return {
+    line: lines.length - 1,
+    character: lines[lines.length - 1]?.length ?? 0,
   };
 }
 

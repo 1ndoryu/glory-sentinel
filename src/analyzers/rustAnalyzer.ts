@@ -12,8 +12,8 @@
  * - parametros-excesivos-rs: funciones con 6+ parametros
  */
 
-import * as vscode from 'vscode';
 import { Violacion } from '../types';
+import { CoreTextDocument } from '../core/types';
 import { reglaHabilitada, obtenerSeveridadRegla } from '../config/ruleRegistry';
 
 /* Limite de lineas efectivas por funcion (clippy tambien lo verifica,
@@ -27,7 +27,7 @@ const LIMITE_LINEAS_FUNCION = 100;
 const LIMITE_PARAMETROS = 8;
 
 /* Ejecuta todas las reglas Rust contextuales sobre un documento .rs */
-export function analizarRust(documento: vscode.TextDocument): Violacion[] {
+export function analizarRust(documento: CoreTextDocument): Violacion[] {
   const texto = documento.getText();
   const lineas = texto.split('\n');
   const rutaNorm = documento.fileName.replace(/\\/g, '/');

@@ -3,8 +3,8 @@
  * Delega en submodulos: phpControllerRules, phpDataRules, phpSecurityRules.
  */
 
-import * as vscode from 'vscode';
 import { Violacion } from '../types';
+import { CoreTextDocument } from '../core/types';
 import { reglaHabilitada } from '../config/ruleRegistry';
 
 import { verificarControllerSinTryCatch, verificarLockSinFinally, verificarCatchCriticoSoloLog } from './php/phpControllerRules';
@@ -30,9 +30,9 @@ import {
  * Analiza un archivo PHP en busca de violaciones especificas de WordPress.
  * Complementa al staticAnalyzer con reglas que requieren contexto PHP.
  */
-export function analizarPhp(documento: vscode.TextDocument): Violacion[] {
+export function analizarPhp(documento: CoreTextDocument): Violacion[] {
   const lineas = documento.getText().split('\n');
-  const rutaArchivo = documento.uri.fsPath;
+  const rutaArchivo = documento.fileName;
   const violaciones: Violacion[] = [];
 
   if (reglaHabilitada('controller-sin-trycatch')) {

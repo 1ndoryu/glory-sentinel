@@ -4,15 +4,15 @@
  * any type explicito, non-null assertion excesivo.
  */
 
-import * as vscode from 'vscode';
 import { Violacion } from '../../types';
+import { CoreTextDocument } from '../../core/types';
 import { contarLineasEfectivas, obtenerLimiteArchivo } from '../../utils/lineCounter';
 import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
 
 /* Verifica si el archivo excede los limites de lineas del protocolo.
  * Soporta excepciones con sentinel-disable-file limite-lineas */
 export function verificarLimiteLineas(
-  documento: vscode.TextDocument,
+  documento: CoreTextDocument,
   nombreArchivo: string,
 ): Violacion[] {
   const texto = documento.getText();
@@ -56,7 +56,7 @@ export function verificarLimiteLineas(
  * en archivos con multiples sub-componentes. */
 export function verificarUseStateExcesivo(
   texto: string,
-  documento: vscode.TextDocument,
+  documento: CoreTextDocument,
 ): Violacion[] {
   /* [104A-4] Soporte sentinel-disable-file para esta regla */
   if (texto.includes('sentinel-disable-file usestate-excesivo')) { return []; }
@@ -90,7 +90,7 @@ const REGEX_IMPORT_DEFAULT = /^import\s+(?!type\s)(\w+)\s+from\s+['"][^'"]+['"]/
 /* Detecta imports sin uso en archivos JS/TS (heuristico simplificado) */
 export function verificarImportsMuertos(
   texto: string,
-  documento: vscode.TextDocument,
+  documento: CoreTextDocument,
 ): Violacion[] {
   const violaciones: Violacion[] = [];
   const lineas = texto.split('\n');
@@ -155,7 +155,7 @@ export function verificarImportsMuertos(
 }
 
 /* Detecta uso de `: any` o `as any` en archivos TS/TSX */
-export function verificarAnyType(texto: string, documento: vscode.TextDocument): Violacion[] {
+export function verificarAnyType(texto: string, documento: CoreTextDocument): Violacion[] {
   const violaciones: Violacion[] = [];
   const lineas = texto.split('\n');
 
@@ -191,7 +191,7 @@ export function verificarAnyType(texto: string, documento: vscode.TextDocument):
  * Detecta uso excesivo de non-null assertions (!) en TypeScript.
  * Solo reporta si el archivo tiene 5 o mas instancias.
  */
-export function verificarNonNullAssertion(texto: string, documento: vscode.TextDocument): Violacion[] {
+export function verificarNonNullAssertion(texto: string, documento: CoreTextDocument): Violacion[] {
   const lineas = texto.split('\n');
   const instancias: number[] = [];
 
@@ -256,7 +256,8 @@ const LIMITE_ARCHIVOS_DIRECTORIO = 10;
  * 2. codeSentinel.directoryExceptions en settings.json (patrones glob)
  * 3. Directorios de infraestructura (node_modules, target, .git, etc.) */
 export function verificarDirectorioAbarrotado(
-  documento: vscode.TextDocument,
+  documento: CoreTextDocument,
+  excepciones: string[] = [],
 ): Violacion[] {
   const texto = documento.getText();
   if (texto.includes('sentinel-disable-file directorio-abarrotado')) {
@@ -275,15 +276,6 @@ export function verificarDirectorioAbarrotado(
   const dirExcluidos = ['node_modules', 'target', '.git', 'dist', 'build', '.sqlx', 'completados'];
   if (dirExcluidos.includes(nombreDirectorio)) {
     return [];
-  }
-
-  /* Obtener excepciones del usuario desde settings.json */
-  let excepciones: string[] = [];
-  try {
-    const config = vscode.workspace.getConfiguration('codeSentinel', documento.uri);
-    excepciones = config.get<string[]>('directoryExceptions', []);
-  } catch {
-    /* Si falla la config, usar defaults */
   }
 
   /* Verificar si el directorio esta en la lista de excepciones */

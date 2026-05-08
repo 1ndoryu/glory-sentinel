@@ -5,12 +5,9 @@
  */
 
 import * as vscode from 'vscode';
-import { Violacion, severidadADiagnostic, obtenerTipoArchivo, ConfiguracionSentinel } from '../types';
-import { analizarEstatico, limpiarDirectoriosReportados } from '../analyzers/staticAnalyzer';
-import { analizarPhp } from '../analyzers/phpAnalyzer';
-import { analizarReact } from '../analyzers/reactAnalyzer';
+import { ConfiguracionSentinel } from '../types';
+import { limpiarDirectoriosReportados } from '../analyzers/staticAnalyzer';
 import { analizarGlory } from '../analyzers/gloryAnalyzer';
-import { analizarRust } from '../analyzers/rustAnalyzer';
 import { analizarApiEndpoints } from '../analyzers/apiEndpointAnalyzer';
 import { guardarEnCache, obtenerDelCache, limpiarCacheCompleto } from '../services/cacheService';
 import { logInfo, logWarn } from '../utils/logger';
@@ -23,13 +20,53 @@ import {
 } from '../services/debounceService';
 import { cargarConfiguracion, debeExcluirse, lenguajeHabilitado, invalidarCacheReglas } from '../services/ruleLoader';
 import { generarReporteWorkspace } from './reportGenerator';
-
-/* Nombre que aparece en el panel Problems como fuente */
-const FUENTE_ESTATICO = 'Code Sentinel';
+import { analyzeDocument } from '../core/analyzeDocument';
+import { CoreAnalysisConfig, CoreWorkspaceContext } from '../core/types';
+import { documentFromVsCode, findingToDiagnostic } from '../core/vscodeAdapter';
 
 /* DiagnosticCollection global de la extension */
 let coleccionDiagnosticos: vscode.DiagnosticCollection;
 let configuracion: ConfiguracionSentinel;
+
+function crearCoreConfig(): CoreAnalysisConfig {
+  return {
+    enabled: configuracion.staticAnalysisEnabled,
+    includePatterns: [],
+    excludePatterns: configuracion.exclude,
+    directoryExceptions: configuracion.directoryExceptions,
+    ruleOverrides: {},
+    useConfiguredRuleProvider: true,
+  };
+}
+
+function crearWorkspaceContext(doc: vscode.TextDocument): CoreWorkspaceContext | undefined {
+  const folder = vscode.workspace.getWorkspaceFolder(doc.uri)
+    ?? vscode.workspace.workspaceFolders?.find(workspaceFolder => {
+      const fileNorm = doc.fileName.replace(/\\/g, '/');
+      return fileNorm.startsWith(workspaceFolder.uri.fsPath.replace(/\\/g, '/'));
+    });
+
+  if (!folder) {
+    return undefined;
+  }
+
+  return {
+    rootPath: folder.uri.fsPath,
+    config: crearCoreConfig(),
+  };
+}
+
+function analizarDocumentoVsCode(doc: vscode.TextDocument): vscode.Diagnostic[] {
+  const coreDocument = documentFromVsCode(doc);
+  const findings = analyzeDocument(coreDocument, crearCoreConfig(), crearWorkspaceContext(doc), {
+    extraAnalyzers: [
+      () => analizarGlory(doc),
+      () => analizarApiEndpoints(doc),
+    ],
+  });
+
+  return findings.map(findingToDiagnostic);
+}
 
 /*
  * Inicializa el provider de diagnosticos.
@@ -91,58 +128,11 @@ function ejecutarAnalisisEstatico(uri: vscode.Uri): void {
     return;
   }
 
-  /* Ejecutar analisis general */
-  const violaciones: Violacion[] = analizarEstatico(doc);
-
-  /* Ejecutar analyzers especializados segun tipo de archivo */
-  const tipo = obtenerTipoArchivo(doc.languageId, doc.fileName);
-
-  if (tipo === 'php') {
-    violaciones.push(...analizarPhp(doc));
-    violaciones.push(...analizarGlory(doc));
-  } else if (tipo === 'tsx' || tipo === 'jsx') {
-    violaciones.push(...analizarReact(doc));
-    violaciones.push(...analizarGlory(doc));
-    violaciones.push(...analizarApiEndpoints(doc));
-  } else if (tipo === 'ts') {
-    violaciones.push(...analizarGlory(doc));
-    violaciones.push(...analizarApiEndpoints(doc));
-  } else if (tipo === 'rust') {
-    violaciones.push(...analizarRust(doc));
-  }
-
-  /* Convertir violaciones a diagnosticos */
-  const diagnosticos = violaciones.map(v => crearDiagnostico(doc, v));
+  const diagnosticos = analizarDocumentoVsCode(doc);
 
   /* Guardar en cache y publicar */
   guardarEnCache(uri, contenido, diagnosticos);
   publicarDiagnosticos(uri, diagnosticos);
-}
-
-/* Crea un diagnostico VS Code a partir de una violacion */
-function crearDiagnostico(doc: vscode.TextDocument, violacion: Violacion): vscode.Diagnostic {
-  const lineaInicio = Math.max(0, Math.min(violacion.linea, doc.lineCount - 1));
-  const lineaFin = violacion.lineaFin !== undefined
-    ? Math.max(0, Math.min(violacion.lineaFin, doc.lineCount - 1))
-    : lineaInicio;
-
-  /* Si no se especifica columna, comenzar en el primer caracter no-whitespace de la linea.
-   * Esto evita que el subrayado incluya la indentacion y apunte al codigo real. */
-  const colInicio = violacion.columna ?? Math.max(0, doc.lineAt(lineaInicio).text.search(/\S/));
-  const colFin = violacion.columnaFin ?? doc.lineAt(lineaFin).text.length;
-
-  const rango = new vscode.Range(lineaInicio, colInicio, lineaFin, colFin);
-  const severidad = severidadADiagnostic(violacion.severidad);
-
-  const diagnostico = new vscode.Diagnostic(rango, violacion.mensaje, severidad);
-  diagnostico.source = FUENTE_ESTATICO;
-  diagnostico.code = violacion.reglaId;
-
-  if (violacion.sugerencia) {
-    diagnostico.message += `\nSugerencia: ${violacion.sugerencia}`;
-  }
-
-  return diagnostico;
 }
 
 /* Publica diagnosticos en la coleccion de VS Code */
@@ -283,25 +273,7 @@ export async function analizarWorkspace(): Promise<void> {
 
           const doc = await vscode.workspace.openTextDocument(archivos[i]);
           if (documentoEsValido(doc)) {
-            /* Solo analisis estatico para scan completo del workspace */
-            const violaciones = analizarEstatico(doc);
-            const tipo = obtenerTipoArchivo(doc.languageId, doc.fileName);
-            if (tipo === 'php') {
-              violaciones.push(...analizarPhp(doc));
-              violaciones.push(...analizarGlory(doc));
-            } else if (tipo === 'tsx' || tipo === 'jsx') {
-              violaciones.push(...analizarReact(doc));
-              violaciones.push(...analizarGlory(doc));
-              violaciones.push(...analizarApiEndpoints(doc));
-            } else if (tipo === 'ts') {
-              /* Services y hooks TS: solo contrato API (no React-specific) */
-              violaciones.push(...analizarGlory(doc));
-              violaciones.push(...analizarApiEndpoints(doc));
-            } else if (tipo === 'rust') {
-              violaciones.push(...analizarRust(doc));
-            }
-
-            const diagnosticos = violaciones.map(v => crearDiagnostico(doc, v));
+            const diagnosticos = analizarDocumentoVsCode(doc);
             coleccionDiagnosticos.set(archivos[i], diagnosticos);
 
             /* Solo incluir archivos con violaciones en el reporte */

@@ -8,19 +8,28 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import * as vscode from 'vscode';
 import { Violacion } from '../../types';
 import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
 import { esComentario, tieneSentinelDisable } from '../../utils/analisisHelpers';
 
 const cacheComponentesUi = new Map<string, boolean>();
+let workspaceRootsReact: string[] = [];
+
+export function configurarWorkspaceRootsReact(roots: string[]): void {
+  const normalizadas = roots.map(root => root.replace(/\\/g, '/'));
+  if (normalizadas.join('|') === workspaceRootsReact.join('|')) {
+    return;
+  }
+
+  workspaceRootsReact = normalizadas;
+  cacheComponentesUi.clear();
+}
 
 function existeComponenteUi(nombres: string[]): boolean {
   const cacheKey = nombres.join('|');
   const cached = cacheComponentesUi.get(cacheKey);
   if (cached !== undefined) { return cached; }
 
-  const carpetas = vscode.workspace.workspaceFolders ?? [];
   const basesRelativas = [
     path.join('frontend', 'src', 'components', 'ui'),
     path.join('src', 'components', 'ui'),
@@ -29,11 +38,11 @@ function existeComponenteUi(nombres: string[]): boolean {
   ];
   const extensiones = ['tsx', 'ts', 'jsx', 'js'];
 
-  for (const carpeta of carpetas) {
+  for (const workspaceRoot of workspaceRootsReact) {
     for (const baseRelativa of basesRelativas) {
       for (const nombre of nombres) {
         for (const extension of extensiones) {
-          const rutaArchivo = path.join(carpeta.uri.fsPath, baseRelativa, `${nombre}.${extension}`);
+          const rutaArchivo = path.join(workspaceRoot, baseRelativa, `${nombre}.${extension}`);
           if (fs.existsSync(rutaArchivo)) {
             cacheComponentesUi.set(cacheKey, true);
             return true;

@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import { createCoreDocument, createCoreRange, serializeCoreFindings, CoreFinding } from '../../core/types';
 import { findingToDiagnostic } from '../../core/vscodeAdapter';
+import { analyzeDocument } from '../../core/analyzeDocument';
 
 suite('Sentinel editor-agnostic core contracts', () => {
   test('creates a document with stable line helpers', () => {
@@ -46,5 +47,24 @@ suite('Sentinel editor-agnostic core contracts', () => {
     assert.strictEqual(diagnostic.source, 'Code Sentinel');
     assert.strictEqual(diagnostic.range.start.line, 0);
     assert.strictEqual(diagnostic.range.start.character, 1);
+  });
+
+  test('analyzes a document through the editor-agnostic core', () => {
+    const document = createCoreDocument({
+      uri: 'file:///workspace/src/secret.ts',
+      fileName: '/workspace/src/secret.ts',
+      languageId: 'typescript',
+      content: 'const password = "abcd1234";',
+    });
+
+    const findings = analyzeDocument(document, {
+      enabled: true,
+      includePatterns: [],
+      excludePatterns: [],
+      ruleOverrides: {},
+    });
+
+    assert.ok(findings.some(finding => finding.ruleId === 'hardcoded-secret'));
+    assert.strictEqual(findings[0].source, 'Code Sentinel');
   });
 });

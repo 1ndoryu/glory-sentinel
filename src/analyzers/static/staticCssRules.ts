@@ -4,8 +4,8 @@
  * colores hardcodeados (desactivada por defecto).
  */
 
-import * as vscode from 'vscode';
 import { Violacion } from '../../types';
+import { CoreTextDocument } from '../../core/types';
 import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
 import { tieneSentinelDisable } from '../../utils/analisisHelpers';
 
@@ -63,7 +63,7 @@ function bloqueDefineSemanticaModal(cuerpo: string, sufijo: 'Titulo' | 'Texto' |
  */
 export function verificarNomenclaturaCssIngles(
   texto: string,
-  documento: vscode.TextDocument,
+  documento: CoreTextDocument,
   nombreArchivo: string,
 ): Violacion[] {
   const rutaNorm = documento.fileName.replace(/\\/g, '/');
@@ -107,7 +107,7 @@ export function verificarNomenclaturaCssIngles(
  */
 export function verificarCardIconoExtiendeBase(
   texto: string,
-  documento: vscode.TextDocument,
+  documento: CoreTextDocument,
   nombreArchivo: string,
 ): Violacion[] {
   const rutaNorm = documento.fileName.replace(/\\/g, '/');
@@ -177,7 +177,7 @@ export function verificarCardIconoExtiendeBase(
  */
 export function verificarCssAdhocButtonStyle(
   texto: string,
-  documento: vscode.TextDocument,
+  documento: CoreTextDocument,
   nombreArchivo: string,
 ): Violacion[] {
   const nombreLower = nombreArchivo.toLowerCase();
@@ -250,7 +250,7 @@ export function verificarCssAdhocButtonStyle(
  */
 export function verificarModalSemanticaNoCanonica(
   texto: string,
-  documento: vscode.TextDocument,
+  documento: CoreTextDocument,
   nombreArchivo: string,
 ): Violacion[] {
   const nombreLower = nombreArchivo.toLowerCase();
@@ -323,7 +323,7 @@ export function verificarModalSemanticaNoCanonica(
  */
 export function verificarCssHardcoded(
   texto: string,
-  documento: vscode.TextDocument,
+  documento: CoreTextDocument,
   nombreArchivo: string,
 ): Violacion[] {
   const nombreLower = nombreArchivo.toLowerCase();
@@ -405,7 +405,7 @@ export function verificarCssHardcoded(
  */
 export function verificarCssElementoHTMLDirecto(
   texto: string,
-  documento: vscode.TextDocument,
+  documento: CoreTextDocument,
   nombreArchivo: string,
 ): Violacion[] {
   const nombreLower = nombreArchivo.toLowerCase();

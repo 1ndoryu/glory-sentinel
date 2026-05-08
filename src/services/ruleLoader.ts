@@ -6,13 +6,17 @@
 
 import * as vscode from 'vscode';
 import { ConfiguracionSentinel } from '../types';
-import { invalidarRegistroReglas } from '../config/ruleRegistry';
+import { configurarProveedorOverridesReglas, invalidarRegistroReglas, ConfigReglaUsuario } from '../config/ruleRegistry';
 
 /*
  * Carga la configuracion completa desde settings.json de VS Code.
  */
 export function cargarConfiguracion(): ConfiguracionSentinel {
   const config = vscode.workspace.getConfiguration('codeSentinel');
+  configurarProveedorOverridesReglas(() => {
+    const reglasConfig = vscode.workspace.getConfiguration('codeSentinel');
+    return reglasConfig.get<Record<string, ConfigReglaUsuario>>('rules', {});
+  });
 
   return {
     staticAnalysisEnabled: config.get<boolean>('staticAnalysis.enabled', true),
@@ -45,6 +49,7 @@ export function cargarConfiguracion(): ConfiguracionSentinel {
          253A-10: excluir por nombre para no aplicar limite-lineas */
       '**/api/generated.ts',
     ]),
+    directoryExceptions: config.get<string[]>('directoryExceptions', []),
     languages: config.get<string[]>('languages', [
       'php', 'typescript', 'typescriptreact',
       'javascript', 'javascriptreact', 'css', 'rust',

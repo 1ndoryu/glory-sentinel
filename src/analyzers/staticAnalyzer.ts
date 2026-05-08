@@ -4,8 +4,8 @@
  * a static/staticCodeRules y static/staticCssRules.
  */
 
-import * as vscode from 'vscode';
 import {ReglaEstatica, Violacion} from '../types';
+import { CoreTextDocument, positionAtOffset } from '../core/types';
 import {reglasEstaticas} from '../config/defaultRules';
 import {reglaHabilitada, obtenerSeveridadRegla} from '../config/ruleRegistry';
 
@@ -25,7 +25,15 @@ export function limpiarDirectoriosReportados(): void {
  * Ejecuta todas las reglas estaticas aplicables a un documento.
  * Retorna un array de violaciones detectadas.
  */
-export function analizarEstatico(documento: vscode.TextDocument, reglasPersonalizadas?: ReglaEstatica[]): Violacion[] {
+export interface StaticAnalysisOptions {
+    directoryExceptions?: string[];
+}
+
+export function analizarEstatico(
+    documento: CoreTextDocument,
+    reglasPersonalizadas?: ReglaEstatica[],
+    opciones: StaticAnalysisOptions = {},
+): Violacion[] {
     const texto = documento.getText();
     const nombreArchivo = documento.fileName.split(/[/\\]/).pop() || '';
     const extension = '.' + nombreArchivo.split('.').pop();
@@ -95,7 +103,7 @@ export function analizarEstatico(documento: vscode.TextDocument, reglasPersonali
     if (reglaHabilitada('directorio-abarrotado')) {
         const dirPadre = documento.fileName.replace(/\\/g, '/').replace(/\/[^/]+$/, '');
         if (!directoriosYaReportados.has(dirPadre)) {
-            const resultado = verificarDirectorioAbarrotado(documento);
+            const resultado = verificarDirectorioAbarrotado(documento, opciones.directoryExceptions ?? []);
             if (resultado.length > 0) {
                 directoriosYaReportados.add(dirPadre);
             }
@@ -198,7 +206,7 @@ function styleInlineSoloCssVars(lineas: string[], indice: number): boolean {
 /*
  * Ejecuta una regla regex linea por linea.
  */
-function ejecutarReglaPorLinea(texto: string, regla: ReglaEstatica, documento: vscode.TextDocument): Violacion[] {
+function ejecutarReglaPorLinea(texto: string, regla: ReglaEstatica, documento: CoreTextDocument): Violacion[] {
     const violaciones: Violacion[] = [];
 
     if (tieneSentinelDisableFile(texto, regla.id)) {
@@ -279,7 +287,7 @@ function ejecutarReglaPorLinea(texto: string, regla: ReglaEstatica, documento: v
  * Ejecuta una regla regex contra el archivo completo.
  * Util para patrones multilinea como catch vacio.
  */
-function ejecutarReglaCompleta(texto: string, regla: ReglaEstatica, documento: vscode.TextDocument): Violacion[] {
+function ejecutarReglaCompleta(texto: string, regla: ReglaEstatica, documento: CoreTextDocument): Violacion[] {
     const violaciones: Violacion[] = [];
 
     if (tieneSentinelDisableFile(texto, regla.id)) {
@@ -290,8 +298,8 @@ function ejecutarReglaCompleta(texto: string, regla: ReglaEstatica, documento: v
 
     let match: RegExpExecArray | null;
     while ((match = patron.exec(texto)) !== null) {
-        const posicion = documento.positionAt(match.index);
-        const posicionFin = documento.positionAt(match.index + match[0].length);
+        const posicion = positionAtOffset(documento, match.index);
+        const posicionFin = positionAtOffset(documento, match.index + match[0].length);
 
         if (posicion.line > 0) {
             const lineaAnterior = documento.lineAt(posicion.line - 1).text;

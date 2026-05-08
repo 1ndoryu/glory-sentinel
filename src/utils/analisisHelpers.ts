@@ -5,8 +5,8 @@
  * Reduce boilerplate en ~30 funciones de reglas.
  */
 
-import * as vscode from 'vscode';
 import * as crypto from 'crypto';
+import { CoreTextDocument } from '../core/types';
 
 /*
  * Retorna true si la linea es un comentario (PHP, JS/TS, CSS).
@@ -65,7 +65,7 @@ export function calcularHash(contenido: string): string {
 /*
  * Extrae las lineas de texto de un documento VS Code.
  */
-export function obtenerLineas(documento: vscode.TextDocument): string[] {
+export function obtenerLineas(documento: CoreTextDocument): string[] {
   return documento.getText().split('\n');
 }
 

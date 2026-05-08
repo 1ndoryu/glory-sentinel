@@ -1,5 +1,3 @@
-import * as vscode from 'vscode';
-
 /* Severidades disponibles para reglas */
 export type SeveridadRegla = 'error' | 'warning' | 'information' | 'hint';
 
@@ -57,7 +55,7 @@ export interface EstadoArchivo {
   hash: string;
   ultimoAnalisisEstatico: number;
   timerEstatico: ReturnType<typeof setTimeout> | null;
-  resultadosEstaticos: vscode.Diagnostic[];
+  resultadosEstaticos: unknown[];
 }
 
 /* Configuracion cargada desde settings.json */
@@ -68,16 +66,7 @@ export interface ConfiguracionSentinel {
   };
   exclude: string[];
   languages: string[];
-}
-
-/* Mapeo de severidad a DiagnosticSeverity de VS Code */
-export function severidadADiagnostic(severidad: SeveridadRegla): vscode.DiagnosticSeverity {
-  switch (severidad) {
-    case 'error': return vscode.DiagnosticSeverity.Error;
-    case 'warning': return vscode.DiagnosticSeverity.Warning;
-    case 'information': return vscode.DiagnosticSeverity.Information;
-    case 'hint': return vscode.DiagnosticSeverity.Hint;
-  }
+  directoryExceptions: string[];
 }
 
 /* Determina el TipoArchivo segun el languageId de VS Code */
