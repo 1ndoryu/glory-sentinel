@@ -24,6 +24,50 @@ const CLASES_MODAL_CANONICAS = new Set([
 ]);
 
 const REGLA_MODAL_SEMANTICA = 'modal-semantica-no-canonica';
+const REGLA_ESPECIFICACION_DISENO_LOCAL = 'css-especificacion-diseno-local';
+
+const ARCHIVOS_RECETA_DISENO = new Set([
+  'button.css',
+  'contextmenu.css',
+  'modal.css',
+  'reset.css',
+  'init.css',
+  'variables.css',
+]);
+
+const CLASES_INTERACTIVAS_BASE = new Set([
+  ...CLASES_BOTON_SISTEMA,
+  'menuContextual',
+  'menuContextualBoton',
+  'menuContextualPanel',
+  'menuContextualContenido',
+  'menuContextualItem',
+  'menuContextualItemDanger',
+]);
+
+const PATRONES_ROL_INTERACTIVO_LOCAL = [
+  /(?:Trigger|Opcion|Option|Dropdown|Desplegable|SubMenu|Submenu|Menu|Panel|Lista|Item)$/,
+  /__(?:trigger|dropdown|panel|item)$/i,
+];
+
+const PROPIEDADES_DISENO_CSS = [
+  { nombre: 'background', patron: /\bbackground(?:-color|-image)?\s*:/i },
+  { nombre: 'border', patron: /\bborder(?:-(?:top|right|bottom|left|color|style|width))?\s*:/i },
+  { nombre: 'border-radius', patron: /\bborder-radius\s*:/i },
+  { nombre: 'box-shadow', patron: /\bbox-shadow\s*:/i },
+  { nombre: 'color', patron: /(?:^|[;\s])color\s*:/i },
+  { nombre: 'font-size', patron: /\bfont-size\s*:/i },
+  { nombre: 'font-family', patron: /\bfont-family\s*:/i },
+  { nombre: 'font-weight', patron: /\bfont-weight\s*:/i },
+  { nombre: 'line-height', patron: /\bline-height\s*:/i },
+  { nombre: 'letter-spacing', patron: /\bletter-spacing\s*:/i },
+  { nombre: 'padding', patron: /\bpadding(?:-(?:top|right|bottom|left))?\s*:/i },
+  { nombre: 'text-align', patron: /\btext-align\s*:/i },
+  { nombre: 'text-decoration', patron: /\btext-decoration\s*:/i },
+  { nombre: 'transition', patron: /\btransition\s*:/i },
+  { nombre: 'animation', patron: /\banimation\s*:/i },
+  { nombre: 'opacity', patron: /\bopacity\s*:/i },
+];
 
 function detectarSufijoSemanticoModal(nombreClase: string): 'Titulo' | 'Texto' | 'Descripcion' | 'Acciones' | null {
   if (CLASES_MODAL_CANONICAS.has(nombreClase)) {
@@ -54,6 +98,31 @@ function bloqueDefineSemanticaModal(cuerpo: string, sufijo: 'Titulo' | 'Texto' |
   }
 
   return /(font-size\s*:|font-family\s*:|font-weight\s*:|line-height\s*:|color\s*:|text-align\s*:|letter-spacing\s*:|margin(?:-top|-bottom)?\s*:)/i.test(cuerpoLimpio);
+}
+
+function claseTieneRolInteractivoLocal(nombreClase: string): boolean {
+  if (CLASES_INTERACTIVAS_BASE.has(nombreClase)) {
+    return false;
+  }
+
+  return PATRONES_ROL_INTERACTIVO_LOCAL.some(patron => patron.test(nombreClase));
+}
+
+function obtenerPropiedadesDiseno(cuerpo: string): string[] {
+  const cuerpoLimpio = cuerpo.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  return PROPIEDADES_DISENO_CSS
+    .filter(propiedad => propiedad.patron.test(cuerpoLimpio))
+    .map(propiedad => propiedad.nombre);
+}
+
+function bloqueDefineEspecificacionDisenoLocal(cuerpo: string): string[] {
+  const propiedades = obtenerPropiedadesDiseno(cuerpo);
+
+  if (propiedades.length < 2) {
+    return [];
+  }
+
+  return Array.from(new Set(propiedades));
 }
 
 /*
@@ -235,6 +304,77 @@ export function verificarCssAdhocButtonStyle(
       reglaId: 'css-adhoc-button-style',
       mensaje: 'Bloque CSS de boton detectado fuera de Button.css. Si es un boton, usar <Button variante="..."> en su lugar.',
       severidad: obtenerSeveridadRegla('css-adhoc-button-style'),
+      linea,
+      fuente: 'estatico',
+    });
+  }
+
+  return violaciones;
+}
+
+/* [085A-4]
+ * Detecta controles y submenus locales que recrean recetas visuales del sistema.
+ * Gotcha: no basta buscar boton/button; los triggers y dropdowns suelen llamarse
+ * Trigger, Lista, Opcion o __dropdown y aun asi definen background, borde,
+ * tipografia, padding, transiciones o animaciones que pertenecen a Button,
+ * ContextMenu u otra receta canonica.
+ */
+export function verificarCssEspecificacionDisenoLocal(
+  texto: string,
+  documento: CoreTextDocument,
+  nombreArchivo: string,
+): Violacion[] {
+  const nombreLower = nombreArchivo.toLowerCase();
+  const rutaNorm = documento.fileName.replace(/\\/g, '/');
+
+  if (ARCHIVOS_RECETA_DISENO.has(nombreLower)) {
+    return [];
+  }
+
+  if (rutaNorm.includes('/node_modules/') || rutaNorm.includes('/vendor/') ||
+      rutaNorm.includes('/glory-rs/') || rutaNorm.includes('/public/assets/')) {
+    return [];
+  }
+
+  if (texto.includes(`sentinel-disable-file ${REGLA_ESPECIFICACION_DISENO_LOCAL}`)) {
+    return [];
+  }
+
+  const violaciones: Violacion[] = [];
+  const lineas = texto.split('\n');
+  const regexBloques = /([^{}]+)\{([^{}]*)\}/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = regexBloques.exec(texto)) !== null) {
+    const selectorRaw = match[1];
+    const selector = selectorRaw.replace(/\/\*[\s\S]*?\*\//g, ' ').trim();
+    const cuerpo = match[2];
+    const lineaBase = texto.slice(0, match.index).split('\n').length - 1;
+    const linea = lineaBase + (selectorRaw.split('\n').length - 1);
+
+    if (!selector || selector.startsWith('@')) {
+      continue;
+    }
+
+    if (tieneSentinelDisable(lineas, linea, REGLA_ESPECIFICACION_DISENO_LOCAL)) {
+      continue;
+    }
+
+    const clasesSelector = Array.from(selector.matchAll(/\.([A-Za-z_][\w-]*)/g)).map(grupo => grupo[1]);
+    const claseProblematica = clasesSelector.find(claseTieneRolInteractivoLocal);
+    if (!claseProblematica) {
+      continue;
+    }
+
+    const propiedadesDiseno = bloqueDefineEspecificacionDisenoLocal(cuerpo);
+    if (propiedadesDiseno.length === 0) {
+      continue;
+    }
+
+    violaciones.push({
+      reglaId: REGLA_ESPECIFICACION_DISENO_LOCAL,
+      mensaje: `La clase CSS ".${claseProblematica}" define especificacion visual local (${propiedadesDiseno.join(', ')}). Usa una receta compartida como Button/ContextMenu/dropdown canonico y deja aqui solo layout contextual.`,
+      severidad: obtenerSeveridadRegla(REGLA_ESPECIFICACION_DISENO_LOCAL),
       linea,
       fuente: 'estatico',
     });

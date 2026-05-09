@@ -1,0 +1,12 @@
+[
+  {
+    "ruleId": "css-especificacion-diseno-local",
+    "severity": "warning",
+    "line": 0
+  },
+  {
+    "ruleId": "css-especificacion-diseno-local",
+    "severity": "warning",
+    "line": 13
+  }
+]

@@ -11,7 +11,7 @@ import {reglaHabilitada, obtenerSeveridadRegla} from '../config/ruleRegistry';
 
 /* Submodulos */
 import {verificarLimiteLineas, verificarUseStateExcesivo, verificarImportsMuertos, verificarAnyType, verificarNonNullAssertion, verificarDirectorioAbarrotado} from './static/staticCodeRules';
-import {verificarCardIconoExtiendeBase, verificarCssAdhocButtonStyle, verificarModalSemanticaNoCanonica, verificarNomenclaturaCssIngles, verificarCssElementoHTMLDirecto} from './static/staticCssRules';
+import {verificarCardIconoExtiendeBase, verificarCssAdhocButtonStyle, verificarCssEspecificacionDisenoLocal, verificarModalSemanticaNoCanonica, verificarNomenclaturaCssIngles, verificarCssElementoHTMLDirecto} from './static/staticCssRules';
 
 /* [124A-FP1] Deduplicacion de directorio-abarrotado: se reporta 1 vez por
  * directorio por ciclo de analisis, en vez de 1 vez por archivo.
@@ -140,6 +140,9 @@ export function analizarEstatico(
         }
         if (reglaHabilitada('css-adhoc-button-style')) {
             violaciones.push(...verificarCssAdhocButtonStyle(texto, documento, nombreArchivo));
+        }
+        if (reglaHabilitada('css-especificacion-diseno-local')) {
+            violaciones.push(...verificarCssEspecificacionDisenoLocal(texto, documento, nombreArchivo));
         }
         if (reglaHabilitada('card-icono-debe-extender-base')) {
             violaciones.push(...verificarCardIconoExtiendeBase(texto, documento, nombreArchivo));

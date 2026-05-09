@@ -1,0 +1,26 @@
+.selectorIdiomaTrigger {
+    background: transparent;
+    border: none;
+    color: var(--text-dark);
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    transition: color 0.2s ease, background 0.2s ease;
+}
+
+.selectorIdiomaLista::before {
+    content: '';
+    position: absolute;
+    top: var(--spacing-xs);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--brand-white);
+    border: 1px solid var(--bg-card-subtle);
+    border-radius: var(--radius-md);
+    z-index: -1;
+    animation: selectorIdiomaEntrada 0.15s ease-out;
+}
