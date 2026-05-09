@@ -829,8 +829,8 @@ export function verificarModalEstructuraNoCanonica(lineas: string[], nombreArchi
 }
 
 /*
- * Detecta cuando <MenuContextual> recibe panelClassName, triggerClassName o
- * itemClassName con un valor no vacio. Esas props inyectan especificaciones de
+ * Detecta cuando <MenuContextual> recibe className, panelClassName,
+ * triggerClassName o itemClassName con un valor no vacio. Esas props inyectan especificaciones de
  * diseno locales en un componente canonico compartido: el override correcto es
  * modificar el sistema UI, no parchar via prop.
  *
@@ -840,7 +840,7 @@ export function verificarModalEstructuraNoCanonica(lineas: string[], nombreArchi
  */
 export function verificarMenuContextualOverride(lineas: string[]): Violacion[] {
   const violaciones: Violacion[] = [];
-  const PROPS_OVERRIDE = ['panelClassName', 'triggerClassName', 'itemClassName'];
+  const PROPS_OVERRIDE = ['className', 'panelClassName', 'triggerClassName', 'itemClassName'];
 
   for (let i = 0; i < lineas.length; i++) {
     if (!/<MenuContextual[\s>]/.test(lineas[i])) { continue; }
@@ -854,8 +854,8 @@ export function verificarMenuContextualOverride(lineas: string[]): Violacion[] {
       if (tieneSentinelDisable(lineas, j, 'menu-contextual-override-diseno')) { continue; }
 
       for (const prop of PROPS_OVERRIDE) {
-        /* panelClassName="algo" o panelClassName={`algo`} o panelClassName={'algo'} */
-        const regex = new RegExp(`${prop}\\s*=\\s*(?:["'\`]([^"'\`]+)["'\`]|\\{["'\`]([^"'\`]+)["'\`]\\})`);
+        /* className="algo" o className={`algo`} o className={'algo'} */
+        const regex = new RegExp(`(?:^|\\s)${prop}\\s*=\\s*(?:["'\`]([^"'\`]+)["'\`]|\\{["'\`]([^"'\`]+)["'\`]\\})`);
         const match = regex.exec(linea);
         if (match) {
           const valor = (match[1] ?? match[2] ?? '').trim();
@@ -871,8 +871,9 @@ export function verificarMenuContextualOverride(lineas: string[]): Violacion[] {
         }
       }
 
-      /* Salir si encontramos el cierre del componente */
-      if (j > i && (/>/.test(linea) || /\/>/.test(linea))) { break; }
+      /* Salir solo ante cierre real del tag; no confundir con => de callbacks. */
+      const recorte = linea.trim();
+      if (j >= i && (recorte === '>' || recorte.endsWith('/>'))) { break; }
     }
   }
 
