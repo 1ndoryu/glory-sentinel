@@ -742,8 +742,16 @@ function extraerClasesEstaticas(linea: string): string[] {
     .filter(token => token && !token.includes('${'));
 }
 
+/* [Sentinel] Clases canónicas para el contenedor de <Modal>.
+ * modalSinPadding = sin padding interno.
+ * modalCompacto/modalMedio/modalGrande = variantes de ancho estándar.
+ * Si UNA clase canónica está presente la regla no dispara — la className del
+ * componente puede incluir también clases locales para estilos no-contenedor. */
 const CLASES_CONTENEDOR_MODAL_CANONICAS = new Set([
   'modalSinPadding',
+  'modalCompacto',
+  'modalMedio',
+  'modalGrande',
 ]);
 
 /* [035A-24] Detecta contenedor/formulario/campos locales que reescriben la receta compartida del modal.
@@ -772,8 +780,9 @@ export function verificarModalEstructuraNoCanonica(lineas: string[], nombreArchi
     const clases = extraerClasesEstaticas(linea);
 
     if (clases.length > 0) {
-      const claseContenedorLocal = esLineaModal
-        ? clases.find(clase => !CLASES_CONTENEDOR_MODAL_CANONICAS.has(clase))
+      const tieneClaseCanonica = clases.some(clase => CLASES_CONTENEDOR_MODAL_CANONICAS.has(clase));
+      const claseContenedorLocal = (esLineaModal && clases.length > 0 && !tieneClaseCanonica)
+        ? clases[0]
         : undefined;
       const usaFormularioCanonico = clases.includes('modalFormulario');
       const usaCampoCanonico = clases.includes('modalCampo');
