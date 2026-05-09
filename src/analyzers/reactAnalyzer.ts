@@ -41,6 +41,7 @@ import {
   verificarModalConTitulo,
   verificarModalAccionesNoCanonico,
   verificarModalEstructuraNoCanonica,
+  verificarMenuContextualOverride,
   configurarWorkspaceRootsReact,
 } from './react/reactComponentRules';
 import { verificarAccesoApiSinFallback } from './glory/apiFallbackRules';
@@ -143,6 +144,9 @@ export function analizarReact(documento: CoreTextDocument, opciones: ReactAnalys
     }
     if (reglaHabilitada('modal-estructura-no-canonica')) {
       violaciones.push(...verificarModalEstructuraNoCanonica(lineas, nombreArchivo));
+    }
+    if (reglaHabilitada('menu-contextual-override-diseno')) {
+      violaciones.push(...verificarMenuContextualOverride(lineas));
     }
     if (reglaHabilitada('acceso-api-sin-fallback')) {
       violaciones.push(...verificarAccesoApiSinFallback(lineas));

@@ -827,3 +827,54 @@ export function verificarModalEstructuraNoCanonica(lineas: string[], nombreArchi
 
   return violaciones;
 }
+
+/*
+ * Detecta cuando <MenuContextual> recibe panelClassName, triggerClassName o
+ * itemClassName con un valor no vacio. Esas props inyectan especificaciones de
+ * diseno locales en un componente canonico compartido: el override correcto es
+ * modificar el sistema UI, no parchar via prop.
+ *
+ * La regla busca el bloque JSX de <MenuContextual ... /> o <MenuContextual ...>
+ * hasta el cierre o una linea en blanco, y reporta en la linea exacta donde
+ * aparece la prop problemática.
+ */
+export function verificarMenuContextualOverride(lineas: string[]): Violacion[] {
+  const violaciones: Violacion[] = [];
+  const PROPS_OVERRIDE = ['panelClassName', 'triggerClassName', 'itemClassName'];
+
+  for (let i = 0; i < lineas.length; i++) {
+    if (!/<MenuContextual[\s>]/.test(lineas[i])) { continue; }
+
+    /* Buscar hasta 15 lineas hacia adelante el cierre del JSX */
+    const fin = Math.min(i + 15, lineas.length);
+
+    for (let j = i; j < fin; j++) {
+      const linea = lineas[j];
+
+      if (tieneSentinelDisable(lineas, j, 'menu-contextual-override-diseno')) { continue; }
+
+      for (const prop of PROPS_OVERRIDE) {
+        /* panelClassName="algo" o panelClassName={`algo`} o panelClassName={'algo'} */
+        const regex = new RegExp(`${prop}\\s*=\\s*(?:["'\`]([^"'\`]+)["'\`]|\\{["'\`]([^"'\`]+)["'\`]\\})`);
+        const match = regex.exec(linea);
+        if (match) {
+          const valor = (match[1] ?? match[2] ?? '').trim();
+          if (valor) {
+            violaciones.push({
+              reglaId: 'menu-contextual-override-diseno',
+              mensaje: `"${prop}=${valor}" inyecta diseno local en <MenuContextual>. Modifica el sistema UI (ContextMenu.css) en vez de parchear via prop.`,
+              severidad: obtenerSeveridadRegla('menu-contextual-override-diseno'),
+              linea: j,
+              fuente: 'estatico',
+            });
+          }
+        }
+      }
+
+      /* Salir si encontramos el cierre del componente */
+      if (j > i && (/>/.test(linea) || /\/>/.test(linea))) { break; }
+    }
+  }
+
+  return violaciones;
+}

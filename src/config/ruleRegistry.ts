@@ -159,6 +159,7 @@ const REGISTRO: DefinicionRegla[] = [
   { id: 'modal-con-titulo', nombre: 'Título dentro de Modal', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
   { id: 'modal-acciones-no-canonico', nombre: 'Clase de acciones no canónica en Modal', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
   { id: 'modal-estructura-no-canonica', nombre: 'Estructura no canónica en Modal', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
+  { id: 'menu-contextual-override-diseno', nombre: 'Override de diseño en MenuContextual', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
 
   /* --- Sprint 5: Detecciones avanzadas (reactAnalyzer.ts + staticAnalyzer.ts) --- */
   { id: 'componente-artesanal', nombre: 'Componente artesanal detectado', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
