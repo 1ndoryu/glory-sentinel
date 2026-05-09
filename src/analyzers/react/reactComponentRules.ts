@@ -799,7 +799,11 @@ export function verificarModalEstructuraNoCanonica(lineas: string[], nombreArchi
         });
       }
 
-      if ((enContextoModal || Boolean(claseFormularioLocal)) && /<(?:form|div)[\s>]/.test(linea) && claseFormularioLocal && !usaFormularioCanonico) {
+      /* [095A-6] Bug corregido: la condicion original incluia "|| Boolean(claseFormularioLocal)"
+       * que disparaba la regla FUERA de contexto Modal para cualquier clase terminada en
+       * "Formulario" (ej: contactoFormulario en la pagina de contacto). La regla solo
+       * debe disparar dentro de un <Modal> real. */
+      if (enContextoModal && /<(?:form|div)[\s>]/.test(linea) && claseFormularioLocal && !usaFormularioCanonico) {
         violaciones.push({
           reglaId: 'modal-estructura-no-canonica',
           mensaje: `Clase "${claseFormularioLocal}" redefine el cuerpo/formulario compartido del modal. Usa className="modalFormulario" o <ModalBody ...>.`,
