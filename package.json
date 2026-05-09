@@ -117,9 +117,10 @@
     "compile": "tsc -p ./",
     "cli": "npm run compile && node ./out/cli/index.js",
     "watch": "tsc -watch -p ./",
+    "check:core": "node scripts/check-core-no-vscode.mjs",
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js",
-    "test:unit": "npm run compile && mocha"
+    "test:unit": "npm run compile && npm run check:core && mocha"
   },
   "devDependencies": {
     "@types/glob": "^8.1.0",

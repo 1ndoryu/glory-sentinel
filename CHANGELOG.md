@@ -1,6 +1,11 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
+## [0.2.4] - 2026-05-09
+
+### Mejorado
+- `npm run test:unit` ejecuta `check:core` y falla si `src/core/**` importa `vscode` fuera de `vscodeAdapter.ts`, preservando la arquitectura editor-agnostica.
+
 ## [0.1.0] - 2026-02-19
 
 ### Implementado
