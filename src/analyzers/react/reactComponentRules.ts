@@ -239,7 +239,7 @@ export function verificarComponenteSinHook(lineas: string[], nombreArchivo: stri
  */
 export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArchivo: string): Violacion[] {
   const archivosExcluidos = [
-    'Boton', 'BotonBase', 'Button', 'Input', 'Select', 'SelectorMenu', 'SelectorBase',
+    'Boton', 'BotonBase', 'Button', 'Input', 'Select', 'SelectorMenu', 'SelectorBase', 'SelectorPersonalizado',
     'Textarea', 'CampoTexto', 'Checkbox', 'Radio', 'GloryLink', 'PageRenderer', 'ModalAcciones',
   ];
   const nombreBase = nombreArchivo.replace(/\.(tsx|jsx)$/, '');
@@ -261,7 +261,6 @@ export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArc
 
   const tieneBotonUi = existeComponenteUi(['Button', 'Boton', 'BotonBase']);
   const tieneInputUi = existeComponenteUi(['Input', 'CampoTexto']);
-  const tieneSelectUi = existeComponenteUi(['Select', 'SelectorMenu', 'SelectorBase']);
   const tieneTextareaUi = existeComponenteUi(['Textarea']);
   const tieneGloryLinkUi = existeComponenteUi(['GloryLink']);
 
@@ -298,10 +297,12 @@ export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArc
       continue;
     }
 
-    if (tieneSelectUi && /<select[\s>]/.test(linea)) {
+    /* [105A-30] Los selects nativos quedan prohibidos aunque el selector custom
+     * del proyecto no se llame literalmente Select. */
+    if (/<select[\s>]/.test(linea)) {
       violaciones.push({
         reglaId: 'html-nativo-en-vez-de-componente',
-        mensaje: 'Usar componente <Select> en vez de <select> nativo. Import desde components/ui.',
+        mensaje: 'Usar selector personalizado del sistema en vez de <select> nativo. Import desde components/ui.',
         severidad: obtenerSeveridadRegla('html-nativo-en-vez-de-componente'),
         linea: i,
         fuente: 'estatico',

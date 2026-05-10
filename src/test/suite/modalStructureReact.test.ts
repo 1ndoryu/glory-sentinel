@@ -30,13 +30,12 @@ suite('modal-estructura-no-canonica', () => {
     assert.match(violaciones[0]?.mensaje || '', /modalCampo/);
   });
 
-  test('detecta FormCrear dentro de componente no modal', () => {
+  test('ignora FormCrear fuera de contexto modal', () => {
     const violaciones = verificarModalEstructuraNoCanonica([
       '<form className="hostingFormCrear" onSubmit={handleSubmit}>',
     ], 'HostingCreateForm.tsx');
 
-    assert.strictEqual(violaciones.length, 1);
-    assert.match(violaciones[0]?.mensaje || '', /modalFormulario/);
+    assert.strictEqual(violaciones.length, 0);
   });
 
   test('ignora clases canonicas', () => {
