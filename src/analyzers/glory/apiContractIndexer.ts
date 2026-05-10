@@ -9,10 +9,10 @@
  * entre lo que PHP devuelve y lo que TypeScript consume.
  */
 
-import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { logInfo, logWarn } from '../../utils/logger';
+import { obtenerWorkspaceRoots } from '../../core/workspaceRoots';
 
 /*
  * Forma del valor de una clave en la respuesta PHP.
@@ -43,57 +43,20 @@ export function obtenerContratos(): Map<string, ContratoEndpoint> | null {
  * Se escanean todos en orden. Si el proyecto crece con nuevas
  * ubicaciones, agregarlas aqui.
  */
-const RUTAS_CONTROLLERS = [
+export const RUTAS_CONTROLLERS = [
   ['App', 'Api'],                               /* controllers generales */
   ['App', 'Kamples', 'Api', 'Controladores'],   /* controllers modulo Kamples */
 ];
 
 /*
- * Inicializa el indexer: escanea todos los directorios de controllers
- * y configura watchers para cada uno.
- */
-export function inicializarApiContractIndexer(context: vscode.ExtensionContext): void {
-  cargarContratos();
-
-  const folders = vscode.workspace.workspaceFolders;
-  if (!folders) { return; }
-
-  for (const folder of folders) {
-    for (const segmentos of RUTAS_CONTROLLERS) {
-      const rutaApi = path.join(folder.uri.fsPath, ...segmentos);
-      if (!fs.existsSync(rutaApi)) { continue; }
-
-      const patron = new vscode.RelativePattern(rutaApi, '*Controller.php');
-      const watcher = vscode.workspace.createFileSystemWatcher(patron);
-
-      const recargar = () => {
-        logInfo('ApiContractIndexer: controller cambio, recargando...');
-        cacheContratos = null;
-        cargarContratos();
-      };
-
-      watcher.onDidChange(recargar);
-      watcher.onDidCreate(recargar);
-      watcher.onDidDelete(recargar);
-      context.subscriptions.push(watcher);
-    }
-    /* Solo procesar el primer workspace folder */
-    break;
-  }
-}
-
-/*
  * Escanea todos los *Controller.php en las rutas configuradas y construye el mapa.
  */
 export function cargarContratos(): void {
-  const folders = vscode.workspace.workspaceFolders;
-  if (!folders) { return; }
-
   cacheContratos = new Map();
 
-  for (const folder of folders) {
+  for (const root of obtenerWorkspaceRoots()) {
     for (const segmentos of RUTAS_CONTROLLERS) {
-      const rutaApi = path.join(folder.uri.fsPath, ...segmentos);
+      const rutaApi = path.join(root, ...segmentos);
       if (!fs.existsSync(rutaApi)) { continue; }
 
       const archivos = readdirRecursivo(rutaApi)
@@ -111,6 +74,12 @@ export function cargarContratos(): void {
   }
 
   logInfo(`ApiContractIndexer: ${cacheContratos.size} endpoints indexados.`);
+}
+
+export function recargarContratos(): void {
+  logInfo('ApiContractIndexer: controller cambio, recargando...');
+  cacheContratos = null;
+  cargarContratos();
 }
 
 /*

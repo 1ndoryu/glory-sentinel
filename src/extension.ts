@@ -17,7 +17,7 @@ import { cargarConfiguracion } from './services/ruleLoader';
 import { categoriasRegla } from './config/ruleCategories';
 import { obtenerTodasLasReglas } from './config/ruleRegistry';
 import { inicializarCanal, logInfo } from './utils/logger';
-import { inicializarGloryAnalyzer } from './analyzers/gloryAnalyzer';
+import { inicializarGloryAnalyzerVsCode } from './platform/vscode/gloryAnalyzerAdapter';
 import {
   ejecutarHerramientasExternas,
   publicarDiagnosticosExternos,
@@ -43,7 +43,7 @@ export function activate(context: vscode.ExtensionContext): void {
   inicializarDiagnosticProvider(context);
 
   /* Inicializar Glory analyzer (carga Schema Cols/Enums y watcher) */
-  inicializarGloryAnalyzer(context);
+  inicializarGloryAnalyzerVsCode(context);
 
   /* Registrar CodeActionProvider para quick fixes */
   const selectorDocumentos: vscode.DocumentSelector = config.languages.map(lang => ({

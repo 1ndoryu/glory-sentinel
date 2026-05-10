@@ -5,10 +5,10 @@
  * y hardcoded-enum-value.
  */
 
-import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import {logInfo, logWarn} from '../../utils/logger';
+import { obtenerWorkspaceRoots } from '../../core/workspaceRoots';
 
 /* Mapa de tabla -> { clase, columnas } para Cols */
 export interface MapaCols {
@@ -27,7 +27,6 @@ export interface EntradaEnum {
 /* Cache del schema (se carga una vez al activar, se invalida con watcher) */
 let cacheMapaCols: MapaCols | null = null;
 let cacheMapaEnums: Map<string, EntradaEnum[]> | null = null;
-let schemaWatcher: vscode.FileSystemWatcher | null = null;
 
 /* Accessors para que otros modulos consulten el schema sin acoplarse al cache */
 export function obtenerMapaCols(): MapaCols | null {
@@ -42,13 +41,8 @@ export function obtenerMapaEnums(): Map<string, EntradaEnum[]> | null {
  * Retorna la ruta absoluta o null si no existe.
  */
 function buscarCarpetaGenerated(): string | null {
-    const folders = vscode.workspace.workspaceFolders;
-    if (!folders) {
-        return null;
-    }
-
-    for (const folder of folders) {
-        const ruta = path.join(folder.uri.fsPath, 'App', 'Config', 'Schema', '_generated');
+    for (const root of obtenerWorkspaceRoots()) {
+        const ruta = path.join(root, 'App', 'Config', 'Schema', '_generated');
         if (fs.existsSync(ruta)) {
             return ruta;
         }
@@ -167,28 +161,9 @@ export function cargarSchema(): void {
     }
 }
 
-/*
- * Inicializa el watcher del schema para invalidar cache
- * cuando se regeneran los archivos _generated.
- */
-export function inicializarSchemaWatcher(context: vscode.ExtensionContext): void {
+export function recargarSchema(): void {
+    logInfo('GloryAnalyzer: Schema _generated cambio, recargando...');
+    cacheMapaCols = null;
+    cacheMapaEnums = null;
     cargarSchema();
-
-    const carpeta = buscarCarpetaGenerated();
-    if (carpeta) {
-        const patron = new vscode.RelativePattern(carpeta, '*.php');
-        schemaWatcher = vscode.workspace.createFileSystemWatcher(patron);
-
-        const recargar = () => {
-            logInfo('GloryAnalyzer: Schema _generated cambio, recargando...');
-            cacheMapaCols = null;
-            cacheMapaEnums = null;
-            cargarSchema();
-        };
-
-        schemaWatcher.onDidChange(recargar);
-        schemaWatcher.onDidCreate(recargar);
-        schemaWatcher.onDidDelete(recargar);
-        context.subscriptions.push(schemaWatcher);
-    }
 }

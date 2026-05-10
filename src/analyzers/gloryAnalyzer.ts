@@ -6,43 +6,45 @@
  * Antes: 1460 lineas monoliticas. Ahora: fachada ~70 lineas.
  */
 
-import * as vscode from 'vscode';
 import * as path from 'path';
 import { Violacion } from '../types';
 import { reglaHabilitada } from '../config/ruleRegistry';
 import { normalizarRuta } from '../utils/analisisHelpers';
+import { CoreTextDocument } from '../core/types';
+import { configurarWorkspaceRoots } from '../core/workspaceRoots';
 
 /* Submodulos */
-import { inicializarSchemaWatcher, cargarSchema, obtenerMapaCols, obtenerMapaEnums } from './glory/schemaLoader';
-import { inicializarIslasWatcher, verificarIslaNoRegistrada } from './glory/islandTracker';
+import { cargarSchema, obtenerMapaCols, obtenerMapaEnums } from './glory/schemaLoader';
+import { cargarIslasRegistradas, verificarIslaNoRegistrada } from './glory/islandTracker';
 import { verificarHardcodedSqlColumn, verificarHardcodedEnumValue, verificarSelectStar } from './glory/glorySchemaRules';
 import { verificarEndpointAccedeBd, verificarIntervalSinWhitelist, verificarOpenRedirect } from './glory/glorySecurityRules';
 import { verificarReturnVoidCritico, verificarNPlus1Query, verificarFqnInline, verificarPhpSinReturnType } from './glory/gloryQualityRules';
 import { verificarDefaultContentClaves, REGLA_IDS_DEFAULT_CONTENT } from './glory/defaultContentRules';
-import { inicializarConstantIndexer, obtenerIndiceConstantes } from './glory/phpConstantIndexer';
+import { cargarIndiceConstantes, obtenerIndiceConstantes } from './glory/phpConstantIndexer';
 import { verificarUndefinedClassConstant } from './glory/gloryConstantRules';
-import { inicializarApiContractIndexer, obtenerContratos } from './glory/apiContractIndexer';
+import { cargarContratos, obtenerContratos } from './glory/apiContractIndexer';
 import { verificarApiResponseMismatch } from './glory/apiContractRules';
-import { inicializarTsTypeResolver, obtenerIndiceTipos } from './glory/tsTypeResolver';
+import { cargarTipos } from './glory/tsTypeResolver';
 import { verificarArrayAsociativoComoLista, verificarServiceRetornaAsociativo } from './php/phpArrayShapeRules';
 
 /*
- * Inicializa el analyzer Glory: carga schema, islas y watchers.
- * Llamar una sola vez desde extension.ts al activar.
+ * Inicializa el analyzer Glory: recibe raices de workspace y carga indices.
+ * Los watchers viven en platform/vscode/gloryAnalyzerAdapter.ts.
  */
-export function inicializarGloryAnalyzer(context: vscode.ExtensionContext): void {
-  inicializarSchemaWatcher(context);
-  inicializarIslasWatcher(context);
-  inicializarConstantIndexer(context);
-  inicializarApiContractIndexer(context);
-  inicializarTsTypeResolver(context);
+export function inicializarGloryAnalyzer(workspaceRoots: string[]): void {
+  configurarWorkspaceRoots(workspaceRoots);
+  cargarSchema();
+  cargarIslasRegistradas();
+  cargarIndiceConstantes();
+  cargarContratos();
+  cargarTipos();
 }
 
 /*
  * Punto de entrada del analyzer Glory.
  * Ejecuta verificaciones habilitadas segun tipo de archivo.
  */
-export function analizarGlory(documento: vscode.TextDocument): Violacion[] {
+export function analizarGlory(documento: CoreTextDocument): Violacion[] {
   const texto = documento.getText();
   const lineas = texto.split('\n');
   const rutaArchivo = documento.fileName;

@@ -15,6 +15,8 @@ export const DEFAULT_INCLUDE_PATTERNS = [
   '**/*.js',
   '**/*.jsx',
   '**/*.css',
+  '**/*.scss',
+  '**/*.less',
   '**/*.rs',
 ];
 

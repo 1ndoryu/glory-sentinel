@@ -23,6 +23,7 @@
     "onLanguage:javascript",
     "onLanguage:javascriptreact",
     "onLanguage:css",
+    "onLanguage:scss",
     "onLanguage:rust"
   ],
   "main": "./out/extension.js",
@@ -106,6 +107,7 @@
             "javascript",
             "javascriptreact",
             "css",
+            "scss",
             "rust"
           ],
           "description": "Lenguajes donde se activa el analisis"

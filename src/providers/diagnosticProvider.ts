@@ -7,10 +7,8 @@
 import * as vscode from 'vscode';
 import { ConfiguracionSentinel } from '../types';
 import { limpiarDirectoriosReportados } from '../analyzers/staticAnalyzer';
-import { analizarGlory } from '../analyzers/gloryAnalyzer';
-import { analizarApiEndpoints } from '../analyzers/apiEndpointAnalyzer';
 import { guardarEnCache, obtenerDelCache, limpiarCacheCompleto } from '../services/cacheService';
-import { logInfo, logWarn } from '../utils/logger';
+import { logWarn } from '../utils/logger';
 import {
   programarAnalisisEstatico,
   registrarCallbacks,
@@ -58,12 +56,7 @@ function crearWorkspaceContext(doc: vscode.TextDocument): CoreWorkspaceContext |
 
 function analizarDocumentoVsCode(doc: vscode.TextDocument): vscode.Diagnostic[] {
   const coreDocument = documentFromVsCode(doc);
-  const findings = analyzeDocument(coreDocument, crearCoreConfig(), crearWorkspaceContext(doc), {
-    extraAnalyzers: [
-      () => analizarGlory(doc),
-      () => analizarApiEndpoints(doc),
-    ],
-  });
+  const findings = analyzeDocument(coreDocument, crearCoreConfig(), crearWorkspaceContext(doc));
 
   return findings.map(findingToDiagnostic);
 }

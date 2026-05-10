@@ -2,6 +2,8 @@ import { analizarEstatico } from '../analyzers/staticAnalyzer';
 import { analizarPhp } from '../analyzers/phpAnalyzer';
 import { analizarReact } from '../analyzers/reactAnalyzer';
 import { analizarRust } from '../analyzers/rustAnalyzer';
+import { analizarGlory } from '../analyzers/gloryAnalyzer';
+import { analizarApiEndpoints } from '../analyzers/apiEndpointAnalyzer';
 import { configurarOverridesReglas, ConfigReglaUsuario } from '../config/ruleRegistry';
 import { obtenerTipoArchivo, Violacion } from '../types';
 import { CoreAnalysisConfig, CoreFinding, CoreTextDocument, CoreWorkspaceContext } from './types';
@@ -24,8 +26,8 @@ function aplicarOverridesCore(config: CoreAnalysisConfig): void {
   configurarOverridesReglas(overrides);
 }
 
-/* [085A-1] Motor de documento sin dependencia directa de VS Code.
- * Los analizadores que aun necesitan watchers/workspace se inyectan como extraAnalyzers desde el adaptador. */
+/* [085A-1][105A-2] Motor de documento sin dependencia directa de VS Code.
+ * Gotcha: las reglas con contexto workspace usan raices inyectadas por CLI/LSP/VS Code antes del analisis. */
 export function analyzeDocument(
   document: CoreTextDocument,
   config: CoreAnalysisConfig,
@@ -55,6 +57,9 @@ export function analyzeDocument(
   } else if (tipo === 'rust') {
     violaciones.push(...analizarRust(document));
   }
+
+  violaciones.push(...analizarGlory(document));
+  violaciones.push(...analizarApiEndpoints(document, workspace));
 
   for (const analyzer of options.extraAnalyzers ?? []) {
     violaciones.push(...analyzer(document));

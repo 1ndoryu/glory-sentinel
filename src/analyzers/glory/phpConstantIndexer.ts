@@ -4,13 +4,13 @@
  * construye un mapa className -> Set<constName> para validacion
  * cross-file de referencias a constantes (self::, ClassName::, etc).
  *
- * Incluye watcher para invalidar/recargar cuando cambian archivos PHP.
+ * El watcher vive en el adaptador de editor; este modulo solo carga y actualiza indices.
  */
 
-import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { logInfo, logWarn } from '../../utils/logger';
+import { logInfo } from '../../utils/logger';
+import { obtenerWorkspaceRoots } from '../../core/workspaceRoots';
 
 /* Informacion indexada de una clase PHP */
 interface InfoClase {
@@ -20,7 +20,6 @@ interface InfoClase {
 
 /* Cache principal: className -> InfoClase */
 let cacheConstantes: Map<string, InfoClase> | null = null;
-let constantWatcher: vscode.FileSystemWatcher | null = null;
 
 /* Accessor publico */
 export function obtenerIndiceConstantes(): Map<string, InfoClase> | null {
@@ -151,14 +150,9 @@ function escanearGenerated(workspaceRoot: string, mapa: Map<string, InfoClase>):
  * Carga el indice completo de constantes PHP del workspace.
  */
 export function cargarIndiceConstantes(): void {
-  const folders = vscode.workspace.workspaceFolders;
-  if (!folders) { return; }
-
   const mapa = new Map<string, InfoClase>();
 
-  for (const folder of folders) {
-    const root = folder.uri.fsPath;
-
+  for (const root of obtenerWorkspaceRoots()) {
     /* Escanear carpetas principales del proyecto */
     for (const carpeta of CARPETAS_ESCANEO) {
       const ruta = path.join(root, carpeta);
@@ -185,7 +179,7 @@ export function cargarIndiceConstantes(): void {
  * Actualiza el indice para un solo archivo que cambio.
  * Mas eficiente que reindexar todo el workspace.
  */
-function actualizarArchivoEnIndice(rutaArchivo: string): void {
+export function actualizarArchivoEnIndice(rutaArchivo: string): void {
   if (!cacheConstantes) {
     cargarIndiceConstantes();
     return;
@@ -211,40 +205,7 @@ function actualizarArchivoEnIndice(rutaArchivo: string): void {
   }
 }
 
-/*
- * Inicializa el watcher de archivos PHP para mantener el indice actualizado.
- * Llamar una sola vez desde extension.ts.
- */
-export function inicializarConstantIndexer(context: vscode.ExtensionContext): void {
+export function recargarIndiceConstantes(): void {
+  logInfo('ConstantIndexer: _generated cambio, recargando indice...');
   cargarIndiceConstantes();
-
-  /* Watcher para archivos PHP en App/ y Glory/src/ */
-  const patron = new vscode.RelativePattern(
-    vscode.workspace.workspaceFolders![0],
-    '{App,Glory/src}/**/*.php'
-  );
-  constantWatcher = vscode.workspace.createFileSystemWatcher(patron);
-
-  constantWatcher.onDidChange(uri => actualizarArchivoEnIndice(uri.fsPath));
-  constantWatcher.onDidCreate(uri => actualizarArchivoEnIndice(uri.fsPath));
-  constantWatcher.onDidDelete(() => cargarIndiceConstantes());
-
-  /* Watcher para _generated (ya tiene su propio watcher en schemaLoader,
-     pero necesitamos actualizar tambien nuestro indice de constantes) */
-  const patronGenerated = new vscode.RelativePattern(
-    vscode.workspace.workspaceFolders![0],
-    'App/Config/Schema/_generated/*.php'
-  );
-  const generatedWatcher = vscode.workspace.createFileSystemWatcher(patronGenerated);
-
-  const recargarGenerated = () => {
-    logInfo('ConstantIndexer: _generated cambio, recargando indice...');
-    cargarIndiceConstantes();
-  };
-
-  generatedWatcher.onDidChange(recargarGenerated);
-  generatedWatcher.onDidCreate(recargarGenerated);
-  generatedWatcher.onDidDelete(recargarGenerated);
-
-  context.subscriptions.push(constantWatcher, generatedWatcher);
 }

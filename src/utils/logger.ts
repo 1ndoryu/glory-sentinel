@@ -7,13 +7,14 @@
  * y cumplir SRP: este archivo es la unica fuente del canal.
  */
 
-import * as vscode from 'vscode';
+import type * as vscode from 'vscode';
 
 let canal: vscode.OutputChannel | null = null;
 
 /* Inicializa el canal. Llamar una sola vez desde extension.ts al activar. */
 export function inicializarCanal(context: vscode.ExtensionContext): vscode.OutputChannel {
-    canal = vscode.window.createOutputChannel('Code Sentinel');
+    const vscodeApi = require('vscode') as typeof vscode;
+    canal = vscodeApi.window.createOutputChannel('Code Sentinel');
     context.subscriptions.push(canal);
     return canal;
 }

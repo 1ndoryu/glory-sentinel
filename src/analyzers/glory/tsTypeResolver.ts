@@ -12,10 +12,10 @@
  * que el PHP devuelva arrays indexados y no asociativos.
  */
 
-import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { logInfo, logWarn } from '../../utils/logger';
+import { obtenerWorkspaceRoots } from '../../core/workspaceRoots';
 
 /* Un campo de una interface/type TS */
 export interface CampoTipo {
@@ -36,7 +36,6 @@ export interface DefinicionTipo {
 }
 
 let cacheTipos: Map<string, DefinicionTipo> | null = null;
-let tipoWatcher: vscode.FileSystemWatcher | null = null;
 
 /* Acceso publico al indice */
 export function obtenerIndiceTipos(): Map<string, DefinicionTipo> | null {
@@ -76,46 +75,13 @@ export function resolverCamposTipo(nombre: string): Map<string, CampoTipo> | nul
 }
 
 /*
- * Inicializa el resolver: escanea archivos de tipos y configura watcher.
- */
-export function inicializarTsTypeResolver(context: vscode.ExtensionContext): void {
-  cargarTipos();
-
-  const folders = vscode.workspace.workspaceFolders;
-  if (!folders) { return; }
-
-  for (const folder of folders) {
-    const rutaTypes = path.join(folder.uri.fsPath, 'App', 'React', 'types');
-    if (!fs.existsSync(rutaTypes)) { continue; }
-
-    const patron = new vscode.RelativePattern(rutaTypes, '*.ts');
-    tipoWatcher = vscode.workspace.createFileSystemWatcher(patron);
-
-    const recargar = () => {
-      logInfo('TsTypeResolver: archivo de tipos cambio, recargando...');
-      cacheTipos = null;
-      cargarTipos();
-    };
-
-    tipoWatcher.onDidChange(recargar);
-    tipoWatcher.onDidCreate(recargar);
-    tipoWatcher.onDidDelete(recargar);
-    context.subscriptions.push(tipoWatcher);
-    break;
-  }
-}
-
-/*
  * Escanea archivos .ts en App/React/types/ y construye el indice de tipos.
  */
 export function cargarTipos(): void {
-  const folders = vscode.workspace.workspaceFolders;
-  if (!folders) { return; }
-
   cacheTipos = new Map();
 
-  for (const folder of folders) {
-    const rutaTypes = path.join(folder.uri.fsPath, 'App', 'React', 'types');
+  for (const root of obtenerWorkspaceRoots()) {
+    const rutaTypes = path.join(root, 'App', 'React', 'types');
     if (!fs.existsSync(rutaTypes)) { continue; }
 
     const archivos = fs.readdirSync(rutaTypes).filter(f => f.endsWith('.ts'));
@@ -132,6 +98,12 @@ export function cargarTipos(): void {
   }
 
   logInfo(`TsTypeResolver: ${cacheTipos.size} tipos indexados.`);
+}
+
+export function recargarTipos(): void {
+  logInfo('TsTypeResolver: archivo de tipos cambio, recargando...');
+  cacheTipos = null;
+  cargarTipos();
 }
 
 /*

@@ -1,0 +1,7 @@
+[
+  {
+    "ruleId": "zustand-sin-selector",
+    "severity": "warning",
+    "line": 1
+  }
+]

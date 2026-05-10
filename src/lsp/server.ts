@@ -17,12 +17,15 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { analyzeDocument } from '../core/analyzeDocument';
 import { buildCoreConfig, SentinelConfigFile } from '../core/config';
 import { createCoreDocument } from '../core/types';
-import { languageIdForFile } from '../cli';
+import { languageIdForFile } from '../core/language';
+import { inicializarGloryAnalyzer } from '../analyzers/gloryAnalyzer';
+import { invalidarOpenapiIndex } from '../analyzers/apiEndpointAnalyzer';
 import { findingToLspDiagnostic } from './diagnostics';
 
 const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
 let workspaceRoot: string | undefined;
+let initializedWorkspaceRoot: string | undefined;
 
 function fsPathFromUri(uri: string): string {
   try {
@@ -82,6 +85,7 @@ async function validateTextDocument(document: TextDocument): Promise<void> {
   const rootPath = workspaceRoot ?? path.dirname(fileName);
 
   try {
+    ensureWorkspaceInitialized(rootPath);
     const config = buildCoreConfig(await readConfig(rootPath));
     const findings = analyzeDocument(
       coreDocumentFromLsp(document),
@@ -103,12 +107,45 @@ async function validateTextDocument(document: TextDocument): Promise<void> {
   }
 }
 
+function ensureWorkspaceInitialized(rootPath: string): void {
+  if (initializedWorkspaceRoot === rootPath) {
+    return;
+  }
+
+  initializedWorkspaceRoot = rootPath;
+  inicializarGloryAnalyzer([rootPath]);
+}
+
+function validateAllOpenDocuments(): void {
+  for (const document of documents.all()) {
+    void validateTextDocument(document);
+  }
+}
+
+function reloadWorkspaceIndexes(rootPath?: string): void {
+  invalidarOpenapiIndex(rootPath);
+  if (!rootPath) {
+    initializedWorkspaceRoot = undefined;
+    return;
+  }
+
+  initializedWorkspaceRoot = undefined;
+  ensureWorkspaceInitialized(rootPath);
+}
+
 connection.onInitialize((params: InitializeParams): InitializeResult => {
   workspaceRoot = workspaceRootFromParams(params);
 
   return {
     capabilities: {
-      textDocumentSync: TextDocumentSyncKind.Incremental,
+      textDocumentSync: {
+        openClose: true,
+        change: TextDocumentSyncKind.Incremental,
+        save: { includeText: false },
+      },
+      workspace: {
+        workspaceFolders: { supported: true },
+      },
     },
   };
 });
@@ -121,11 +158,25 @@ documents.onDidChangeContent(event => {
   void validateTextDocument(event.document);
 });
 
+documents.onDidSave(event => {
+  void validateTextDocument(event.document);
+});
+
 documents.onDidClose(event => {
   connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
 });
 
-/* [105A-1] LSP fino para publicar diagnostics desde el core de Sentinel.
- * Gotcha: las reglas Glory/API con workspace de VS Code siguen fuera de este servidor hasta extraer sus providers Node. */
+connection.onDidChangeConfiguration(() => {
+  reloadWorkspaceIndexes(workspaceRoot);
+  validateAllOpenDocuments();
+});
+
+connection.onDidChangeWatchedFiles(() => {
+  reloadWorkspaceIndexes(workspaceRoot);
+  validateAllOpenDocuments();
+});
+
+/* [105A-1][105A-2] LSP fino para publicar diagnostics desde el core de Sentinel.
+ * Gotcha: los indices Glory/API se inicializan por workspace root y se recargan al revalidar documentos abiertos. */
 documents.listen(connection);
 connection.listen();

@@ -8,10 +8,11 @@ repository = "https://github.com/1ndoryu/glory-sentinel"
 
 [language_servers.sentinel-lsp]
 name = "Glory Sentinel LSP"
-languages = ["CSS", "TSX", "JSX", "TypeScript", "JavaScript", "PHP", "Rust"]
+languages = ["CSS", "SCSS", "TSX", "JSX", "TypeScript", "JavaScript", "PHP", "Rust"]
 
 [language_servers.sentinel-lsp.language_ids]
 "CSS" = "css"
+"SCSS" = "scss"
 "TSX" = "typescriptreact"
 "JSX" = "javascriptreact"
 "TypeScript" = "typescript"

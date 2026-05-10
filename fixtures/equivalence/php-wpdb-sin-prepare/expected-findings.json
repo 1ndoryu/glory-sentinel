@@ -1,0 +1,7 @@
+[
+  {
+    "ruleId": "wpdb-sin-prepare",
+    "severity": "error",
+    "line": 3
+  }
+]

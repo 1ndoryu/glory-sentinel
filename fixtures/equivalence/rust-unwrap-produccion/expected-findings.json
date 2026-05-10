@@ -1,0 +1,7 @@
+[
+  {
+    "ruleId": "unwrap-produccion-rs",
+    "severity": "warning",
+    "line": 1
+  }
+]

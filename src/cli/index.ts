@@ -10,8 +10,12 @@ import {
 } from '../core/config';
 import { generarReporteMarkdown, CoreReportEntry } from '../core/report';
 import { CoreAnalysisConfig, createCoreDocument } from '../core/types';
+import { languageIdForFile } from '../core/language';
+import { inicializarGloryAnalyzer } from '../analyzers/gloryAnalyzer';
 
 export type CliFormat = 'markdown' | 'json';
+
+export { languageIdForFile };
 
 export type SentinelCliConfigFile = SentinelConfigFile;
 
@@ -109,19 +113,6 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
   return parsed;
 }
 
-export function languageIdForFile(filePath: string): string {
-  switch (path.extname(filePath).toLowerCase()) {
-    case '.php': return 'php';
-    case '.tsx': return 'typescriptreact';
-    case '.jsx': return 'javascriptreact';
-    case '.ts': return 'typescript';
-    case '.js': return 'javascript';
-    case '.rs': return 'rust';
-    case '.css': return 'css';
-    default: return 'plaintext';
-  }
-}
-
 async function fileExists(filePath: string): Promise<boolean> {
   try {
     await fs.access(filePath);
@@ -207,6 +198,7 @@ export async function analyzeCliTarget(args: ParsedCliArgs): Promise<CliAnalysis
   const workspacePath = path.resolve(args.workspacePath ?? process.cwd());
   const configFile = await readConfig(args.configPath, workspacePath);
   const config = buildCoreConfig(configFile);
+  inicializarGloryAnalyzer([workspacePath]);
 
   const files = args.filePath
     ? [path.resolve(args.filePath)]

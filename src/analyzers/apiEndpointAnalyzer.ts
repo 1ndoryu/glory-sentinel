@@ -10,8 +10,8 @@
  * Es la version inline-en-VSCode del CLI `npm run audit:api` (274A-11);
  * comparten reglas de mapeo de paths.
  *
- * Cache: el openapi.json se carga una vez por workspaceFolder y se invalida
- * via FileSystemWatcher cuando cambia. La extension NUNCA reinicia VS Code.
+ * Cache: el openapi.json se carga una vez por workspace root y se invalida
+ * desde el adaptador VS Code o al reiniciar el LSP/CLI. La extension NUNCA reinicia VS Code.
  *
  * Limitaciones:
  * - Solo detecta paths estaticos. Calls con template literals (`/foo/${id}`)
@@ -19,11 +19,12 @@
  * - Solo aplica a `**\/legacy/services/*.ts` (excluye `apiCliente.ts`).
  * - Si no existe `openapi.json` en el workspace, el analyzer no hace nada. */
 
-import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Violacion } from '../types';
 import { logInfo, logWarn } from '../utils/logger';
+import { CoreTextDocument, CoreWorkspaceContext } from '../core/types';
+import { resolverWorkspaceRoot } from '../core/workspaceRoots';
 
 /* --- Reglas de mapeo (replica de wpJsonStub.ts del frontend Kamples) --- */
 
@@ -97,34 +98,25 @@ function buildOpenapiIndex(openapiJson: any): OpenapiIndex {
   return { byMethod, pathCount: count };
 }
 
-/* --- Cache por workspaceFolder --- */
+/* --- Cache por workspace root --- */
 
 interface WorkspaceCache {
   index: OpenapiIndex | null;
-  watcher: vscode.FileSystemWatcher | null;
 }
 
 const cachePorWorkspace: Map<string, WorkspaceCache> = new Map();
 
-function obtenerIndice(workspaceFolder: vscode.WorkspaceFolder): OpenapiIndex | null {
-  const key = workspaceFolder.uri.fsPath;
+function obtenerIndice(rootPath: string): OpenapiIndex | null {
+  const key = rootPath;
   let entry = cachePorWorkspace.get(key);
   if (!entry) {
-    entry = { index: null, watcher: null };
+    entry = { index: null };
     cachePorWorkspace.set(key, entry);
-
-    const pattern = new vscode.RelativePattern(workspaceFolder, 'openapi.json');
-    const watcher = vscode.workspace.createFileSystemWatcher(pattern);
-    const invalidar = () => { entry!.index = null; };
-    watcher.onDidChange(invalidar);
-    watcher.onDidCreate(invalidar);
-    watcher.onDidDelete(invalidar);
-    entry.watcher = watcher;
   }
 
   if (entry.index) return entry.index;
 
-  const openapiPath = path.join(workspaceFolder.uri.fsPath, 'openapi.json');
+  const openapiPath = path.join(rootPath, 'openapi.json');
   if (!fs.existsSync(openapiPath)) return null;
 
   try {
@@ -135,6 +127,15 @@ function obtenerIndice(workspaceFolder: vscode.WorkspaceFolder): OpenapiIndex | 
   } catch {
     return null;
   }
+}
+
+export function invalidarOpenapiIndex(rootPath?: string): void {
+  if (rootPath) {
+    cachePorWorkspace.delete(rootPath);
+    return;
+  }
+
+  cachePorWorkspace.clear();
 }
 
 /* --- Extraccion de calls --- */
@@ -187,26 +188,18 @@ function archivoAplica(fileName: string): boolean {
   return true;
 }
 
-export function analizarApiEndpoints(documento: vscode.TextDocument): Violacion[] {
+export function analizarApiEndpoints(documento: CoreTextDocument, workspace?: CoreWorkspaceContext): Violacion[] {
   if (!archivoAplica(documento.fileName)) return [];
 
-  let wsFolder = vscode.workspace.getWorkspaceFolder(documento.uri);
-  if (!wsFolder) {
-    /* Fallback: buscar el workspaceFolder que contenga el path. Necesario en
-     * multi-root workspaces donde getWorkspaceFolder a veces devuelve undefined
-     * para archivos no abiertos en pestana visible. */
-    const folders = vscode.workspace.workspaceFolders || [];
-    const fileNorm = documento.fileName.replace(/\\/g, '/');
-    wsFolder = folders.find(f => fileNorm.startsWith(f.uri.fsPath.replace(/\\/g, '/'))) || undefined;
-    if (!wsFolder) {
-      logWarn(`[apiEndpoint] sin workspaceFolder para ${documento.fileName}`);
-      return [];
-    }
+  const rootPath = resolverWorkspaceRoot(documento.fileName, workspace?.rootPath);
+  if (!rootPath) {
+    logWarn(`[apiEndpoint] sin workspace root para ${documento.fileName}`);
+    return [];
   }
 
-  const indice = obtenerIndice(wsFolder);
+  const indice = obtenerIndice(rootPath);
   if (!indice) {
-    logWarn(`[apiEndpoint] no se pudo cargar openapi.json en ${wsFolder.uri.fsPath}`);
+    logWarn(`[apiEndpoint] no se pudo cargar openapi.json en ${rootPath}`);
     return [];
   }
 

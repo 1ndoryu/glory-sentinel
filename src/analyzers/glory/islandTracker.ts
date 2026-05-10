@@ -4,12 +4,12 @@
  * para detectar islas creadas pero no conectadas.
  */
 
-import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import {Violacion} from '../../types';
 import {obtenerSeveridadRegla} from '../../config/ruleRegistry';
 import {logInfo, logWarn} from '../../utils/logger';
+import { obtenerWorkspaceRoots } from '../../core/workspaceRoots';
 
 /* Cache de islas registradas en appIslands.tsx */
 let cacheIslasRegistradas: Set<string> | null = null;
@@ -26,13 +26,8 @@ export function islasRegistradasCargadas(): boolean {
  * y se importan como side-effect desde appIslands.tsx.
  */
 export function cargarIslasRegistradas(): void {
-    const folders = vscode.workspace.workspaceFolders;
-    if (!folders) {
-        return;
-    }
-
-    for (const folder of folders) {
-        const rutaApp = path.join(folder.uri.fsPath, 'App', 'React', 'appIslands.tsx');
+    for (const root of obtenerWorkspaceRoots()) {
+        const rutaApp = path.join(root, 'App', 'React', 'appIslands.tsx');
         if (fs.existsSync(rutaApp)) {
             try {
                 cacheIslasRegistradas = new Set<string>();
@@ -42,7 +37,7 @@ export function cargarIslasRegistradas(): void {
                 parsearIslasDeContenido(contenido);
 
                 /* Parsear config/inicializarIslands.ts (sistema OCP de auto-registro) */
-                const rutaInicializar = path.join(folder.uri.fsPath, 'App', 'React', 'config', 'inicializarIslands.ts');
+                const rutaInicializar = path.join(root, 'App', 'React', 'config', 'inicializarIslands.ts');
                 if (fs.existsSync(rutaInicializar)) {
                     const contenidoInicializar = fs.readFileSync(rutaInicializar, 'utf-8');
                     parsearIslasDeContenido(contenidoInicializar);
@@ -98,44 +93,10 @@ function parsearIslasDeContenido(contenido: string): void {
     }
 }
 
-/*
- * Inicializa los watchers de archivos de islas.
- */
-export function inicializarIslasWatcher(context: vscode.ExtensionContext): void {
+export function recargarIslasRegistradas(): void {
+    logInfo('GloryAnalyzer: archivo de islas cambio, recargando...');
+    cacheIslasRegistradas = null;
     cargarIslasRegistradas();
-
-    const folders = vscode.workspace.workspaceFolders;
-    if (folders) {
-        for (const folder of folders) {
-            const rutaAppIslands = path.join(folder.uri.fsPath, 'App', 'React', 'appIslands.tsx');
-            if (fs.existsSync(rutaAppIslands)) {
-                const patronIslas = new vscode.RelativePattern(path.dirname(rutaAppIslands), 'appIslands.tsx');
-                const islasWatcher = vscode.workspace.createFileSystemWatcher(patronIslas);
-
-                const recargarIslas = () => {
-                    logInfo('GloryAnalyzer: archivo de islas cambio, recargando...');
-                    cacheIslasRegistradas = null;
-                    cargarIslasRegistradas();
-                };
-
-                islasWatcher.onDidChange(recargarIslas);
-                islasWatcher.onDidCreate(recargarIslas);
-                context.subscriptions.push(islasWatcher);
-
-                /* Watcher para config/inicializarIslands.ts (sistema OCP) */
-                const rutaInicializar = path.join(folder.uri.fsPath, 'App', 'React', 'config', 'inicializarIslands.ts');
-                if (fs.existsSync(rutaInicializar)) {
-                    const patronInicializar = new vscode.RelativePattern(path.dirname(rutaInicializar), 'inicializarIslands.ts');
-                    const inicializarWatcher = vscode.workspace.createFileSystemWatcher(patronInicializar);
-                    inicializarWatcher.onDidChange(recargarIslas);
-                    inicializarWatcher.onDidCreate(recargarIslas);
-                    context.subscriptions.push(inicializarWatcher);
-                }
-
-                break;
-            }
-        }
-    }
 }
 
 /*
