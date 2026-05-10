@@ -24,7 +24,7 @@ export const EVAL_CALL = /\beval\s*\(/g;
  * de \s* haga que la lookahead evalúe el espacio en lugar del literal.
  * Requiere que el primer caracter no-espacio tras '=' no sea comilla.
  */
-export const INNERHTML_VARIABLE = /\.innerHTML\s*=\s*[^'"\`\s]/g;
+export const INNERHTML_VARIABLE = /\.innerHTML\s*=\s*[^'"`\s]/g;
 
 /* CSS inline: eliminado — VarSense maneja esta deteccion */
 

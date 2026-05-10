@@ -27,7 +27,8 @@
   ],
   "main": "./out/extension.js",
   "bin": {
-    "sentinel": "./out/cli/index.js"
+    "sentinel": "./out/cli/index.js",
+    "sentinel-lsp": "./out/lsp/server.js"
   },
   "contributes": {
     "commands": [
@@ -116,24 +117,32 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "cli": "npm run compile && node ./out/cli/index.js",
+    "lsp": "npm run compile && node ./out/lsp/server.js --stdio",
     "watch": "tsc -watch -p ./",
     "check:core": "node scripts/check-core-no-vscode.mjs",
+    "check:zed": "cargo check --manifest-path integrations/zed/Cargo.toml --target wasm32-wasip2",
+    "smoke:lsp": "node scripts/smoke-lsp-stdio.mjs",
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js",
-    "test:unit": "npm run compile && npm run check:core && mocha"
+    "test:unit": "npm run compile && npm run check:core && npm run smoke:lsp && mocha"
   },
   "devDependencies": {
     "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.6",
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
     "@vscode/test-electron": "^2.3.8",
+    "eslint": "^8.57.1",
     "glob": "^13.0.6",
     "minimatch": "^9.0.3",
     "mocha": "^10.2.0",
     "typescript": "^5.3.3"
   },
   "dependencies": {
-    "minimatch": "^9.0.3"
+    "minimatch": "^9.0.3",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12"
   }
 }

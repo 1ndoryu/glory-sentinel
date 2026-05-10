@@ -4,18 +4,16 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { minimatch } from 'minimatch';
 import { analyzeDocument } from '../core/analyzeDocument';
+import {
+  buildCoreConfig,
+  SentinelConfigFile,
+} from '../core/config';
 import { generarReporteMarkdown, CoreReportEntry } from '../core/report';
 import { CoreAnalysisConfig, createCoreDocument } from '../core/types';
-import { ConfigReglaUsuario } from '../config/ruleRegistry';
 
 export type CliFormat = 'markdown' | 'json';
 
-export interface SentinelCliConfigFile {
-  includePatterns?: string[];
-  excludePatterns?: string[];
-  directoryExceptions?: string[];
-  rules?: Record<string, ConfigReglaUsuario>;
-}
+export type SentinelCliConfigFile = SentinelConfigFile;
 
 
 export interface ParsedCliArgs {
@@ -32,29 +30,6 @@ export interface CliAnalysisResult {
   totalArchivos: number;
   hasErrors: boolean;
 }
-
-const DEFAULT_INCLUDE_PATTERNS = [
-  '**/*.php',
-  '**/*.ts',
-  '**/*.tsx',
-  '**/*.js',
-  '**/*.jsx',
-  '**/*.css',
-  '**/*.rs',
-];
-
-const DEFAULT_EXCLUDE_PATTERNS = [
-  '**/node_modules/**',
-  '**/vendor/**',
-  '**/dist/**',
-  '**/_generated/**',
-  '**/out/**',
-  '**/.vitepress/cache/**',
-  '**/build/**',
-  '**/.agent/**',
-  '**/target/**',
-  '**/scripts/**',
-];
 
 function usage(): string {
   return [
@@ -167,22 +142,6 @@ async function readConfig(configPath?: string, workspacePath?: string): Promise<
 
   const raw = await fs.readFile(candidate, 'utf8');
   return JSON.parse(raw) as SentinelCliConfigFile;
-}
-
-function buildCoreConfig(config: SentinelCliConfigFile): CoreAnalysisConfig {
-  return {
-    enabled: true,
-    includePatterns: config.includePatterns ?? DEFAULT_INCLUDE_PATTERNS,
-    excludePatterns: config.excludePatterns ?? DEFAULT_EXCLUDE_PATTERNS,
-    directoryExceptions: config.directoryExceptions ?? [],
-    ruleOverrides: Object.fromEntries(
-      Object.entries(config.rules ?? {}).map(([ruleId, override]) => [ruleId, {
-        enabled: override.habilitada,
-        severity: override.severidad,
-      }])
-    ),
-    useConfiguredRuleProvider: false,
-  };
 }
 
 function normalizarRuta(ruta: string): string {

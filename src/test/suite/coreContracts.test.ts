@@ -7,6 +7,7 @@ import { findingToDiagnostic } from '../../core/vscodeAdapter';
 import { analyzeDocument } from '../../core/analyzeDocument';
 import { generarReporteMarkdown } from '../../core/report';
 import { analyzeCliTarget, languageIdForFile, parseCliArgs } from '../../cli';
+import { findingToLspDiagnostic } from '../../lsp/diagnostics';
 
 suite('Sentinel editor-agnostic core contracts', () => {
   test('creates a document with stable line helpers', () => {
@@ -52,6 +53,21 @@ suite('Sentinel editor-agnostic core contracts', () => {
     assert.strictEqual(diagnostic.source, 'Code Sentinel');
     assert.strictEqual(diagnostic.range.start.line, 0);
     assert.strictEqual(diagnostic.range.start.character, 1);
+  });
+
+  test('maps core findings to LSP diagnostics at the boundary', () => {
+    const diagnostic = findingToLspDiagnostic({
+      ruleId: 'sentinel-lsp-rule',
+      message: 'Hallazgo LSP convertido',
+      severity: 'warning',
+      source: 'Code Sentinel',
+      range: createCoreRange(3, 2, 3, 18),
+    });
+
+    assert.strictEqual(diagnostic.code, 'sentinel-lsp-rule');
+    assert.strictEqual(diagnostic.source, 'Code Sentinel');
+    assert.strictEqual(diagnostic.range.start.line, 3);
+    assert.strictEqual(diagnostic.range.start.character, 2);
   });
 
   test('analyzes a document through the editor-agnostic core', () => {

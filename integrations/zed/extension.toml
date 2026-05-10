@@ -1,0 +1,20 @@
+id = "glory-sentinel"
+name = "Glory Sentinel"
+version = "0.1.0"
+schema_version = 1
+authors = ["1ndoryu"]
+description = "Runs the Glory Sentinel language server in Zed for architecture, security and design-system diagnostics."
+repository = "https://github.com/1ndoryu/glory-sentinel"
+
+[language_servers.sentinel-lsp]
+name = "Glory Sentinel LSP"
+languages = ["CSS", "TSX", "JSX", "TypeScript", "JavaScript", "PHP", "Rust"]
+
+[language_servers.sentinel-lsp.language_ids]
+"CSS" = "css"
+"TSX" = "typescriptreact"
+"JSX" = "javascriptreact"
+"TypeScript" = "typescript"
+"JavaScript" = "javascript"
+"PHP" = "php"
+"Rust" = "rust"

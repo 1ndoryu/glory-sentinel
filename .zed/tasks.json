@@ -1,0 +1,32 @@
+[
+  {
+    "label": "Glory Sentinel: reporte Markdown",
+    "command": "npm",
+    "args": [
+      "run",
+      "cli",
+      "--",
+      "analyze",
+      "--workspace",
+      ".",
+      "--format",
+      "markdown",
+      "--output",
+      ".sentinel-report.md"
+    ]
+  },
+  {
+    "label": "Glory Sentinel: archivo JSON",
+    "command": "npm",
+    "args": [
+      "run",
+      "cli",
+      "--",
+      "analyze",
+      "--file",
+      "$ZED_FILE",
+      "--format",
+      "json"
+    ]
+  }
+]

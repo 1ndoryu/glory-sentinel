@@ -203,7 +203,7 @@ export function verificarNonNullAssertion(texto: string, documento: CoreTextDocu
     if (linea.includes('sentinel-disable non-null-assertion-excesivo')) { continue; }
     if (i > 0 && lineas[i - 1]?.includes('sentinel-disable-next-line non-null-assertion-excesivo')) { continue; }
 
-    const matches = [...linea.matchAll(/[)\]a-zA-Z0-9_>]!\s*[.\[]/g)];
+    const matches = [...linea.matchAll(/[)\]a-zA-Z0-9_>]!\s*[.[]/g)];
     for (const match of matches) {
       const posExcl = (match.index ?? 0) + match[0].indexOf('!');
       if (posExcl + 1 < linea.length && linea[posExcl + 1] === '=') { continue; }

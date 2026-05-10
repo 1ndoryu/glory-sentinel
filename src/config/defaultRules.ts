@@ -46,7 +46,7 @@ export const reglasEstaticas: ReglaEstatica[] = [
     nombre: 'innerHTML con variable',
     descripcion: 'No asignar innerHTML con datos dinamicos sin sanitizar (riesgo XSS).',
     /* Clase negada en vez de lookahead: evita falso positivo por backtracking de \s* */
-    patron: /\.innerHTML\s*=\s*[^'"\`\s]/,
+    patron: /\.innerHTML\s*=\s*[^'"`\s]/,
     severidad: 'warning',
     aplicaA: ['.ts', '.tsx', '.js', '.jsx'],
     categoria: CategoriaRegla.PatronesProhibidos,
@@ -144,6 +144,7 @@ export const reglasEstaticas: ReglaEstatica[] = [
     id: 'emoji-en-codigo',
     nombre: 'Emoji Unicode en codigo',
     descripcion: 'PROHIBIDO usar emojis Unicode en codigo renderizable. Usar SVG o iconos.',
+    // eslint-disable-next-line no-misleading-character-class -- el rango cubre emojis compuestos para bloquearlos como unidad de politica.
     patron: /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/u,
     severidad: 'warning',
     aplicaA: ['.tsx', '.jsx', '.ts', '.js', '.css', '.html'],

@@ -61,7 +61,7 @@ export function verificarEndpointAccedeBd(lineas: string[], rutaArchivo: string)
 export function verificarIntervalSinWhitelist(lineas: string[]): Violacion[] {
   const violaciones: Violacion[] = [];
 
-  const regexInterval = /INTERVAL\s+['"]?\s*[\$\{]/i;
+  const regexInterval = /INTERVAL\s+['"]?\s*[${]/i;
   const regexInterval2 = /INTERVAL\s+'\s*\$/i;
   const regexWhitelist = /\b(in_array|match\s*\(|switch\s*\(|\$validos|\$ventanas|allowedIntervals|intervalosPermitidos|ventanasValidas)\b/i;
   const VENTANA_WHITELIST = 60;

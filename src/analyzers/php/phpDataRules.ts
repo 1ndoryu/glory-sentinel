@@ -443,7 +443,7 @@ export function verificarRetornoIgnoradoRepo(lineas: string[], rutaArchivo?: str
         if (/^\$\w+\s*=/.test(linea)) { continue; }
         if (/^if\s*\(/.test(linea)) { continue; }
         if (/^return\b/.test(linea)) { continue; }
-        if (/^\!?\$\w+\s*&&/.test(linea)) { continue; }
+        if (/^!?\$\w+\s*&&/.test(linea)) { continue; }
 
         /* Excluir si esta dentro de un if() en la misma linea */
         if (/\bif\s*\(.*->/.test(linea)) { continue; }
