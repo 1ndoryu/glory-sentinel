@@ -5,12 +5,22 @@
  */
 
 import * as vscode from 'vscode';
+import { minimatch } from 'minimatch';
 import { ConfiguracionSentinel } from '../types';
 import { configurarProveedorOverridesReglas, invalidarRegistroReglas, ConfigReglaUsuario } from '../config/ruleRegistry';
 
 /*
  * Carga la configuracion completa desde settings.json de VS Code.
  */
+/* Patrones esenciales que siempre se aplican, incluso si el usuario
+ * sobreescribe codeSentinel.exclude en sus settings. */
+const EXCLUSIONES_ESENCIALES = [
+  '**/node_modules/**',
+  '**/vendor/**',
+  '**/.agent/**',
+  '**/target/**',
+];
+
 export function cargarConfiguracion(): ConfiguracionSentinel {
   const config = vscode.workspace.getConfiguration('codeSentinel');
   configurarProveedorOverridesReglas(() => {
@@ -18,37 +28,42 @@ export function cargarConfiguracion(): ConfiguracionSentinel {
     return reglasConfig.get<Record<string, ConfigReglaUsuario>>('rules', {});
   });
 
+  const userExclude = config.get<string[]>('exclude', [
+    '**/node_modules/**',
+    '**/vendor/**',
+    '**/dist/**',
+    '**/_generated/**',
+    '**/out/**',
+    '**/.vitepress/cache/**',
+    '**/build/**',
+    '**/desktop/src-tauri/**',
+    '**/desktop/node_modules/**',
+    '**/desktop/dist/**',
+    '**/Mezclador/**',
+    '**/temp/**',
+    '**/.vscode-test/**',
+    '**/.agent/**',
+    '**/target/**',
+    '**/scripts/**',
+    '**/public/assets/**',
+    '**/api/generated.ts',
+  ]);
+
+  /* Merge esencial: si el usuario sobreescribio exclude y olvido patrones clave,
+     los agregamos automaticamente. */
+  const exclude = [...userExclude];
+  for (const p of EXCLUSIONES_ESENCIALES) {
+    if (!exclude.includes(p)) {
+      exclude.push(p);
+    }
+  }
+
   return {
     staticAnalysisEnabled: config.get<boolean>('staticAnalysis.enabled', true),
     timing: {
       staticDebounceMs: (config.get<number>('timing.staticDebounce', 1)) * 1000,
     },
-    exclude: config.get<string[]>('exclude', [
-      '**/node_modules/**',
-      '**/vendor/**',
-      '**/dist/**',
-      '**/_generated/**',
-      '**/out/**',
-      /* Caches de herramientas de build/docs que generan archivos automaticos */
-      '**/.vitepress/cache/**',
-      '**/build/**',
-      /* Subproyectos y temporales que no son codigo principal */
-      '**/desktop/src-tauri/**',
-      '**/desktop/node_modules/**',
-      '**/desktop/dist/**',
-      '**/Mezclador/**',
-      '**/temp/**',
-      '**/.vscode-test/**',
-      /* Agentes, herramientas externas y build outputs */
-      '**/.agent/**',
-      '**/target/**',
-      '**/scripts/**',
-      /* [054A-19] Assets estáticos legacy (CSS/JS de WordPress) */
-      '**/public/assets/**',
-      /* Archivos auto-generados por codegen (Orval, openapi-typescript, etc.)
-         253A-10: excluir por nombre para no aplicar limite-lineas */
-      '**/api/generated.ts',
-    ]),
+    exclude,
     directoryExceptions: config.get<string[]>('directoryExceptions', []),
     languages: config.get<string[]>('languages', [
       'php', 'typescript', 'typescriptreact',
@@ -62,35 +77,15 @@ export function invalidarCacheReglas(): void {
   invalidarRegistroReglas();
 }
 
-/*
- * Verifica si un archivo debe ser excluido del analisis
- * segun los patrones glob configurados.
- * Soporta patrones de carpeta y de archivo individual.
- */
+/* [225A-1] Verifica si un archivo debe excluirse usando minimatch (antes usaba
+ * string parsing custom que fallaba con patrones como Mezclador,
+ * desktop/node_modules, etc.). */
 export function debeExcluirse(rutaArchivo: string, exclusiones: string[]): boolean {
   const rutaNormalizada = rutaArchivo.replace(/\\/g, '/');
 
   for (const patron of exclusiones) {
-    /* Conversion simple de glob a verificacion basica */
-    const patronNormalizado = patron.replace(/\\/g, '/');
-
-    /* Patron con doble asterisco significa cualquier subdirectorio */
-    if (patronNormalizado.startsWith('**/')) {
-      const sufijo = patronNormalizado.slice(3);
-
-      /* Patron de archivo especifico (ej: api/generated.ts)
-         Soporte para excluir archivos auto-generados por nombre */
-      if (!sufijo.endsWith('/**')) {
-        if (rutaNormalizada.endsWith('/' + sufijo)) {
-          return true;
-        }
-      }
-
-      /* Patron de carpeta (ej: node_modules, vendor) */
-      const carpeta = sufijo.replace(/\*\*/g, '').replace(/\/\*\*$/, '').replace(/\/$/, '');
-      if (carpeta && (rutaNormalizada.includes(`/${carpeta}/`) || rutaNormalizada.includes(`\\${carpeta}\\`))) {
-        return true;
-      }
+    if (minimatch(rutaNormalizada, patron, { dot: true })) {
+      return true;
     }
   }
 

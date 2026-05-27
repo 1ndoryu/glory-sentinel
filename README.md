@@ -111,6 +111,9 @@ Puedes deshabilitar reglas individualmente o cambiar su severidad:
 | ID | Descripción | Default |
 |----|-------------|---------|
 | `limite-lineas` | Archivo excede el límite de líneas del protocolo | warning |
+| `limite-lineas-nivel-2` | Archivo duplica el límite; `sentinel-disable-file limite-lineas` no lo silencia | warning |
+| `limite-lineas-nivel-3` | Archivo triplica el límite y exige refactor antes de seguir agregando código | error |
+| `limite-lineas-nivel-4` | Archivo quintuplica el límite; bloquear monolitos gigantes aunque el primer nivel esté deshabilitado | error |
 | `usestate-excesivo` | Más de 3 `useState` en un mismo componente | warning |
 | `import-muerto` | Import declarado pero no usado en el archivo | warning |
 

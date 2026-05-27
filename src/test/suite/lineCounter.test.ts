@@ -119,4 +119,11 @@ suite('lineCounter', () => {
     const limite = obtenerLimiteArchivo('config.php', '/App/Config/config.php');
     assert.strictEqual(limite, null);
   });
+
+  test('obtenerLimiteArchivo - Rust model detectado como modelo', () => {
+    const limite = obtenerLimiteArchivo('hosting.rs', '/src/models/hosting.rs');
+    assert.notStrictEqual(limite, null);
+    assert.strictEqual(limite?.tipo, 'modelo');
+    assert.strictEqual(limite?.limite, 300);
+  });
 });

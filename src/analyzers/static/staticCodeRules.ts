@@ -7,7 +7,49 @@
 import { Violacion } from '../../types';
 import { CoreTextDocument } from '../../core/types';
 import { contarLineasEfectivas, obtenerLimiteArchivo } from '../../utils/lineCounter';
-import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
+import { obtenerSeveridadRegla, reglaHabilitada } from '../../config/ruleRegistry';
+
+interface EscalaLimiteLineas {
+  reglaId: string;
+  factor: number;
+  mensaje: (tipo: string, limite: number, lineasEfectivas: number) => string;
+  quickFixId?: string;
+}
+
+export const REGLAS_LIMITE_LINEAS = [
+  'limite-lineas',
+  'limite-lineas-nivel-2',
+  'limite-lineas-nivel-3',
+  'limite-lineas-nivel-4',
+] as const;
+
+const ESCALAS_LIMITE_LINEAS: EscalaLimiteLineas[] = [
+  {
+    reglaId: 'limite-lineas',
+    factor: 1,
+    quickFixId: 'mark-split-todo',
+    mensaje: (tipo, limite, lineasEfectivas) =>
+      `Archivo excede limite de ${limite} lineas para ${tipo} (${lineasEfectivas} lineas efectivas). Dividir obligatoriamente.`,
+  },
+  {
+    reglaId: 'limite-lineas-nivel-2',
+    factor: 2,
+    mensaje: (tipo, limite, lineasEfectivas) =>
+      `ALTO: este ${tipo} duplica el limite (${lineasEfectivas}/${limite}). No lo tapes con sentinel-disable-file; separa contratos, requests, responses y helpers ahora.`,
+  },
+  {
+    reglaId: 'limite-lineas-nivel-3',
+    factor: 3,
+    mensaje: (tipo, limite, lineasEfectivas) =>
+      `BASTA: este ${tipo} triplica el limite (${lineasEfectivas}/${limite}). Un archivo asi ya no es excepcion, es deuda activa. Refactor obligatorio antes de seguir agregando codigo.`,
+  },
+  {
+    reglaId: 'limite-lineas-nivel-4',
+    factor: 5,
+    mensaje: (tipo, limite, lineasEfectivas) =>
+      `NO DISIMULES ESTE DESASTRE: ${lineasEfectivas} lineas efectivas para un limite de ${limite}. sentinel-disable-file no es anestesia para archivos monstruosos; crea una carpeta y divide el modulo.`,
+  },
+];
 
 /* Verifica si el archivo excede los limites de lineas del protocolo.
  * Soporta excepciones con sentinel-disable-file limite-lineas */
@@ -16,21 +58,6 @@ export function verificarLimiteLineas(
   nombreArchivo: string,
 ): Violacion[] {
   const texto = documento.getText();
-
-  /* [25A-SENT-FP] Parser de tokens: soporta multiples reglas en el mismo sentinel-disable-file
-   * (ej: sentinel-disable-file regla-a regla-b limite-lineas: comentario).
-   * El includes() literal fallaba cuando habia otras reglas entre la directiva y 'limite-lineas'. */
-  const deshabilitado = texto.split('\n').some(linea => {
-    const idx = linea.indexOf('sentinel-disable-file');
-    if (idx === -1) { return false; }
-    const tokens = linea
-      .slice(idx + 'sentinel-disable-file'.length)
-      .replace(/[:*/]/g, ' ')
-      .split(/\s+/)
-      .filter(Boolean);
-    return tokens.includes('limite-lineas');
-  });
-  if (deshabilitado) { return []; }
 
   const limite = obtenerLimiteArchivo(nombreArchivo, documento.fileName);
   if (!limite) { return []; }
@@ -41,14 +68,33 @@ export function verificarLimiteLineas(
 
   const ultimaLinea = Math.max(0, documento.lineCount - 1);
 
-  return [{
-    reglaId: 'limite-lineas',
-    mensaje: `Archivo excede limite de ${limite.limite} lineas para ${limite.tipo} (${lineasEfectivas} lineas efectivas). Dividir obligatoriamente.`,
-    severidad: obtenerSeveridadRegla('limite-lineas'),
-    linea: ultimaLinea,
-    quickFixId: 'mark-split-todo',
-    fuente: 'estatico',
-  }];
+  return ESCALAS_LIMITE_LINEAS
+    .filter(escala => reglaHabilitada(escala.reglaId))
+    .filter(escala => lineasEfectivas > Math.ceil(limite.limite * escala.factor))
+    .filter(escala => !tieneDisableFile(texto, escala.reglaId))
+    .map(escala => ({
+      reglaId: escala.reglaId,
+      mensaje: escala.mensaje(limite.tipo, limite.limite, lineasEfectivas),
+      severidad: obtenerSeveridadRegla(escala.reglaId),
+      linea: ultimaLinea,
+      quickFixId: escala.quickFixId,
+      fuente: 'estatico' as const,
+    }));
+}
+
+/* [225A-1] Parser compartido por las escalas de limite-lineas: cada nivel usa
+ * su propio rule id para que desactivar el primer aviso no silencie los graves. */
+function tieneDisableFile(texto: string, reglaId: string): boolean {
+  return texto.split('\n').some(linea => {
+    const idx = linea.indexOf('sentinel-disable-file');
+    if (idx === -1) { return false; }
+    const tokens = linea
+      .slice(idx + 'sentinel-disable-file'.length)
+      .replace(/[:*/]/g, ' ')
+      .split(/\s+/)
+      .filter(Boolean);
+    return tokens.includes(reglaId);
+  });
 }
 
 /* Verifica si un componente React tiene mas de 3 useState.

@@ -227,14 +227,14 @@ export async function analizarWorkspace(): Promise<void> {
   /* [124A-FP1] Limpiar dedup de directorio-abarrotado al inicio de cada scan */
   limpiarDirectoriosReportados();
 
-  /* Construir patron de exclusion desde configuracion (no hardcodeado) */
-  const patronExclusion = configuracion.exclude.length > 0
-    ? `{${configuracion.exclude.join(',')}}`
-    : undefined;
-
+  /* [225A-1] findFiles con exclude nulo porque:
+   * 1. VS Code ya respeta files.exclude y .gitignore (node_modules suele estar ahi).
+   * 2. El brace expansion con 20+ patrones glob fallaba silenciosamente
+   *    dejando pasar node_modules y vendor al analisis.
+   * 3. debeExcluirse (ahora con minimatch) es el filtro real por configuracion. */
   const archivos = await vscode.workspace.findFiles(
     '**/*.{php,ts,tsx,js,jsx,css,rs}',
-    patronExclusion
+    undefined
   );
 
   /* Mapa para recopilar resultados y generar el reporte */
@@ -258,8 +258,8 @@ export async function analizarWorkspace(): Promise<void> {
         });
 
         try {
-          /* Filtro secundario: findFiles con glob combinado no excluye todo en VS Code.
-           * debeExcluirse garantiza que archivos de vendor/target/agent nunca se analicen. */
+          /* Filtro por configuracion: debeExcluirse ahora usa minimatch
+           * y es confiable para todos los patrones de exclusion. */
           if (debeExcluirse(archivos[i].fsPath, configuracion.exclude)) {
             continue;
           }

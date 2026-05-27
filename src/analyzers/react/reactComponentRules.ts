@@ -310,6 +310,18 @@ export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArc
       continue;
     }
 
+    /* [205A-2] <Select> del sistema queda deprecated — usar SelectDropdown (usa MenuContextual). */
+    if (/<Select[\s/]/.test(linea)) {
+      violaciones.push({
+        reglaId: 'html-nativo-en-vez-de-componente',
+        mensaje: 'Usar <SelectDropdown> de components/ui/SelectDropdown en vez de <Select> genérico. SelectDropdown usa MenuContextual para consistencia visual.',
+        severidad: obtenerSeveridadRegla('html-nativo-en-vez-de-componente'),
+        linea: i,
+        fuente: 'estatico',
+      });
+      continue;
+    }
+
     if (tieneTextareaUi && /<textarea[\s>]/.test(linea)) {
       violaciones.push({
         reglaId: 'html-nativo-en-vez-de-componente',

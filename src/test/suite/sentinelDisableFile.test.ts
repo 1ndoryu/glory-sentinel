@@ -50,4 +50,33 @@ suite('sentinel-disable-file — reglas regex', () => {
     const violaciones = analizarEstatico(crearDocumento(texto), [regla!]);
     assert.strictEqual(violaciones.filter(v => v.reglaId === 'sqlx-query-sin-macro').length, 1);
   });
+
+  test('limite-lineas deshabilitado no silencia niveles graves', () => {
+    const cuerpo = Array.from({ length: 1600 }, (_, i) => `pub struct Modelo${i};`).join('\n');
+    const texto = `/* sentinel-disable-file limite-lineas */\n${cuerpo}`;
+
+    const violaciones = analizarEstatico(crearDocumento(texto, 'src/models/hosting.rs'));
+    const ids = violaciones.map(v => v.reglaId);
+
+    assert.strictEqual(ids.includes('limite-lineas'), false);
+    assert.strictEqual(ids.includes('limite-lineas-nivel-2'), true);
+    assert.strictEqual(ids.includes('limite-lineas-nivel-3'), true);
+    assert.strictEqual(ids.includes('limite-lineas-nivel-4'), true);
+  });
+
+  test('cada nivel de limite-lineas tiene disable-file independiente', () => {
+    const cuerpo = Array.from({ length: 1600 }, (_, i) => `pub struct Modelo${i};`).join('\n');
+    const texto = [
+      '/* sentinel-disable-file limite-lineas limite-lineas-nivel-2 limite-lineas-nivel-3 */',
+      cuerpo,
+    ].join('\n');
+
+    const violaciones = analizarEstatico(crearDocumento(texto, 'src/models/hosting.rs'));
+    const ids = violaciones.map(v => v.reglaId);
+
+    assert.strictEqual(ids.includes('limite-lineas'), false);
+    assert.strictEqual(ids.includes('limite-lineas-nivel-2'), false);
+    assert.strictEqual(ids.includes('limite-lineas-nivel-3'), false);
+    assert.strictEqual(ids.includes('limite-lineas-nivel-4'), true);
+  });
 });

@@ -56,7 +56,7 @@ export function contarLineasEfectivas(texto: string, esRust: boolean = false): n
  * Retorna null si no aplica ningun limite especial.
  */
 export interface LimiteArchivo {
-  tipo: 'componente' | 'hook' | 'util' | 'estilo' | 'controlador' | 'servicio' | 'repositorio';
+  tipo: 'componente' | 'hook' | 'util' | 'estilo' | 'controlador' | 'servicio' | 'repositorio' | 'modelo';
   limite: number;
 }
 
@@ -161,7 +161,7 @@ export function obtenerLimiteArchivo(nombreArchivo: string, rutaArchivo: string)
     }
 
     if (rutaLower.includes('/models/')) {
-      return { tipo: 'componente', limite: 300 };
+      return { tipo: 'modelo', limite: 300 };
     }
 
     return { tipo: 'servicio', limite: 500 };

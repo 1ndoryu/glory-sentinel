@@ -50,6 +50,7 @@ Estas son las reglas que la IA debe verificar en cada archivo. Edita este archiv
 ## General (todos los archivos)
 
 - [archivo-monolito] Ningun archivo debe superar 300 lineas (componentes/estilos), 120 lineas (hooks) o 150 lineas (utils). Si supera el limite, marcar como violacion.
+- [limite-lineas-nivel-2/3/4] Si un archivo duplica, triplica o quintuplica su limite, reportar una regla distinta. `sentinel-disable-file limite-lineas` solo calla el primer aviso; cada nivel grave exige su propio ID para que el bypass sea una decision consciente.
 - [directorio-abarrotado] Directorios con mas de 10 archivos se marcan como warning. Excepciones: agregar nombre del directorio a `codeSentinel.directoryExceptions` en settings.json, o `sentinel-disable-file directorio-abarrotado` en el archivo. Directorios de infra (node_modules, target, .git, dist, build) excluidos automaticamente.
 - [srp-violado] Cada archivo debe tener una unica responsabilidad. Si mezcla logica de dominio con presentacion, o multiples features distintas, es violacion.
 - [import-sin-usar] Imports que no se usan en el archivo son violacion.
@@ -64,4 +65,4 @@ Estas son las reglas que la IA debe verificar en cada archivo. Edita este archiv
 - [handler-accede-bd-rs] Handlers Rust NO deben hacer `sqlx::query` directamente. La logica de datos va en repositorios (DIP). Aplica solo a archivos en `handlers/`.
 - [funcion-larga-rs] Funciones Rust no deben exceder 100 lineas efectivas (excluyendo comentarios y lineas vacias). Dividir en funciones auxiliares.
 - [parametros-excesivos-rs] Funciones Rust con mas de 5 parametros (excluyendo &self) deben agrupar parametros en struct. Severidad: hint.
-- [limite-lineas-rs] Archivos .rs tienen limites por capa: handlers 500, services 500, repositories 400, models 300, general 500. Excluidos: bin/, migrations/, examples/. Bypass: `sentinel-disable-file limite-lineas`.
+- [limite-lineas-rs] Archivos .rs tienen limites por capa: handlers 500, services 700, repositories 550, models 300, general 500. Excluidos: bin/, migrations/, examples/. Bypass del primer nivel: `sentinel-disable-file limite-lineas`; niveles 2/3/4 tienen IDs propios y no se silencian con el bypass base.

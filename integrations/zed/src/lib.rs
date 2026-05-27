@@ -1,10 +1,14 @@
-use std::{env, fs, path::Path};
+use std::{env, path::Path};
 use zed_extension_api::{self as zed, LanguageServerId, Result};
 
 const LANGUAGE_SERVER_ID: &str = "sentinel-lsp";
 const BINARY_NAME: &str = "sentinel-lsp";
 const ENV_SERVER_PATH: &str = "SENTINEL_LSP_PATH";
-const DEV_SERVER_PATH: &str = "../../out/lsp/server.js";
+
+/* [22A-2] La extension WASM no puede hacer fs::metadata a paths absolutos
+ * (sandbox WASI preview 2). Pero zed::Command corre fuera del sandbox, asi
+ * que retornamos el path absoluto (CARGO_MANIFEST_DIR) sin verificacion.
+ * El shim lsp.launch.js usa Node.js require() que resuelve libremente. */
 
 struct GlorySentinelExtension;
 
@@ -30,12 +34,17 @@ impl GlorySentinelExtension {
     }
 
     fn local_dev_server_path() -> Option<String> {
-        let server_path = env::current_dir().ok()?.join(DEV_SERVER_PATH);
-        if fs::metadata(&server_path).is_ok_and(|metadata| metadata.is_file()) {
-            Some(server_path.to_string_lossy().to_string())
-        } else {
-            None
-        }
+        // Usamos CARGO_MANIFEST_DIR (compile-time) para path absoluto al shim.
+        // No verificamos existencia con fs::metadata porque el sandbox WASI
+        // bloquea acceso a paths fuera de directorios pre-abiertos.
+        // Pero zed::Command corre fuera del sandbox, asi que el path funciona
+        // aunque la extension WASM no pueda hacer stat().
+        Some(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("lsp.launch.js")
+                .to_string_lossy()
+                .to_string(),
+        )
     }
 }
 
@@ -69,11 +78,16 @@ impl zed::Extension for GlorySentinelExtension {
         }
 
         Err(format!(
-            "Could not find {BINARY_NAME}. Install Glory Sentinel on PATH, set {ENV_SERVER_PATH}, or run `npm run compile` in the Glory Sentinel repo before loading the dev integration."
+            "Could not find {BINARY_NAME}. \
+             Use `npm run compile` in the Glory Sentinel repo, \
+             set {ENV_SERVER_PATH}=<path>, or add sentinel-lsp to PATH. \
+             Expected shim at: lsp.launch.js"
         ))
     }
 }
 
 /* [105A-1] La integracion Zed solo localiza y lanza sentinel-lsp.
- * Gotcha: Zed no debe duplicar reglas ni empaquetar el LSP; usa PATH, SENTINEL_LSP_PATH o el out local de desarrollo. */
+ * Fix [22A-2]: retorna path absoluto (CARGO_MANIFEST_DIR/lsp.launch.js)
+ * sin fs::metadata. zed::Command corre fuera de sandbox WASI, el path
+ * funciona aunque la extension WASM no pueda stat()lo. */
 zed::register_extension!(GlorySentinelExtension);

@@ -41,7 +41,7 @@ const REGISTRO: DefinicionRegla[] = [
 
   /* --- Regex (defaultRules.ts) --- */
   { id: 'php-supresor-at', nombre: 'Supresor @ en PHP', severidadDefault: 'error', categoria: CategoriaRegla.PatronesProhibidos },
-  { id: 'eval-prohibido', nombre: 'eval() prohibido', severidadDefault: 'error', categoria: CategoriaRegla.PatronesProhibidos },
+  { id: 'eval-prohibido', nombre: 'eval prohibido', severidadDefault: 'error', categoria: CategoriaRegla.PatronesProhibidos },
   { id: 'innerhtml-variable', nombre: 'innerHTML con variable', severidadDefault: 'warning', categoria: CategoriaRegla.PatronesProhibidos },
   /* css-inline-jsx eliminada: VarSense ya maneja deteccion de CSS inline en React */
   { id: 'git-add-all', nombre: 'git add . / --all', severidadDefault: 'warning', categoria: CategoriaRegla.PatronesProhibidos },
@@ -52,6 +52,9 @@ const REGISTRO: DefinicionRegla[] = [
 
   /* --- Computed (staticAnalyzer.ts) --- */
   { id: 'limite-lineas', nombre: 'Limite de lineas', severidadDefault: 'warning', categoria: CategoriaRegla.LimitesArchivo },
+  { id: 'limite-lineas-nivel-2', nombre: 'Limite de lineas nivel 2', severidadDefault: 'warning', categoria: CategoriaRegla.LimitesArchivo },
+  { id: 'limite-lineas-nivel-3', nombre: 'Limite de lineas nivel 3', severidadDefault: 'error', categoria: CategoriaRegla.LimitesArchivo },
+  { id: 'limite-lineas-nivel-4', nombre: 'Limite de lineas nivel 4', severidadDefault: 'error', categoria: CategoriaRegla.LimitesArchivo },
   { id: 'usestate-excesivo', nombre: 'useState excesivo', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
   { id: 'import-muerto', nombre: 'Import sin uso', severidadDefault: 'warning', categoria: CategoriaRegla.EstructuraNomenclatura },
 

@@ -10,7 +10,7 @@ import {reglasEstaticas} from '../config/defaultRules';
 import {reglaHabilitada, obtenerSeveridadRegla} from '../config/ruleRegistry';
 
 /* Submodulos */
-import {verificarLimiteLineas, verificarUseStateExcesivo, verificarImportsMuertos, verificarAnyType, verificarNonNullAssertion, verificarDirectorioAbarrotado} from './static/staticCodeRules';
+import {REGLAS_LIMITE_LINEAS, verificarLimiteLineas, verificarUseStateExcesivo, verificarImportsMuertos, verificarAnyType, verificarNonNullAssertion, verificarDirectorioAbarrotado} from './static/staticCodeRules';
 import {verificarCardIconoExtiendeBase, verificarCssAdhocButtonStyle, verificarCssEspecificacionDisenoLocal, verificarModalSemanticaNoCanonica, verificarNomenclaturaCssIngles, verificarCssElementoHTMLDirecto} from './static/staticCssRules';
 
 /* [124A-FP1] Deduplicacion de directorio-abarrotado: se reporta 1 vez por
@@ -90,7 +90,7 @@ export function analizarEstatico(
     }
 
     /* Limites de lineas (excluir Glory/) */
-    if (reglaHabilitada('limite-lineas')) {
+    if (REGLAS_LIMITE_LINEAS.some(reglaId => reglaHabilitada(reglaId))) {
         const rutaNormLimite = documento.fileName.replace(/\\/g, '/');
         if (!rutaNormLimite.includes('/Glory/')) {
             violaciones.push(...verificarLimiteLineas(documento, nombreArchivo));
