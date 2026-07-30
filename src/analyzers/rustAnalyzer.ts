@@ -67,6 +67,14 @@ export function analizarRust(documento: CoreTextDocument): Violacion[] {
     violaciones.push(...analizarFunciones(lineas, rangoTests, texto));
   }
 
+  /* [096A] Paso 5: broadcast::Mutex — detectar uso de tokio::sync::broadcast
+   * broadcast::Sender::send() usa std::sync::Mutex interno. Bajo contencion
+   * (multiples sends al mismo canal), bloquea OS threads de tokio workers.
+   * Incidente 096A: 15+ caidas, 13 fixes, root cause fue este Mutex. */
+  if (reglaHabilitada('broadcast-mutex-riesgo-rs')) {
+    violaciones.push(...detectarBroadcastMutex(lineas, rangoTests, texto));
+  }
+
   return violaciones;
 }
 
@@ -441,4 +449,81 @@ function medirLongitudFuncion(lineas: string[], inicio: number): number {
   }
 
   return lineasEfectivas;
+}
+
+/* [096A] Detecta uso de tokio::sync::broadcast que usa std::sync::Mutex interno.
+ *
+ * broadcast::Sender::send() adquiere un Mutex en cada envio. Con multiples
+ * sends concurrentes al mismo canal, los tokio workers se bloquean en futex_wait
+ * hasta congelar el runtime completo (incidente 096A: 15+ caidas, 13 fixes).
+ *
+ * Patron prohibido:
+ *   use tokio::sync::broadcast;         // import
+ *   let (tx, rx) = broadcast::channel(N); // creacion
+ *   tx.send(msg);                        // send con Mutex interno
+ *
+ * Solucion: mpsc::unbounded_channel por suscriptor (lock-free):
+ *   use tokio::sync::mpsc;
+ *   let (tx, rx) = mpsc::unbounded_channel();  // lock-free
+ *   tx.send(msg).ok();                          // nunca bloquea
+ */
+function detectarBroadcastMutex(
+  lineas: string[],
+  rangoTests: Set<number>,
+  texto: string,
+): Violacion[] {
+  if (texto.includes('sentinel-disable-file broadcast-mutex-riesgo-rs')) {
+    return [];
+  }
+
+  const violaciones: Violacion[] = [];
+
+  /* Patrones a detectar:
+   * 1. `use tokio::sync::broadcast` — import del modulo
+   * 2. `broadcast::channel(` — creacion de canal
+   * 3. `broadcast::Sender` o `broadcast::Receiver` — anotaciones de tipo */
+  const patrones: { regex: RegExp; descripcion: string }[] = [
+    { regex: /\buse\s+tokio::sync::broadcast\b/, descripcion: 'import de broadcast' },
+    { regex: /\bbroadcast::channel\s*[<(]/, descripcion: 'creacion de canal broadcast' },
+    { regex: /\bbroadcast::Sender\b/, descripcion: 'tipo broadcast::Sender' },
+    { regex: /\bbroadcast::Receiver\b/, descripcion: 'tipo broadcast::Receiver' },
+  ];
+
+  for (let i = 0; i < lineas.length; i++) {
+    if (rangoTests.has(i)) { continue; }
+
+    const linea = lineas[i];
+    const trimmed = linea.trim();
+
+    /* Saltar comentarios */
+    if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) {
+      continue;
+    }
+
+    /* Saltar lineas con sentinel-disable */
+    if (i > 0 && lineas[i - 1].includes('sentinel-disable-next-line broadcast-mutex-riesgo-rs')) {
+      continue;
+    }
+    if (linea.includes('sentinel-disable broadcast-mutex-riesgo-rs')) {
+      continue;
+    }
+
+    for (const patron of patrones) {
+      const match = patron.regex.exec(linea);
+      if (match) {
+        violaciones.push({
+          reglaId: 'broadcast-mutex-riesgo-rs',
+          mensaje: `tokio::sync::broadcast detectado (${patron.descripcion}). broadcast::Sender::send() usa std::sync::Mutex interno — bloquea tokio workers bajo contencion. Usar mpsc::unbounded_channel por suscriptor (lock-free). Incidente 096A.`,
+          severidad: obtenerSeveridadRegla('broadcast-mutex-riesgo-rs'),
+          linea: i,
+          columna: match.index,
+          columnaFin: match.index + match[0].length,
+          fuente: 'estatico',
+        });
+        break; /* Solo una violacion por linea */
+      }
+    }
+  }
+
+  return violaciones;
 }

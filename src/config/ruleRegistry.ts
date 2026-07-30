@@ -205,6 +205,10 @@ const REGISTRO: DefinicionRegla[] = [
   { id: 'handler-accede-bd-rs', nombre: 'Handler Rust accede BD directamente', severidadDefault: 'warning', categoria: CategoriaRegla.RustPatrones },
   { id: 'funcion-larga-rs', nombre: 'Funcion Rust excede 100 lineas', severidadDefault: 'warning', categoria: CategoriaRegla.RustPatrones },
   { id: 'parametros-excesivos-rs', nombre: 'Funcion Rust con 9+ parametros', severidadDefault: 'hint', categoria: CategoriaRegla.RustPatrones },
+  /* [096A] broadcast::Sender::send() usa std::sync::Mutex interno. Bajo contencion,
+   * bloquea los tokio workers y congela el runtime completo.
+   * Usar mpsc::unbounded_channel por suscriptor (lock-free) en su lugar. */
+  { id: 'broadcast-mutex-riesgo-rs', nombre: 'tokio::sync::broadcast usa Mutex interno', severidadDefault: 'error', categoria: CategoriaRegla.RustPatrones },
 
   /* --- Organizacion de directorios (staticCodeRules.ts) --- */
   { id: 'directorio-abarrotado', nombre: 'Directorio con demasiados archivos', severidadDefault: 'warning', categoria: CategoriaRegla.LimitesArchivo },
@@ -293,4 +297,8 @@ export function obtenerTodasLasReglas(): Array<DefinicionRegla & ConfigReglaEfec
     habilitada: cache.get(r.id)?.habilitada ?? true,
     severidad: cache.get(r.id)?.severidad ?? r.severidadDefault,
   }));
+}
+
+export function obtenerIdsReglas(): Set<string> {
+  return new Set(REGISTRO.map(regla => regla.id));
 }

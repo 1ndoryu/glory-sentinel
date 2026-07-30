@@ -7,6 +7,7 @@ import { analyzeDocument } from '../core/analyzeDocument';
 import {
   buildCoreConfig,
   SentinelConfigFile,
+  validateSentinelConfig,
 } from '../core/config';
 import { generarReporteMarkdown, CoreReportEntry } from '../core/report';
 import { CoreAnalysisConfig, createCoreDocument } from '../core/types';
@@ -24,6 +25,7 @@ export interface ParsedCliArgs {
   command: 'analyze';
   workspacePath?: string;
   filePath?: string;
+  filesFromPath?: string;
   format: CliFormat;
   outputPath?: string;
   configPath?: string;
@@ -33,20 +35,28 @@ export interface CliAnalysisResult {
   entries: CoreReportEntry[];
   totalArchivos: number;
   hasErrors: boolean;
+  durationMs: number;
 }
+
+export const SENTINEL_JSON_SCHEMA_VERSION = '1';
 
 function usage(): string {
   return [
     'Uso:',
     '  sentinel analyze --workspace . --format markdown --output .sentinel-report.md',
     '  sentinel analyze --file src/app.ts --format json',
+    '  sentinel analyze --workspace . --files-from .changed-files --format json',
+    '  sentinel --version',
     '',
     'Opciones:',
     '  --workspace <path>  Analiza un workspace. Por defecto: cwd',
     '  --file <path>       Analiza un archivo puntual',
+    '  --files-from <path> Lee archivos relativos al workspace, uno por linea',
     '  --format <type>     markdown | json. Por defecto: markdown',
     '  --output <path>     Escribe salida en archivo; si falta, imprime en stdout',
     '  --config <path>     Carga sentinel.config.json',
+    '  --help              Muestra esta ayuda',
+    '  --version           Muestra la version instalada',
   ].join('\n');
 }
 
@@ -80,6 +90,10 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
         parsed.filePath = takeValue(args, index, arg);
         index++;
         break;
+      case '--files-from':
+        parsed.filesFromPath = takeValue(args, index, arg);
+        index++;
+        break;
       case '--format': {
         const value = takeValue(args, index, arg);
         if (value !== 'markdown' && value !== 'json') {
@@ -105,8 +119,8 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
     }
   }
 
-  if (parsed.filePath && parsed.workspacePath) {
-    throw new Error('Usa --file o --workspace, no ambos');
+  if (parsed.filePath && (parsed.workspacePath || parsed.filesFromPath)) {
+    throw new Error('Usa --file o --files-from/--workspace, no ambos');
   }
 
   parsed.workspacePath ??= process.cwd();
@@ -132,7 +146,9 @@ async function readConfig(configPath?: string, workspacePath?: string): Promise<
   }
 
   const raw = await fs.readFile(candidate, 'utf8');
-  return JSON.parse(raw) as SentinelCliConfigFile;
+  const parsed: unknown = JSON.parse(raw);
+  validateSentinelConfig(parsed);
+  return parsed;
 }
 
 function normalizarRuta(ruta: string): string {
@@ -194,7 +210,39 @@ async function analyzeFile(filePath: string, rootPath: string, config: CoreAnaly
   };
 }
 
+async function collectFilesFromList(
+  listPath: string,
+  workspacePath: string,
+  config: CoreAnalysisConfig,
+): Promise<string[]> {
+  const raw = await fs.readFile(path.resolve(listPath), 'utf8');
+  const files = new Set<string>();
+
+  for (const line of raw.split(/\r?\n/)) {
+    const candidate = line.trim();
+    if (!candidate || candidate.startsWith('#')) {
+      continue;
+    }
+    const absolutePath = path.resolve(workspacePath, candidate);
+    const relativePath = normalizarRuta(path.relative(workspacePath, absolutePath));
+    if (relativePath === '..' || relativePath.startsWith('../') || path.isAbsolute(relativePath)) {
+      throw new Error(`--files-from contiene una ruta fuera del workspace: ${candidate}`);
+    }
+    if (!matchesAny(relativePath, config.includePatterns) || matchesAny(relativePath, config.excludePatterns)) {
+      continue;
+    }
+    const stat = await fs.stat(absolutePath);
+    if (!stat.isFile()) {
+      throw new Error(`--files-from no apunta a un archivo: ${candidate}`);
+    }
+    files.add(absolutePath);
+  }
+
+  return [...files].sort();
+}
+
 export async function analyzeCliTarget(args: ParsedCliArgs): Promise<CliAnalysisResult> {
+  const startedAt = Date.now();
   const workspacePath = path.resolve(args.workspacePath ?? process.cwd());
   const configFile = await readConfig(args.configPath, workspacePath);
   const config = buildCoreConfig(configFile);
@@ -202,7 +250,9 @@ export async function analyzeCliTarget(args: ParsedCliArgs): Promise<CliAnalysis
 
   const files = args.filePath
     ? [path.resolve(args.filePath)]
-    : await collectFiles(workspacePath, config);
+    : args.filesFromPath
+      ? await collectFilesFromList(args.filesFromPath, workspacePath, config)
+      : await collectFiles(workspacePath, config);
 
   const entries: CoreReportEntry[] = [];
   for (const filePath of files) {
@@ -216,12 +266,26 @@ export async function analyzeCliTarget(args: ParsedCliArgs): Promise<CliAnalysis
     entries,
     totalArchivos: files.length,
     hasErrors: entries.some(entry => entry.findings.some(finding => finding.severity === 'error')),
+    durationMs: Date.now() - startedAt,
   };
 }
 
-function renderOutput(result: CliAnalysisResult, args: ParsedCliArgs): string {
+function severityCounts(result: CliAnalysisResult): Record<string, number> {
+  const counts: Record<string, number> = { error: 0, warning: 0, information: 0, hint: 0 };
+  for (const finding of result.entries.flatMap(entry => entry.findings)) {
+    counts[finding.severity] = (counts[finding.severity] ?? 0) + 1;
+  }
+  return counts;
+}
+
+function renderOutput(result: CliAnalysisResult, args: ParsedCliArgs, toolVersion: string): string {
   if (args.format === 'json') {
     return `${JSON.stringify({
+      schemaVersion: SENTINEL_JSON_SCHEMA_VERSION,
+      tool: { name: 'glory-sentinel', version: toolVersion },
+      scope: args.filePath ? 'file' : args.filesFromPath ? 'files' : 'workspace',
+      durationMs: result.durationMs,
+      severityCounts: severityCounts(result),
       totalArchivos: result.totalArchivos,
       totalArchivosConViolaciones: result.entries.length,
       entries: result.entries,
@@ -233,6 +297,15 @@ function renderOutput(result: CliAnalysisResult, args: ParsedCliArgs): string {
     totalArchivos: result.totalArchivos,
     rutaBase: path.resolve(args.workspacePath ?? process.cwd()),
   })}\n`;
+}
+
+async function readPackageVersion(): Promise<string> {
+  const packagePath = path.resolve(__dirname, '../../package.json');
+  const packageJson = JSON.parse(await fs.readFile(packagePath, 'utf8')) as { version?: unknown };
+  if (typeof packageJson.version !== 'string') {
+    throw new Error('package.json no contiene una version valida');
+  }
+  return packageJson.version;
 }
 
 async function writeOrPrint(output: string, outputPath?: string): Promise<void> {
@@ -250,9 +323,18 @@ export async function runCli(rawArgs: string[]): Promise<number> {
   /* [085A-3] CLI real de reportes sobre el core editor-agnostico.
    * Gotcha: los smoke tests deben ejecutar el JS compilado porque los mocks unitarios de VS Code pueden ocultar imports indirectos de `vscode` en Node puro.
    * Pendiente: agregar fixtures de equivalencia CLI/core en Fase 4. */
+  if (rawArgs.length === 1 && (rawArgs[0] === '--help' || rawArgs[0] === '-h')) {
+    process.stdout.write(`${usage()}\n`);
+    return 0;
+  }
+  if (rawArgs.length === 1 && rawArgs[0] === '--version') {
+    process.stdout.write(`${await readPackageVersion()}\n`);
+    return 0;
+  }
+
   const args = parseCliArgs(rawArgs);
   const result = await analyzeCliTarget(args);
-  await writeOrPrint(renderOutput(result, args), args.outputPath);
+  await writeOrPrint(renderOutput(result, args, await readPackageVersion()), args.outputPath);
   return result.hasErrors ? 1 : 0;
 }
 

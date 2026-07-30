@@ -1,6 +1,16 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
+## [0.4.0] - 2026-07-29
+
+### Agregado
+- Contrato CLI automatizable con `--files-from`, `--help`, `--version` y JSON versionado con conteos por severidad.
+- Validación estricta de `sentinel.config.json`, incluyendo reglas y claves desconocidas.
+- Pruebas de alcance incremental y seguridad de rutas.
+
+### Mejorado
+- El núcleo permanece agnóstico; las políticas específicas de cada consumidor se declaran en su configuración local.
+
 ## [0.2.4] - 2026-05-09
 
 ### Mejorado
