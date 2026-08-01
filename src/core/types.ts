@@ -54,6 +54,12 @@ export interface CoreAnalysisConfig {
   ruleOverrides: Record<string, CoreRuleOverride>;
   directoryExceptions?: string[];
   useConfiguredRuleProvider?: boolean;
+  portableBoundaries?: {
+    dom?: string[];
+    window?: string[];
+    services?: string[];
+    loggerModules?: string[];
+  };
 }
 
 export interface CoreWorkspaceContext {

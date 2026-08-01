@@ -48,6 +48,7 @@ export function analyzeDocument(
 
   violaciones.push(...analizarEstatico(document, undefined, {
     directoryExceptions: config.directoryExceptions ?? [],
+    portableBoundaries: config.portableBoundaries,
   }));
 
   if (tipo === 'php') {

@@ -12,6 +12,7 @@ import {reglaHabilitada, obtenerSeveridadRegla} from '../config/ruleRegistry';
 /* Submodulos */
 import {REGLAS_LIMITE_LINEAS, verificarLimiteLineas, verificarUseStateExcesivo, verificarImportsMuertos, verificarAnyType, verificarNonNullAssertion, verificarDirectorioAbarrotado} from './static/staticCodeRules';
 import {verificarCardIconoExtiendeBase, verificarCssAdhocButtonStyle, verificarCssEspecificacionDisenoLocal, verificarModalSemanticaNoCanonica, verificarNomenclaturaCssIngles, verificarCssElementoHTMLDirecto} from './static/staticCssRules';
+import { PortableBoundaryConfig, verificarReglasPortables } from './static/portableRules';
 
 /* [124A-FP1] Deduplicacion de directorio-abarrotado: se reporta 1 vez por
  * directorio por ciclo de analisis, en vez de 1 vez por archivo.
@@ -27,6 +28,7 @@ export function limpiarDirectoriosReportados(): void {
  */
 export interface StaticAnalysisOptions {
     directoryExceptions?: string[];
+    portableBoundaries?: PortableBoundaryConfig;
 }
 
 export function analizarEstatico(
@@ -131,6 +133,10 @@ export function analizarEstatico(
     if (['.ts', '.tsx'].includes(extension) && !nombreArchivo.endsWith('.d.ts') && reglaHabilitada('non-null-assertion-excesivo')) {
         violaciones.push(...verificarNonNullAssertion(texto, documento));
     }
+
+    /* [018A-5] Reglas agnósticas de boundaries/lifecycle. La configuración
+     * aporta los paths del consumidor; el core no conoce rutas del proyecto. */
+    violaciones.push(...verificarReglasPortables(documento, opciones.portableBoundaries));
 
     /* Reglas CSS */
     if (['.css', '.scss'].includes(extension)) {

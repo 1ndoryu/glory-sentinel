@@ -6,6 +6,12 @@ export interface SentinelConfigFile {
   excludePatterns?: string[];
   directoryExceptions?: string[];
   rules?: Record<string, ConfigReglaUsuario>;
+  portableBoundaries?: {
+    dom?: string[];
+    window?: string[];
+    services?: string[];
+    loggerModules?: string[];
+  };
 }
 
 export const DEFAULT_INCLUDE_PATTERNS = [
@@ -33,7 +39,8 @@ export const DEFAULT_EXCLUDE_PATTERNS = [
   '**/scripts/**',
 ];
 
-const CONFIG_KEYS = new Set(['includePatterns', 'excludePatterns', 'directoryExceptions', 'rules']);
+const CONFIG_KEYS = new Set(['includePatterns', 'excludePatterns', 'directoryExceptions', 'rules', 'portableBoundaries']);
+const PORTABLE_BOUNDARY_KEYS = new Set(['dom', 'window', 'services', 'loggerModules']);
 const RULE_KEYS = new Set(['habilitada', 'severidad']);
 const VALID_SEVERITIES = new Set(['error', 'warning', 'information', 'hint']);
 
@@ -58,6 +65,19 @@ export function validateSentinelConfig(value: unknown): asserts value is Sentine
   for (const key of ['includePatterns', 'excludePatterns', 'directoryExceptions'] as const) {
     if (config[key] !== undefined) {
       assertStringArray(config[key], key);
+    }
+  }
+
+  if (config.portableBoundaries !== undefined) {
+    if (!config.portableBoundaries || typeof config.portableBoundaries !== 'object' || Array.isArray(config.portableBoundaries)) {
+      throw new Error("sentinel.config.json: 'portableBoundaries' debe ser un objeto");
+    }
+    const boundaries = config.portableBoundaries as Record<string, unknown>;
+    for (const key of Object.keys(boundaries)) {
+      if (!PORTABLE_BOUNDARY_KEYS.has(key)) {
+        throw new Error(`sentinel.config.json: clave desconocida 'portableBoundaries.${key}'`);
+      }
+      assertStringArray(boundaries[key], `portableBoundaries.${key}`);
     }
   }
 
@@ -107,5 +127,6 @@ export function buildCoreConfig(config: SentinelConfigFile): CoreAnalysisConfig 
       }])
     ),
     useConfiguredRuleProvider: false,
+    portableBoundaries: config.portableBoundaries,
   };
 }

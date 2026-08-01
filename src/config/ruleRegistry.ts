@@ -216,6 +216,17 @@ const REGISTRO: DefinicionRegla[] = [
 
   /* --- Organizacion de directorios (staticCodeRules.ts) --- */
   { id: 'directorio-abarrotado', nombre: 'Directorio con demasiados archivos', severidadDefault: 'warning', categoria: CategoriaRegla.LimitesArchivo },
+
+  /* --- Reglas portables de arquitectura (018A-5) --- */
+  { id: 'dom-access-outside-platform', nombre: 'DOM fuera de plataforma', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
+  { id: 'window-reference-outside-platform', nombre: 'Window fuera de plataforma', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
+  { id: 'api-call-outside-service', nombre: 'API fuera de servicio', severidadDefault: 'warning', categoria: CategoriaRegla.GlorySchema },
+  { id: 'console-production', nombre: 'Console en producción', severidadDefault: 'warning', categoria: CategoriaRegla.PatronesProhibidos },
+  { id: 'unsafe-process-shell', nombre: 'Proceso shell inseguro', severidadDefault: 'error', categoria: CategoriaRegla.PatronesProhibidos },
+  { id: 'default-export', nombre: 'Default export', severidadDefault: 'hint', habilitadaDefault: false, categoria: CategoriaRegla.EstructuraNomenclatura },
+  { id: 'singleton-mutable-state', nombre: 'Singleton mutable', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
+  { id: 'mixed-barrel-logic', nombre: 'Barrel con lógica', severidadDefault: 'warning', categoria: CategoriaRegla.EstructuraNomenclatura },
+  { id: 'large-interface-isp', nombre: 'Interface grande ISP', severidadDefault: 'hint', categoria: CategoriaRegla.EstructuraNomenclatura },
 ];
 
 /* Cache de configuracion: se construye lazily al primer acceso */
