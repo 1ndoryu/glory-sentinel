@@ -34,6 +34,10 @@ export interface CoreFinding {
   range: CoreRange;
   source: string;
   suggestion?: string;
+  remediation?: string;
+  confidence?: number;
+  docsUrl?: string;
+  analyzerVersion?: string;
   quickFixId?: string;
   metadata?: Record<string, unknown>;
 }

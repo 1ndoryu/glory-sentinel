@@ -19,6 +19,9 @@ export function violacionToCoreFinding(violacion: Violacion, document: CoreTextD
     range: createCoreRange(lineaInicio, colInicio, lineaFin, colFin),
     source: FUENTE_ESTATICO,
     suggestion: violacion.sugerencia,
+    remediation: violacion.sugerencia,
+    confidence: violacion.severidad === 'error' ? 0.95 : violacion.severidad === 'warning' ? 0.8 : 0.6,
+    analyzerVersion: 'sentinel-core-0.4',
     quickFixId: violacion.quickFixId,
   };
 }
