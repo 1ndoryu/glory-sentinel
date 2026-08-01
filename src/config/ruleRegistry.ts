@@ -209,6 +209,10 @@ const REGISTRO: DefinicionRegla[] = [
    * bloquea los tokio workers y congela el runtime completo.
    * Usar mpsc::unbounded_channel por suscriptor (lock-free) en su lugar. */
   { id: 'broadcast-mutex-riesgo-rs', nombre: 'tokio::sync::broadcast usa Mutex interno', severidadDefault: 'error', categoria: CategoriaRegla.RustPatrones },
+  /* [297A-14] matchit 0.7.3 (resuelto por axum 0.7.9) parsea `:param`, no `{param}`:
+   * `{id}` en .route() se registra como segmento literal y devuelve 404 silencioso.
+   * Los paths de utoipa conservan {id} (templating OpenAPI) y NO deben tocarse. */
+  { id: 'axum-ruta-sintaxis-rs', nombre: 'Ruta axum con {param} en vez de :param', severidadDefault: 'error', categoria: CategoriaRegla.RustPatrones },
 
   /* --- Organizacion de directorios (staticCodeRules.ts) --- */
   { id: 'directorio-abarrotado', nombre: 'Directorio con demasiados archivos', severidadDefault: 'warning', categoria: CategoriaRegla.LimitesArchivo },

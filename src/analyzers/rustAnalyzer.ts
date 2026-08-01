@@ -10,6 +10,7 @@
  * - handler-accede-bd-rs: sqlx::query en handlers/ (viola DIP)
  * - funcion-larga-rs: funciones > 100 lineas efectivas
  * - parametros-excesivos-rs: funciones con 6+ parametros
+ * - axum-ruta-sintaxis-rs: {param} en .route() de axum (matchit 0.7.3 usa :param)
  */
 
 import { Violacion } from '../types';
@@ -73,6 +74,13 @@ export function analizarRust(documento: CoreTextDocument): Violacion[] {
    * Incidente 096A: 15+ caidas, 13 fixes, root cause fue este Mutex. */
   if (reglaHabilitada('broadcast-mutex-riesgo-rs')) {
     violaciones.push(...detectarBroadcastMutex(lineas, rangoTests, texto));
+  }
+
+  /* [297A-14] Paso 6: sintaxis de parametros de ruta axum.
+   * matchit 0.7.3 (resuelto por axum 0.7.9) parsea `:param`, no `{param}`:
+   * `{id}` se registra como segmento literal y devuelve 404 silencioso. */
+  if (reglaHabilitada('axum-ruta-sintaxis-rs')) {
+    violaciones.push(...detectarRutaParametroSintaxis(lineas, texto));
   }
 
   return violaciones;
@@ -527,3 +535,71 @@ function detectarBroadcastMutex(
 
   return violaciones;
 }
+
+/* [297A-14] Detecta `{param}` dentro de .route("...") de axum.
+ *
+ * matchit 0.7.3 (resuelto por axum 0.7.9) parsea parametros con `:param`;
+ * `{id}` se registra como segmento literal y el endpoint devuelve 404
+ * silencioso (sin error de compilacion). Caso real: todas las rutas
+ * `{id}`/`{slug}`/`{version}` del backend estuvieron rotas.
+ *
+ * Los paths de utoipa (`path = "/api/articles/{id}"`) NO se flaggean:
+ * usan {id} por ser templating OpenAPI (docs), no routing.
+ *
+ * Solucion: .route("/users/:id", ...) — y dejar {id} solo en utoipa::path. */
+function detectarRutaParametroSintaxis(
+  lineas: string[],
+  texto: string,
+): Violacion[] {
+  if (texto.includes('sentinel-disable-file axum-ruta-sintaxis-rs')) {
+    return [];
+  }
+
+  const violaciones: Violacion[] = [];
+  /* Captura la llamada .route( (permite multilinea: .route(\n " ... ")) */
+  const patronRuta = /\.route\(\s*"([^"]*)"/g;
+
+  let match: RegExpExecArray | null;
+  while ((match = patronRuta.exec(texto)) !== null) {
+    const ruta = match[1];
+
+    /* Solo interesa si el path contiene un parametro entre llaves */
+    if (!/\{[a-zA-Z_][a-zA-Z0-9_]*\}/.test(ruta)) {
+      continue;
+    }
+
+    const indiceInicio = match.index;
+    const lineaIndex = texto.slice(0, indiceInicio).split('\n').length - 1;
+    const ultimoSalto = texto.lastIndexOf('\n', indiceInicio - 1);
+    const columnaInicio = indiceInicio - ultimoSalto - 1;
+    const linea = lineas[lineaIndex] ?? '';
+    const trimmed = linea.trim();
+
+    /* Saltar ejemplos dentro de comentarios */
+    if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) {
+      continue;
+    }
+
+    /* Saltar sentinel-disable */
+    if (lineaIndex > 0
+      && lineas[lineaIndex - 1].includes('sentinel-disable-next-line axum-ruta-sintaxis-rs')) {
+      continue;
+    }
+    if (linea.includes('sentinel-disable axum-ruta-sintaxis-rs')) {
+      continue;
+    }
+
+    violaciones.push({
+      reglaId: 'axum-ruta-sintaxis-rs',
+      mensaje: 'Ruta axum con {param}: esta version de matchit (0.7.3) parsea `:param`; {id} devuelve 404 silencioso. Usar :id en .route() (utoipa::path conserva {id} por ser OpenAPI).',
+      severidad: obtenerSeveridadRegla('axum-ruta-sintaxis-rs'),
+      linea: lineaIndex,
+      columna: columnaInicio,
+      columnaFin: columnaInicio + match[0].split('\n')[0].length,
+      fuente: 'estatico',
+    });
+  }
+
+  return violaciones;
+}
+

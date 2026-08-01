@@ -21,6 +21,7 @@ interface EquivalenceFixture {
 const fixtures: EquivalenceFixture[] = [
   { name: 'PHP wpdb sin prepare', directory: 'php-wpdb-sin-prepare', fileName: 'sample.php' },
   { name: 'Rust unwrap produccion', directory: 'rust-unwrap-produccion', fileName: 'sample.rs' },
+  { name: 'Rust ruta axum {param}', directory: 'rust-ruta-axum-sintaxis', fileName: 'sample.rs' },
   { name: 'React Zustand selector', directory: 'react-zustand-selector', fileName: 'StorePanel.tsx' },
 ];
 
@@ -32,7 +33,10 @@ function resumirFindings(findings: CoreFinding[], expectedRuleIds: Set<string>):
       severity: finding.severity,
       line: finding.range.start.line,
     }))
-    .sort((a, b) => `${a.ruleId}:${a.line}`.localeCompare(`${b.ruleId}:${b.line}`));
+        /* [297A-14] Orden numerico por linea para hallazgos de la misma regla:
+     * localeCompare sobre `ruleId:line` compara cadenas y "10" < "9"
+     * (bug latente que invertia fixtures con 2+ hallazgos de la misma regla). */
+    .sort((a, b) => (a.ruleId === b.ruleId ? a.line - b.line : a.ruleId.localeCompare(b.ruleId)));
 }
 
 suite('Sentinel equivalencia core vs CLI', () => {

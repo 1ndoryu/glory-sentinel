@@ -1,0 +1,4 @@
+[
+  { "ruleId": "axum-ruta-sintaxis-rs", "severity": "error", "line": 9 },
+  { "ruleId": "axum-ruta-sintaxis-rs", "severity": "error", "line": 10 }
+]
