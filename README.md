@@ -2,80 +2,146 @@
 
 ![Portada Glory Sentinel](media/7599515f2b8981a49a057e0e9a75b8b6.jpg)
 
-Glory Sentinel es una extensión de VS Code para auditoría continua de calidad de código.
-Combina reglas estáticas instantáneas con análisis IA para detectar problemas reales de arquitectura, seguridad y mantenimiento.
+Glory Sentinel (Code Sentinel) es el plano de control de calidad agnóstico del ecosistema Glory: una extensión de VS Code, un CLI y un LSP con reglas estáticas que detectan problemas reales de arquitectura, seguridad y mantenimiento en Rust, PHP/WordPress, React/TypeScript y CSS.
+
+> **v0.4.0 eliminó el análisis IA.** Toda la detección es estática y determinista: no requiere red, claves, modelo externo ni backend. CLI, LSP y VS Code consumen el mismo motor (`src/core`) y el mismo registro de reglas (`src/config/ruleRegistry.ts`), de modo que producen hallazgos equivalentes.
 
 ## ¿Qué resuelve?
 
 - Detecta violaciones de seguridad y robustez antes de que lleguen a producción.
 - Señala deuda técnica estructural (archivos monolito, SRP, malas prácticas recurrentes).
 - Aporta feedback rápido mientras editas, sin depender de una revisión manual completa.
+- Es el orquestador del quality gate (`npm run task:check` en wandori.us) y, a futuro, `sentinel check/guard/doctor` como plano global (ver `plan-global-quality-guard-agnostico-2026-08-02.md`).
 
-## Capacidades
+## Superficies
 
-### 1) Análisis estático en tiempo real
+| Superficie | Descripción |
+|------------|-------------|
+| **Extensión VS Code** | Diagnósticos en vivo mientras editas (PHP, TS/TSX, JS, CSS/SCSS, Rust) |
+| **CLI `sentinel`** | `sentinel analyze` con salida Markdown/JSON y soporte `--files-from` para alcance incremental |
+| **LSP `sentinel-lsp`** | Servidor stdio editor-agnóstico; integrable en Zed u otros editores |
 
-- Límites de tamaño por tipo de archivo (componentes, hooks, utils).
-- Patrones prohibidos (`eval`, supresores `@`, catches vacíos, secretos hardcodeados).
-- SQL seguro: detecta `$wpdb->query/get_var/get_row/get_results` sin `prepare()`, con lógica contextual que excluye transacciones, DDL, `prepare()` anidado como argumento y queries sin parámetros de usuario.
-- Ejecución de procesos: detecta `exec()`/`shell_exec()` sin `escapeshellarg()`, excluyendo `proc_open()` con array (seguro por diseño en PHP 7.4+).
-- Reglas React/TS (mutación directa de estado, efectos sin cleanup, exceso de `useState`).
-- Reglas PHP/WordPress (controllers sin try-catch, `json_decode` inseguro, inputs sin filtrar, `curl_exec` sin verificación, archivos temporales sin `finally`).
+## Análisis estático en tiempo real
 
-### 2) Análisis IA contextual
+- Límites de tamaño por tipo de archivo (componentes, hooks, utils) y directorios abarrotados.
+- Patrones prohibidos (`eval`, supresores `@`, catches vacíos, secretos hardcodeados, `git add .`).
+- SQL seguro: `$wpdb->query/get_var/get_row/get_results` sin `prepare()`, TOCTOU select-insert, N+1, `SELECT *` sin whitelist de columnas.
+- Ejecución de procesos: `exec()`/`shell_exec()` sin `escapeshellarg()`; procesos externos con `shell:true` o argumentos concatenados.
+- Reglas React/TS (mutación directa de estado, efectos sin cleanup, exceso de `useState`, Zustand sin selector, modales/menús artesanales).
+- Reglas PHP/WordPress (controllers sin try-catch, `json_decode` inseguro, inputs sin filtrar, `curl_exec` sin verificación, archivos temporales y locks sin `finally`).
+- Reglas Rust SOLID (`unwrap()`/`panic!` en producción, handlers que acceden a BD, `broadcast::Sender` bajo contención, rutas axum con `{param}` en vez de `:param`).
+- Reglas portables de arquitectura configuradas por boundaries (DOM/window/API/logger fuera de su capa).
+- Contrato API: mismatch de claves y de shape PHP↔TS que causan `h.map is not a function` en React.
+- Glory Schema: claves incorrectas en `DefaultContentManager::define()` que producen pérdida silenciosa de datos.
 
-- Detección de violaciones semánticas que un regex no puede capturar.
-- Revisión de separación lógica/vista y responsabilidades por componente.
-- Detección de errores enmascarados y flujos inconsistentes entre UI y backend.
+## CLI
 
-### 3) Reporte de workspace
+```bash
+# Análisis de todo el workspace (salida Markdown en stdout)
+sentinel analyze --workspace . --format markdown
 
-Al ejecutar "Analizar Workspace", se genera automáticamente un archivo `.sentinel-report.md` con:
-- Conteo de violaciones por severidad (error / warning / info / hint).
+# Análisis de un archivo puntual
+sentinel analyze --file src/app.ts --format json
+
+# Alcance incremental: lee archivos relativos al workspace, uno por línea
+sentinel analyze --workspace . --files-from .changed-files --format json
+
+# Con configuración explícita y salida a archivo
+sentinel analyze --workspace . --config sentinel.config.json --output .sentinel-report.md
+```
+
+| Opción | Descripción |
+|--------|-------------|
+| `--workspace <path>` | Analiza un workspace (por defecto: cwd) |
+| `--file <path>` | Analiza un archivo puntual (excluye `--workspace`/`--files-from`) |
+| `--files-from <path>` | Lee archivos relativos al workspace, uno por línea |
+| `--format <type>` | `markdown` \| `json` (por defecto: markdown) |
+| `--output <path>` | Escribe la salida en archivo; si falta, imprime en stdout |
+| `--config <path>` | Carga `sentinel.config.json` |
+| `--help` / `--version` | Ayuda / versión instalada |
+
+### Códigos de salida y contrato JSON
+
+| Código | Significado |
+|--------|-------------|
+| `0` | Análisis sin errores |
+| `1` | Hay hallazgos con severidad error |
+| `2` | Error de ejecución (config inválida, path inexistente, etc.) |
+
+La salida JSON usa `schemaVersion: '1'` y normaliza los hallazgos con `reglaId`, `severidad`, `linea`, `columna`, `mensaje` y `sugerencia`, para que el gate y otros consumidores no dependan del formato de texto.
+
+## Configuración
+
+### `sentinel.config.json` (CLI y LSP)
+
+Configuración estricta y versionada en la raíz del proyecto. **Las claves desconocidas, las reglas desconocidas y las severidades inválidas hacen fallar la validación** (no se ignoran silenciosamente).
+
+```json
+{
+  "includePatterns": ["**/*.rs", "frontend/**/*.ts", "frontend/**/*.css"],
+  "excludePatterns": ["**/node_modules/**", "**/target/**", "**/generated/**"],
+  "directoryExceptions": ["migrations", "scripts"],
+  "portableBoundaries": {
+    "dom": ["/platform/", "/adapters/"],
+    "window": ["/platform/", "/navigation/"],
+    "services": ["/services/", "/api/", "/repositories/"],
+    "loggerModules": ["/logger.", "/logging/"]
+  },
+  "rules": {
+    "barras-decorativas": { "habilitada": false },
+    "catch-vacio": { "severidad": "warning" }
+  }
+}
+```
+
+| Clave | Tipo | Descripción |
+|-------|------|-------------|
+| `includePatterns` | `string[]` | Globs a analizar (defaults por lenguaje) |
+| `excludePatterns` | `string[]` | Globs a excluir |
+| `directoryExceptions` | `string[]` | Directorios exentos de `directorio-abarrotado` |
+| `portableBoundaries` | `object` | Boundaries de las reglas portables (`dom`/`window`/`services`/`loggerModules`) |
+| `rules` | `object` | Overrides por ID de regla: `{ "habilitada": boolean, "severidad": "error"\|"warning"\|"information"\|"hint" }` |
+
+### `settings.json` de VS Code
+
+| Clave | Default | Descripción |
+|-------|---------|-------------|
+| `codeSentinel.staticAnalysis.enabled` | `true` | Habilitar análisis estático |
+| `codeSentinel.timing.staticDebounce` | `1` | Debounce en segundos al editar |
+| `codeSentinel.rules` | `{}` | Overrides por ID de regla (mismo formato que el JSON) |
+| `codeSentinel.reportPath` | `.sentinel-report.md` | Ruta del reporte al analizar workspace |
+| `codeSentinel.exclude` | globs estándar | Exclusiones adicionales |
+| `codeSentinel.directoryExceptions` | `[]` | Directorios exentos de `directorio-abarrotado` |
+| `codeSentinel.languages` | 8 lenguajes | Lenguajes donde se activa el análisis |
+
+## Reporte de workspace
+
+Al ejecutar "Analizar Workspace" (o `sentinel analyze --output`), se genera el reporte con:
+- Conteo de violaciones por severidad (error / warning / information / hint).
 - Tabla por archivo con línea, regla y mensaje, ordenada por gravedad.
-- Configurable via `codeSentinel.reportPath`.
+- Configurable vía `codeSentinel.reportPath` o `--output`.
 
 ## Archivos excluidos del análisis
 
 Por defecto se excluyen automáticamente:
 
-- `**/node_modules/**`
-- `**/vendor/**`
-- `**/dist/**`, `**/out/**`, `**/build/**`
+- `**/node_modules/**`, `**/vendor/**`
+- `**/dist/**`, `**/out/**`, `**/build/**`, `**/target/**`
 - `**/_generated/**`
 - `**/.vitepress/cache/**`
-- `**/.agent/code-sentinel/**`
+- `**/.agent/**`, `**/scripts/**`
 
-Puedes añadir exclusiones adicionales con `codeSentinel.exclude`.
+Puedes añadir exclusiones adicionales con `codeSentinel.exclude` o `excludePatterns` del JSON.
 
-## Comandos disponibles
+## Comandos disponibles (VS Code)
 
 | Comando | Descripción |
 |---------|-------------|
 | `Glory Sentinel: Analizar Archivo Actual` | Fuerza análisis completo del archivo activo |
 | `Glory Sentinel: Analizar Workspace` | Escanea el workspace y genera reporte |
 | `Glory Sentinel: Limpiar Diagnosticos` | Limpia todos los diagnósticos |
-| `Glory Sentinel: Activar/Desactivar IA` | Enciende o apaga el análisis IA |
 | `Glory Sentinel: Ver Resumen de Reglas` | Muestra reglas activas con estado habilitada/deshabilitada |
-
-## Configuración recomendada
-
-```json
-{
-  "codeSentinel.staticAnalysis.enabled": true,
-  "codeSentinel.aiAnalysis.enabled": true,
-  "codeSentinel.ai.backend": "gemini-cli",
-  "codeSentinel.ai.geminiModel": "flash-min",
-  "codeSentinel.timing.staticDebounce": 1,
-  "codeSentinel.timing.aiDelayOnOpen": 5,
-  "codeSentinel.timing.aiDelayOnEdit": 30,
-  "codeSentinel.timing.aiCooldown": 300,
-  "codeSentinel.timing.aiTimeout": 45,
-  "codeSentinel.reportPath": ".sentinel-report.md"
-}
-```
-
-> Todos los valores de timing están en **segundos**.
+| `Glory Sentinel: Ejecutar Lint y Type-Check` | Ejecuta las herramientas externas del gate (Sentinel/VarSense/type-check) |
 
 ## Configurar reglas por ID
 
@@ -93,63 +159,147 @@ Puedes deshabilitar reglas individualmente o cambiar su severidad:
 
 ### IDs de reglas disponibles
 
-#### Patrones prohibidos (PHP / JS / TS)
+Fuente de verdad: `src/config/ruleRegistry.ts` (copia fijada en `quality-tools.json`). `nomenclatura-css-ingles` y `default-export` vienen desactivadas por defecto; `css-hardcoded-value` está comentada en el registry.
 
-| ID | Descripción | Aplica a | Default |
-|----|-------------|----------|---------|
-| `php-supresor-at` | Supresor `@` en funciones PHP (`@unlink`, `@copy`, etc.) | `.php` | error |
-| `at-generico-php` | Supresor `@` en cualquier llamada PHP | `.php` | warning |
-| `eval-prohibido` | `eval()` prohibido | PHP, JS, TS | error |
-| `innerhtml-variable` | `innerHTML` asignado con variable (riesgo XSS) | JS, TS | warning |
-| `catch-vacio` | Catch vacío sin logging ni propagación | PHP, JS, TS | error |
-| `hardcoded-secret` | Password, API key o token en código fuente | PHP, JS, TS | error |
-| `git-add-all` | `git add .` o `git add --all` | `.sh`, `.md`, `.yml` | warning |
-| `barras-decorativas` | `====` o `----` en comentarios | PHP, JS, TS | information |
+#### Patrones prohibidos
 
-#### Estructura y tamaño
+| ID | Default |
+|----|---------|
+| `php-supresor-at` | error |
+| `at-generico-php` | warning |
+| `eval-prohibido` | error |
+| `innerhtml-variable` | warning |
+| `catch-vacio` | error |
+| `hardcoded-secret` | error |
+| `git-add-all` | warning |
+| `exec-sin-escapeshellarg` | error |
+| `console-generico-en-catch` | warning |
+| `mime-type-cliente` | error |
+| `emoji-en-codigo` | warning |
+| `console-production` (portable) | warning |
+| `unsafe-process-shell` (portable) | error |
 
-| ID | Descripción | Default |
-|----|-------------|---------|
-| `limite-lineas` | Archivo excede el límite de líneas del protocolo | warning |
-| `limite-lineas-nivel-2` | Archivo duplica el límite; `sentinel-disable-file limite-lineas` no lo silencia | warning |
-| `limite-lineas-nivel-3` | Archivo triplica el límite y exige refactor antes de seguir agregando código | error |
-| `limite-lineas-nivel-4` | Archivo quintuplica el límite; bloquear monolitos gigantes aunque el primer nivel esté deshabilitado | error |
-| `usestate-excesivo` | Más de 3 `useState` en un mismo componente | warning |
-| `import-muerto` | Import declarado pero no usado en el archivo | warning |
+#### Seguridad SQL
+
+| ID | Default |
+|----|---------|
+| `wpdb-sin-prepare` | error |
+| `toctou-select-insert` | error |
+| `query-doble-verificacion` | information |
+| `n-plus-1-query` | warning |
+| `repository-sin-whitelist-columnas` | hint |
 
 #### PHP / WordPress
 
-| ID | Descripción | Default |
-|----|-------------|---------|
-| `controller-sin-trycatch` | Metodo publico de un Controller/Endpoint sin try-catch global. Excluye: `registerRoutes`, permission callbacks (`can*`, `verificar*`), y clases que usan trait `ConCallbackSeguro` | warning |
-| `wpdb-sin-prepare` | `$wpdb->query/get_var/get_row/get_results/get_col` sin `prepare()`. Excluye: transacciones (`START TRANSACTION`, `ROLLBACK`, `COMMIT`), DDL, `prepare()` anidado como argumento y queries sin parámetros de usuario | error |
-| `request-json-directo` | `get_json_params()` pasado directo a otra capa sin filtrar campos | warning |
-| `json-decode-inseguro` | `json_decode()` sin verificar `json_last_error()` después | warning |
-| `exec-sin-escapeshellarg` | `exec()`/`shell_exec()` sin `escapeshellarg()`. Excluye `proc_open()` con array (seguro en PHP 7.4+) | error |
-| `curl-sin-verificacion` | `curl_exec()` sin verificar `curl_error()` en las siguientes 10 líneas | warning |
-| `temp-sin-finally` | `tempnam()` sin `unlink` en bloque `finally` (riesgo de acumulación en `/tmp`) | warning |
+| ID | Default |
+|----|---------|
+| `controller-sin-trycatch` | warning |
+| `request-json-directo` | warning |
+| `json-decode-inseguro` | warning |
+| `curl-sin-verificacion` | warning |
+| `temp-sin-finally` | warning |
+| `sanitizacion-faltante` | warning |
+| `lock-sin-finally` | error |
+| `catch-critico-solo-log` | warning |
+| `cadena-isset-update` | warning |
+| `json-sin-limite-bd` | warning |
+| `retorno-ignorado-repo` | warning |
+| `php-sin-return-type` | hint |
+| `php-array-asociativo-como-lista` | warning |
+| `php-service-retorna-asociativo` | warning |
 
 #### React / TypeScript
 
-| ID | Descripción | Default |
-|----|-------------|---------|
-| `useeffect-sin-cleanup` | `useEffect` con fetch/timers sin retornar cleanup con `AbortController` | warning |
-| `mutacion-directa-estado` | `.splice()`, `.push()` o asignación directa a prop de estado React | warning |
-| `zustand-sin-selector` | `useStore()` sin selector (re-render en cualquier cambio del store) | warning |
-| `console-generico-en-catch` | `console.log` en un catch en lugar de `console.error` con contexto | warning |
-| `error-enmascarado` | `ok: true` o datos vacíos en catch. El error se enmascara como éxito | error |
-| `zustand-objeto-selector` | Selector Zustand que crea nuevo objeto/array cada render | warning |
-| `key-index-lista` | `key={index}` en `.map()` — usar ID estable | hint |
-| `componente-sin-hook-glory` | Componente con >5 líneas de lógica sin hook dedicado | warning |
-| `promise-sin-catch` | `.then()` sin `.catch()` fuera de try-catch | warning |
-| `useeffect-dep-inestable` | Dependencia de useEffect creada inline (nueva ref cada render) | hint |
-| `html-nativo-en-vez-de-componente` | `<button>`, `<input>`, `<select>`, `<a href>` en vez de componentes UI | warning |
-| `componente-artesanal` | Menu/dropdown/modal artesanal en vez de `<MenuContextual>` o `<Modal>` | warning |
-| `fallo-sin-feedback` | Catch con solo `console.error` sin toast/notificación visible al usuario | warning |
-| `update-optimista-sin-rollback` | `set()` optimista antes de await sin rollback en catch | warning |
-| `fetch-sin-timeout` | `fetch()` sin `AbortController`/signal (puede colgar indefinidamente) | hint |
-| `non-null-assertion-excesivo` | 5+ non-null assertions (`!`) en un archivo. Indica tipos mal definidos | hint |
-| `any-type-explicito` | Tipo `any` explícito en TS/TSX | hint |
+| ID | Default |
+|----|---------|
+| `usestate-excesivo` | warning |
+| `useeffect-sin-cleanup` | warning |
+| `mutacion-directa-estado` | warning |
+| `zustand-sin-selector` | warning |
+| `error-enmascarado` | error |
+| `zustand-objeto-selector` | warning |
+| `key-index-lista` | hint |
+| `componente-sin-hook-glory` | warning |
+| `promise-sin-catch` | warning |
+| `useeffect-dep-inestable` | hint |
+| `html-nativo-en-vez-de-componente` | warning |
+| `button-clase-especifica` | warning |
+| `modal-con-titulo` | warning |
+| `modal-acciones-no-canonico` | warning |
+| `modal-estructura-no-canonica` | warning |
+| `menu-contextual-override-diseno` | warning |
+| `componente-artesanal` | warning |
+| `fallo-sin-feedback` | warning |
+| `update-optimista-sin-rollback` | warning |
+| `fetch-sin-timeout` | hint |
+| `listen-sin-cleanup` | warning |
+| `status-http-generico` | warning |
+| `handler-sin-trycatch` | warning |
+| `cola-sin-limite` | warning |
+| `objeto-mutable-exportado` | hint |
+| `acceso-api-sin-fallback` | warning |
+| `inline-style-prohibido` | warning |
+| `dom-access-outside-platform` (portable) | warning |
+| `window-reference-outside-platform` (portable) | warning |
+| `singleton-mutable-state` (portable) | warning |
+
+#### Glory Schema / Contrato API
+
+| ID | Default |
+|----|---------|
+| `hardcoded-sql-column` | warning |
+| `hardcoded-enum-value` | warning |
+| `endpoint-accede-bd` | warning |
+| `interval-sin-whitelist` | error |
+| `open-redirect` | error |
+| `return-void-critico` | warning |
+| `isla-no-registrada` | warning |
+| `glory-meta-clave-incorrecta` | error |
+| `glory-slug-clave-incorrecta` | error |
+| `glory-titulo-clave-incorrecta` | error |
+| `glory-imagen-clave-incorrecta` | warning |
+| `glory-galeria-clave-incorrecta` | warning |
+| `glory-contenido-clave-incorrecta` | warning |
+| `undefined-class-constant` | error |
+| `api-response-mismatch` | error |
+| `api-shape-mismatch` | error |
+| `api-call-outside-service` (portable) | warning |
+
+#### Rust SOLID
+
+| ID | Default |
+|----|---------|
+| `unwrap-produccion-rs` | warning |
+| `panic-produccion-rs` | warning |
+| `handler-accede-bd-rs` | warning |
+| `funcion-larga-rs` | warning |
+| `parametros-excesivos-rs` | hint |
+| `broadcast-mutex-riesgo-rs` | error |
+| `axum-ruta-sintaxis-rs` | error |
+
+#### Estructura, nomenclatura y límites
+
+| ID | Default |
+|----|---------|
+| `limite-lineas` | warning |
+| `limite-lineas-nivel-2` | warning |
+| `limite-lineas-nivel-3` | error |
+| `limite-lineas-nivel-4` | error |
+| `directorio-abarrotado` | warning |
+| `barras-decorativas` | information |
+| `import-muerto` | warning |
+| `any-type-explicito` | hint |
+| `controller-fqn-inline` | hint |
+| `todo-pendiente` | hint |
+| `non-null-assertion-excesivo` | hint |
+| `nomenclatura-css-ingles` (desactivada) | hint |
+| `card-icono-debe-extender-base` | warning |
+| `modal-semantica-no-canonica` | warning |
+| `css-elemento-html-directo` | warning |
+| `css-especificacion-diseno-local` | warning |
+| `default-export` (desactivada, portable) | hint |
+| `mixed-barrel-logic` (portable) | warning |
+| `large-interface-isp` (portable) | hint |
 
 ## Lógica contextual — sin falsos positivos
 
@@ -172,30 +322,21 @@ Las siguientes reglas usan análisis de ventana de líneas en lugar de regex pur
 - `proc_open($array, ...)` — array literal como primer argumento
 - `proc_open($var, ...)` cuando `$var` fue definida como array en líneas cercanas
 
-## Alias de baja latencia para Gemini CLI
+## Reglas portables de arquitectura
 
-Si usas Gemini CLI, define un alias `flash-min` con pensamiento mínimo.
+Detecciones de bajo acoplamiento que reciben sus boundaries por configuración (`portableBoundaries`): el núcleo no conoce la estructura de ningún proyecto. Reportan warning/hint y dejan la decisión de bloqueo a la política del consumidor.
 
-Archivo `.gemini/settings.json`:
-
-```json
-{
-  "modelConfigs": {
-    "customAliases": {
-      "flash-min": {
-        "modelConfig": {
-          "model": "gemini-3-flash-preview",
-          "generateContentConfig": {
-            "thinkingConfig": {
-              "thinkingLevel": "minimal"
-            }
-          }
-        }
-      }
-    }
-  }
-}
-```
+| ID | Qué detecta | Default |
+|----|-------------|---------|
+| `dom-access-outside-platform` | Acceso DOM directo fuera del boundary de plataforma | warning |
+| `window-reference-outside-platform` | Referencia `window` fuera del boundary de navegación | warning |
+| `api-call-outside-service` | Llamada API fuera de un service/adaptador declarado | warning |
+| `console-production` | `console.*` en código de producción fuera del logger | warning |
+| `unsafe-process-shell` | Proceso externo con `shell:true` o argumentos concatenados | error |
+| `default-export` | Default export en módulo de aplicación (desactivada por defecto) | hint |
+| `singleton-mutable-state` | Estado mutable exportado a nivel de módulo | warning |
+| `mixed-barrel-logic` | Barrel que mezcla re-export y lógica ejecutable | warning |
+| `large-interface-isp` | Interface con más de 10 campos (posible violación de ISP) | hint |
 
 ## Supresión puntual de reglas
 
@@ -211,12 +352,21 @@ O en línea (misma línea que el código):
 $codigo; /* sentinel-disable regla-id */
 ```
 
+Para excluir un archivo completo de una regla (justificando por regla, archivo, tarea y fecha de retirada):
+
+```php
+/* sentinel-disable-file limite-lineas */
+```
+
 ## Desarrollo local
 
 ```bash
 cd .agent/code-sentinel
 npm install
-npm run compile
+npm run compile        # genera out/ (extensión + CLI + LSP)
+node out/cli/index.js --version
 ```
 
 Luego presiona `F5` en VS Code para abrir un `Extension Development Host`.
+
+**Binarios** (declarados en `package.json`): `sentinel` → `out/cli/index.js`; `sentinel-lsp` → `out/lsp/server.js`.
