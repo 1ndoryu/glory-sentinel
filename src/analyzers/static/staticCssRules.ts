@@ -15,6 +15,10 @@ const CLASES_BOTON_SISTEMA = new Set([
   'botonExito', 'botonExitoSuave', 'botonPeligro', 'botonPeligroSuave',
   'botonAdvertencia', 'botonAdvertenciaSuave', 'botonInfo', 'botonInfoSuave',
   'botonPequeno', 'botonMediano', 'botonGrande',
+  /* [317A-3] Variantes kebab reales del proyecto (wandori.us usa kebab, no camelCase)
+   * y la receta nueva .boton-icono (boton de solo icono para toolbars de apps). */
+  'boton-pequeno', 'boton-mediano', 'boton-grande', 'boton-icono',
+  'botonIcono',
 ]);
 
 const CLASES_MODAL_CANONICAS = new Set([

@@ -36,4 +36,15 @@ suite('css-adhoc-button-style', () => {
     assert.strictEqual(framework.length, 0);
     assert.strictEqual(assets.length, 0);
   });
+
+  /* [317A-3] La receta .boton-icono (solo icono) es parte del sistema de diseño,
+   * no un boton ad-hoc: no debe reportarse. Regresión de allowlist CLASES_BOTON_SISTEMA. */
+  test('ignora la receta del sistema boton-icono y sus variantes kebab', () => {
+    const icono = verificarCssAdhocButtonStyle('.boton-icono { cursor: pointer; }', crearDocumento('/repo/frontend/src/styles/components.css'), 'components.css');
+    const pequeno = verificarCssAdhocButtonStyle('.boton-pequeno { cursor: pointer; }', crearDocumento('/repo/frontend/src/styles/components.css'), 'components.css');
+    const grande = verificarCssAdhocButtonStyle('.boton-grande { cursor: pointer; }', crearDocumento('/repo/frontend/src/styles/components.css'), 'components.css');
+    assert.strictEqual(icono.length, 0);
+    assert.strictEqual(pequeno.length, 0);
+    assert.strictEqual(grande.length, 0);
+  });
 });

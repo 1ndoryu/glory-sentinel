@@ -355,6 +355,9 @@ const CLASES_BOTON_SISTEMA = new Set([
   'botonExito', 'botonExitoSuave', 'botonPeligro', 'botonPeligroSuave',
   'botonAdvertencia', 'botonAdvertenciaSuave', 'botonInfo', 'botonInfoSuave',
   'botonPequeno', 'botonMediano', 'botonGrande',
+  /* [317A-3] Receta .boton-icono (solo icono) y variantes kebab reales del proyecto. */
+  'boton-pequeno', 'boton-mediano', 'boton-grande', 'boton-icono',
+  'botonIcono',
 ]);
 
 function esClaseBotonEspecifica(nombreClase: string): boolean {
