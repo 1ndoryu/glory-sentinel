@@ -1,68 +1,152 @@
 # Reglas de Codigo — Code Sentinel
 
-Estas son las reglas que la IA debe verificar en cada archivo. Edita este archivo para agregar, modificar o eliminar reglas.
+Catalogo generado desde src/config/ruleRegistry.ts (fuente unica de verdad).
+Formato: [id] nombre — severidad por defecto (desactivada por defecto).
+
+Total: 105 reglas.
 
 ---
 
-## PHP
+## estructura-nomenclatura
 
-- [sql-interpolado] PROHIBIDO concatenar variables en strings SQL. Usar `$wpdb->prepare()` obligatoriamente. Ejemplo malo: `"SELECT * FROM tabla WHERE id = $id"`.
-- [supresor-at] PROHIBIDO `@` como supresor de errores (`@unlink`, `@file_get_contents`, etc.). Usar try-catch con logging.
-- [try-catch-faltante] Operaciones de I/O, red, BD, `exec()`, `curl_exec()`, `json_decode()`, `file_get_contents()`, `ZipArchive` DEBEN estar en try-catch con logging util. Catch vacio o con solo `echo` no cuenta.
-- [json-sin-validar] Despues de `json_decode()` SIEMPRE verificar `json_last_error() !== JSON_ERROR_NONE`. Sin esto los datos corruptos se propagan como null silencioso.
-- [exec-sin-escapeshellarg] `exec()` y `shell_exec()` DEBEN usar `escapeshellarg()` para cada argumento que venga de input o BD. Sin esto hay riesgo de ejecucion de comandos arbitrarios.
-- [sanitizacion-faltante] Todo parametro de request HTTP (`$_GET`, `$_POST`, `$request->get_param()`, `get_json_params()`) DEBE sanitizarse con `sanitize_text_field()`, `intval()`, `sanitize_email()`, etc. antes de usarlo.
-- [endpoint-accede-bd] Controllers/endpoints REST NO deben tener queries `$wpdb` directas. La logica de datos va en modelos/repositorios/servicios.
-- [controller-sin-trycatch] Todo metodo publico de un controller REST DEBE envolver su cuerpo en `try { ... } catch (\Throwable $e)` con logging y respuesta 500 generica.
-- [multi-tabla-sin-transaccion] Operaciones de escritura que afectan mas de una tabla DEBEN usar transacciones (`START TRANSACTION` / `COMMIT` / `ROLLBACK`).
-- [open-redirect] URLs recibidas del usuario usadas en `wp_redirect()` o `header('Location:')` DEBEN validarse con `wp_validate_redirect()` o verificar que el dominio es el propio.
-- [hardcoded-secret] PROHIBIDO hardcodear API keys, passwords, tokens en el codigo. Usar variables de entorno o configuracion externa.
-- [return-void-critico] Metodos que hacen INSERT/UPDATE/DELETE o llaman APIs externas DEBEN retornar `bool` o tipo verificable, no `void`.
-- [archivos-temp-sin-finally] Si se crean archivos temporales con `tempnam()`, el `unlink()` DEBE ir en bloque `finally`.
-
----
-
-## TypeScript / React (TSX/JSX)
-
-- [separacion-logica-vista] Si un componente tiene mas de 5 lineas de logica (fetching, calculos, effects), extraer a un hook dedicado. El componente solo debe tener imports, destructuring y JSX.
-- [error-enmascarado] En un `catch`, PROHIBIDO retornar `{ ok: true }` o datos vacios como si fuera exito. Siempre retornar `ok: false` o re-lanzar el error.
-- [update-optimista-sin-rollback] Si se actualiza el estado UI antes de confirmar con la API, DEBE verificarse `resp.ok` y revertir el estado si falla. Detectado: set() de Zustand antes de await sin set() de rollback en catch.
-- [useeffect-sin-cleanup] Todo `useEffect` que lance requests async DEBE retornar una funcion de cleanup con `AbortController`.
-- [mutacion-directa-estado] PROHIBIDO `splice()`, `push()`, o asignacion directa a propiedades de objetos del estado React. Usar `map()` + spread.
-- [zustand-sin-selector] `useStore()` sin selector re-renderiza en cualquier cambio del store. Usar `useStore(s => s.campo)`.
-- [fallo-sin-feedback] Si una operacion falla, el usuario DEBE recibir feedback visible (toast, mensaje de error). `console.error` solo no es suficiente. Detectado: catch con solo console.error/log sin toast/notification.
-- [try-catch-faltante-ts] Operaciones de fetch, I/O, APIs externas DEBEN estar en try-catch o manejar errores explicitamente.
-- [componente-artesanal] PROHIBIDO reimplementar componentes que ya existen en el sistema (MenuContextual, Modal, etc.). Detectado: outside-click handlers manuales (document.addEventListener mousedown/click en useEffect) y overlays/backdrops artesanales.
-- [fetch-sin-timeout] fetch() DEBE usar AbortController con signal/timeout. Sin timeout puede colgar indefinidamente. Excluye archivos que SON el wrapper HTTP.
-- [non-null-assertion-excesivo] Archivos con 5+ non-null assertions (variable!.prop) indican tipos mal definidos. Tipar correctamente para evitar !.
-- [acceso-api-sin-fallback] Al asignar `data.campo` a un estado que fue inicializado como array (`useState([])`), OBLIGATORIO usar fallback: `data.campo ?? []`. Sin esto, si la API no incluye la clave, el estado sera `undefined` y cualquier `.length`, `.map()` o `.filter()` en el render provocara un crash en produccion (ErrorBoundary: "Contenido no disponible").
-- [api-response-mismatch] Las claves en el tipo generico de `fetchAdmin<{campo: T}>('endpoint')` DEBEN coincidir con las claves que devuelve `WP_REST_Response([...])` en el controller PHP correspondiente. Si hay desajuste, el dato sera `undefined` en runtime. Sentinel cruza automaticamente el indice PHP con los generics TS.
+- [any-type-explicito] Tipo any explicito — hint
+- [barras-decorativas] Barras decorativas — information
+- [card-icono-debe-extender-base] CardIcono debe extender base compartida — warning
+- [controller-fqn-inline] FQN inline en PHP — hint
+- [css-elemento-html-directo] Selector HTML directo en componente — warning
+- [css-especificacion-diseno-local] Especificacion de diseno local en CSS — warning
+- [default-export] Default export — hint (desactivada por defecto)
+- [import-muerto] Import sin uso — warning
+- [large-interface-isp] Interface grande ISP — hint
+- [mixed-barrel-logic] Barrel con lógica — warning
+- [modal-semantica-no-canonica] Clase modal semantica no canonica — warning
+- [nomenclatura-css-ingles] CSS en ingles — hint (desactivada por defecto)
+- [non-null-assertion-excesivo] Non-null assertion excesivo — hint
+- [todo-pendiente] TODO/FIXME pendiente detectado — hint
 
 ---
 
-## CSS
+## glory-schema
 
-- [variables-obligatorias] Colores, espaciados y tipografia DEBEN usar variables CSS (`var(--nombre)`). PROHIBIDO hardcodear valores hex, rgb o rem directamente.
-- [nomenclatura-css] Clases CSS DEBEN estar en espanol y camelCase. Ejemplo correcto: `.contenedorPrincipal`, `.botonActivo`. Incorrecto: `.main-container`, `.btn-active`.
+- [api-call-outside-service] API fuera de servicio — warning
+- [api-response-mismatch] Mismatch clave API PHP vs TS — error
+- [api-shape-mismatch] Shape mismatch array PHP vs TS — error
+- [endpoint-accede-bd] Controller accede a BD — warning
+- [glory-contenido-clave-incorrecta] 'content' en vez de 'contenido' — warning
+- [glory-galeria-clave-incorrecta] 'galeria'/'gallery' en vez de 'galeriaAssets' — warning
+- [glory-imagen-clave-incorrecta] 'imagen' en vez de 'imagenDestacadaAsset' — warning
+- [glory-meta-clave-incorrecta] 'meta' en vez de 'metaEntrada' — error
+- [glory-slug-clave-incorrecta] 'slug' en vez de 'slugDefault' — error
+- [glory-titulo-clave-incorrecta] 'title'/'name' en vez de 'titulo' — error
+- [hardcoded-enum-value] Valor enum hardcodeado — warning
+- [hardcoded-sql-column] Columna SQL hardcodeada — warning
+- [interval-sin-whitelist] INTERVAL sin whitelist — error
+- [isla-no-registrada] Isla no registrada — warning
+- [open-redirect] Redireccion insegura — error
+- [return-void-critico] Escritura retorna void — warning
+- [undefined-class-constant] Constante de clase indefinida — error
 
 ---
 
-## General (todos los archivos)
+## limites-archivo
 
-- [archivo-monolito] Ningun archivo debe superar 300 lineas (componentes/estilos), 120 lineas (hooks) o 150 lineas (utils). Si supera el limite, marcar como violacion.
-- [limite-lineas-nivel-2/3/4] Si un archivo duplica, triplica o quintuplica su limite, reportar una regla distinta. `sentinel-disable-file limite-lineas` solo calla el primer aviso; cada nivel grave exige su propio ID para que el bypass sea una decision consciente.
-- [directorio-abarrotado] Directorios con mas de 10 archivos se marcan como warning. Excepciones: agregar nombre del directorio a `codeSentinel.directoryExceptions` en settings.json, o `sentinel-disable-file directorio-abarrotado` en el archivo. Directorios de infra (node_modules, target, .git, dist, build) excluidos automaticamente.
-- [srp-violado] Cada archivo debe tener una unica responsabilidad. Si mezcla logica de dominio con presentacion, o multiples features distintas, es violacion.
-- [import-sin-usar] Imports que no se usan en el archivo son violacion.
-- [catch-vacio] PROHIBIDO bloques `catch` vacios o que solo tengan un comentario. Siempre loguear o propagar el error.
+- [directorio-abarrotado] Directorio con demasiados archivos — warning
+- [limite-lineas] Limite de lineas — warning
+- [limite-lineas-nivel-2] Limite de lineas nivel 2 — warning
+- [limite-lineas-nivel-3] Limite de lineas nivel 3 — error
+- [limite-lineas-nivel-4] Limite de lineas nivel 4 — error
 
 ---
 
-## Rust SOLID & Seguridad
+## patrones-prohibidos
 
-- [unwrap-produccion-rs] PROHIBIDO `.unwrap()` en codigo de produccion. Usar `?`, `.unwrap_or()`, `.unwrap_or_default()` o `.ok_or()`. Solo permitido en bloques `#[cfg(test)]`. Bypass: `sentinel-disable-next-line unwrap-produccion-rs`.
-- [panic-produccion-rs] PROHIBIDO `panic!()`, `todo!()`, `unimplemented!()` en codigo de produccion. Retornar error con `?` y tipos `Result`. Solo permitido en bloques `#[cfg(test)]`.
-- [handler-accede-bd-rs] Handlers Rust NO deben hacer `sqlx::query` directamente. La logica de datos va en repositorios (DIP). Aplica solo a archivos en `handlers/`.
-- [funcion-larga-rs] Funciones Rust no deben exceder 100 lineas efectivas (excluyendo comentarios y lineas vacias). Dividir en funciones auxiliares.
-- [parametros-excesivos-rs] Funciones Rust con mas de 5 parametros (excluyendo &self) deben agrupar parametros en struct. Severidad: hint.
-- [limite-lineas-rs] Archivos .rs tienen limites por capa: handlers 500, services 700, repositories 550, models 300, general 500. Excluidos: bin/, migrations/, examples/. Bypass del primer nivel: `sentinel-disable-file limite-lineas`; niveles 2/3/4 tienen IDs propios y no se silencian con el bypass base.
+- [at-generico-php] Supresor @ generico PHP — warning
+- [catch-vacio] Catch vacio — error
+- [console-generico-en-catch] console.log en catch — warning
+- [console-production] Console en producción — warning
+- [emoji-en-codigo] Emoji Unicode en codigo — warning
+- [eval-prohibido] eval prohibido — error
+- [exec-sin-escapeshellarg] exec sin escapeshellarg — error
+- [git-add-all] git add . / --all — warning
+- [hardcoded-secret] Secret hardcodeado — error
+- [innerhtml-variable] innerHTML con variable — warning
+- [mime-type-cliente] MIME type del cliente — error
+- [php-supresor-at] Supresor @ en PHP — error
+- [unsafe-process-shell] Proceso shell inseguro — error
+
+---
+
+## react-patrones
+
+- [acceso-api-sin-fallback] Acceso a data.campo sin fallback — warning
+- [button-clase-especifica] Clase específica en botón — warning
+- [cola-sin-limite] push() a cola sin limite — warning
+- [componente-artesanal] Componente artesanal detectado — warning
+- [componente-sin-hook-glory] Componente sin hook dedicado — warning
+- [dom-access-outside-platform] DOM fuera de plataforma — warning
+- [error-enmascarado] Error enmascarado como exito — error
+- [fallo-sin-feedback] Catch sin feedback al usuario — warning
+- [fetch-sin-timeout] fetch() sin timeout — hint
+- [handler-sin-trycatch] Handler async sin try-catch — warning
+- [html-nativo-en-vez-de-componente] HTML nativo en vez de componente — warning
+- [inline-style-prohibido] CSS inline con style={{}} — warning
+- [key-index-lista] key={index} en lista — hint
+- [listen-sin-cleanup] listen() sin cleanup — warning
+- [menu-contextual-override-diseno] Override de diseño en MenuContextual — warning
+- [modal-acciones-no-canonico] Clase de acciones no canónica en Modal — warning
+- [modal-con-titulo] Título dentro de Modal — warning
+- [modal-estructura-no-canonica] Estructura no canónica en Modal — warning
+- [mutacion-directa-estado] Mutacion directa estado — warning
+- [objeto-mutable-exportado] Objeto mutable exportado — hint
+- [promise-sin-catch] Promise sin catch — warning
+- [singleton-mutable-state] Singleton mutable — warning
+- [status-http-generico] Status HTTP marca exito sin body — warning
+- [update-optimista-sin-rollback] Update optimista sin rollback — warning
+- [useeffect-dep-inestable] useEffect dep inestable — hint
+- [useeffect-sin-cleanup] useEffect sin cleanup — warning
+- [usestate-excesivo] useState excesivo — warning
+- [window-reference-outside-platform] Window fuera de plataforma — warning
+- [zustand-objeto-selector] Zustand selector crea ref nueva — warning
+- [zustand-sin-selector] Zustand sin selector — warning
+
+---
+
+## rust-patrones
+
+- [axum-ruta-sintaxis-rs] Ruta axum con {param} en vez de :param — error
+- [broadcast-mutex-riesgo-rs] tokio::sync::broadcast usa Mutex interno — error
+- [funcion-larga-rs] Funcion Rust excede 100 lineas — warning
+- [handler-accede-bd-rs] Handler Rust accede BD directamente — warning
+- [panic-produccion-rs] panic!/todo!/unimplemented! en produccion — warning
+- [parametros-excesivos-rs] Funcion Rust con 9+ parametros — hint
+- [unwrap-produccion-rs] .unwrap() en produccion — warning
+
+---
+
+## seguridad-sql
+
+- [n-plus-1-query] Query N+1 en loop — warning
+- [query-doble-verificacion] Query doble verificacion — information
+- [repository-sin-whitelist-columnas] SELECT * sin columnas — hint
+- [toctou-select-insert] TOCTOU select-insert — error
+- [wpdb-sin-prepare] $wpdb sin prepare() — error
+
+---
+
+## wordpress-php
+
+- [cadena-isset-update] Cadena isset-update — warning
+- [catch-critico-solo-log] Catch critico solo log — warning
+- [controller-sin-trycatch] Controller sin try-catch — warning
+- [curl-sin-verificacion] curl_exec sin curl_error — warning
+- [json-decode-inseguro] json_decode sin verificacion — warning
+- [json-sin-limite-bd] JSON sin limite a BD — warning
+- [lock-sin-finally] Lock sin finally — error
+- [php-array-asociativo-como-lista] Array asociativo retornado como lista — warning
+- [php-service-retorna-asociativo] Service retorna asociativo en vez de lista — warning
+- [php-sin-return-type] PHP sin return type — hint
+- [request-json-directo] JSON params sin filtrar — warning
+- [retorno-ignorado-repo] Retorno repo ignorado — warning
+- [sanitizacion-faltante] Request sin sanitizar — warning
+- [temp-sin-finally] tempnam sin finally — warning
+

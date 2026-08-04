@@ -1,12 +1,16 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
+
+> **Deprecacion IA:** el motor de analisis IA via vscode.lm se elimino en 0.4.0; toda deteccion es estatica y determinista.
 ## [0.4.0] - 2026-07-29
 
 ### Agregado
 - Contrato CLI automatizable con `--files-from`, `--help`, `--version` y JSON versionado con conteos por severidad.
 - Validación estricta de `sentinel.config.json`, incluyendo reglas y claves desconocidas.
 - Pruebas de alcance incremental y seguridad de rutas.
+- Reglas portables de arquitectura por boundaries (portableRules.ts) y portableBoundaries en config.
+- Reglas unsafe-process-shell y default-export (esta ultima desactivada por defecto) en el registry.
 
 ### Mejorado
 - El núcleo permanece agnóstico; las políticas específicas de cada consumidor se declaran en su configuración local.
