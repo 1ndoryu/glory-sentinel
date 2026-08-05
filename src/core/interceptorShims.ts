@@ -589,6 +589,14 @@ export function shimsPathFor(targetRoot: string): string {
   return path.join(assertSafeRuntimePath(targetRoot), 'shims');
 }
 
+/* [028A-6 Fase 3] Directorios del runtime que se exponen en el PATH de
+ * usuario: <target>/shims (interceptores npm/npx/cargo/node) y <target>/bin
+ * (el CLI `sentinel`). Ambos son administrados por el runtime. */
+export function runtimePathEntries(targetRoot: string): string[] {
+  const resolved = assertSafeRuntimePath(targetRoot);
+  return [path.join(resolved, 'shims'), path.join(resolved, 'bin')];
+}
+
 export interface PathEntryOptions {
   dryRun?: boolean;
   read?: () => Promise<string | null>;
@@ -633,43 +641,48 @@ function pathEntriesEqual(left: string, right: string): boolean {
   return compare(left.replace(/\\/gu, '/').replace(/\/$/u, ''), right.replace(/\\/gu, '/').replace(/\/$/u, ''));
 }
 
-/* [028A-6 Fase 3] Asegura que <target>/shims esté al principio del PATH de
- * usuario (Windows). Idempotente: si ya está, 'unchanged'. Con dry-run solo
- * calcula y devuelve el próximo valor. 'unsupported' cuando no hay PATH de
- * usuario administrable en la plataforma o la lectura falla. */
+/* [028A-6 Fase 3] Asegura que los directorios administrados del runtime
+ * (shims + bin) estén al principio del PATH de usuario (Windows).
+ * Idempotente: si ya están, 'unchanged'. Con dry-run solo calcula y devuelve
+ * el próximo valor. 'unsupported' cuando no hay PATH de usuario
+ * administrable en la plataforma o la lectura falla. */
 export async function installPathEntry(targetRoot: string, options: PathEntryOptions = {}): Promise<PathEntryResult> {
-  const entry = shimsPathFor(targetRoot);
+  const managed = runtimePathEntries(targetRoot);
+  const label = managed.join('; ');
   const read = options.read ?? defaultReadUserPath;
   const write = options.write ?? defaultWriteUserPath;
   try {
     const current = await read();
-    if (current === null) return { action: 'unsupported', path: entry };
-    const entries = current.split(';').map(value => value.trim()).filter(Boolean);
-    if (entries.some(value => pathEntriesEqual(value, entry))) return { action: 'unchanged', path: entry };
-    const next = [entry, ...entries].join(';');
-    if (options.dryRun) return { action: 'added', path: entry, next };
+    if (current === null) return { action: 'unsupported', path: label };
+    const existing = current.split(';').map(value => value.trim()).filter(Boolean);
+    const missing = managed.filter(entry => !existing.some(value => pathEntriesEqual(value, entry)));
+    if (missing.length === 0) return { action: 'unchanged', path: label };
+    const withoutManaged = existing.filter(value => !managed.some(entry => pathEntriesEqual(value, entry)));
+    const next = [...managed, ...withoutManaged].join(';');
+    if (options.dryRun) return { action: 'added', path: label, next };
     await write(next);
-    return { action: 'added', path: entry };
+    return { action: 'added', path: label };
   } catch (error) {
-    return { action: 'error', path: entry, error: error instanceof Error ? error.message : String(error) };
+    return { action: 'error', path: label, error: error instanceof Error ? error.message : String(error) };
   }
 }
 
 export async function uninstallPathEntry(targetRoot: string, options: PathEntryOptions = {}): Promise<PathEntryResult> {
-  const entry = shimsPathFor(targetRoot);
+  const managed = runtimePathEntries(targetRoot);
+  const label = managed.join('; ');
   const read = options.read ?? defaultReadUserPath;
   const write = options.write ?? defaultWriteUserPath;
   try {
     const current = await read();
-    if (current === null) return { action: 'unsupported', path: entry };
-    const entries = current.split(';').map(value => value.trim()).filter(Boolean);
-    const next = entries.filter(value => !pathEntriesEqual(value, entry)).join(';');
-    if (next === current) return { action: 'unchanged', path: entry };
-    if (options.dryRun) return { action: 'removed', path: entry, next };
+    if (current === null) return { action: 'unsupported', path: label };
+    const existing = current.split(';').map(value => value.trim()).filter(Boolean);
+    const next = existing.filter(value => !managed.some(entry => pathEntriesEqual(value, entry))).join(';');
+    if (next === current) return { action: 'unchanged', path: label };
+    if (options.dryRun) return { action: 'removed', path: label, next };
     await write(next);
-    return { action: 'removed', path: entry };
+    return { action: 'removed', path: label };
   } catch (error) {
-    return { action: 'error', path: entry, error: error instanceof Error ? error.message : String(error) };
+    return { action: 'error', path: label, error: error instanceof Error ? error.message : String(error) };
   }
 }
 

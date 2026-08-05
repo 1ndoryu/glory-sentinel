@@ -287,11 +287,12 @@ suite('Sentinel core interceptorShims (shims y perfiles)', () => {
     assert.ok(contents.includes('PS5 original\n'));
   });
 
-  /* [028A-6 Fase 3] PATH de usuario administrable: la entrada <target>/shims
-   * se añade al principio, es idempotente, respeta dry-run y se retira sin
-   * tocar el resto. El acceso real (PowerShell User) queda fuera de los
-   * tests; aquí se inyecta un almacén en memoria. */
-  test('installPathEntry añade la entrada al PATH de usuario y es idempotente', async () => {
+  /* [028A-6 Fase 3] PATH de usuario administrable: el runtime expone
+   * <target>/shims y <target>/bin al principio, es idempotente, respeta
+   * dry-run y retira solo sus entradas sin tocar el resto. El acceso real
+   * (PowerShell User) queda fuera de los tests; aquí se inyecta un almacén
+   * en memoria. */
+  test('installPathEntry añade shims y bin al PATH de usuario y es idempotente', async () => {
     const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-path-target-'));
     try {
       let stored = 'C:\\Python\\Scripts';
@@ -301,7 +302,7 @@ suite('Sentinel core interceptorShims (shims y perfiles)', () => {
       const first = await installPathEntry(target, { read, write });
       assert.strictEqual(first.action, 'added');
       assert.strictEqual(shimsPathFor(target), path.join(target, 'shims'));
-      assert.ok(stored.startsWith(path.join(target, 'shims') + ';'), 'la entrada va al principio');
+      assert.ok(stored.startsWith(`${path.join(target, 'shims')};${path.join(target, 'bin')};`), 'shims y bin van al principio');
       assert.ok(stored.endsWith('C:\\Python\\Scripts'), 'el resto se conserva');
 
       const again = await installPathEntry(target, { read, write });
@@ -326,15 +327,17 @@ suite('Sentinel core interceptorShims (shims y perfiles)', () => {
     }
   });
 
-  test('uninstallPathEntry retira solo la entrada del runtime', async () => {
+  test('uninstallPathEntry retira solo las entradas del runtime', async () => {
     const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-path-target-'));
     try {
-      let stored = `${path.join(target, 'shims')};C:\\Python;${path.join(target, 'shims')};C:\\Node`;
+      const shims = path.join(target, 'shims');
+      const bin = path.join(target, 'bin');
+      let stored = `${shims};C:\\Python;${bin};${shims};C:\\Node`;
       const read = async () => stored;
       const write = async (value: string) => { stored = value; };
       const removed = await uninstallPathEntry(target, { read, write });
       assert.strictEqual(removed.action, 'removed');
-      assert.ok(!stored.includes('shims'), 'todas las copias de la entrada desaparecen');
+      assert.ok(!stored.includes('shims') && !stored.includes(`${path.basename(target)}\\bin`), 'todas las copias de las entradas del runtime desaparecen');
       assert.strictEqual(stored, 'C:\\Python;C:\\Node', 'el resto se conserva');
       const again = await uninstallPathEntry(target, { read, write });
       assert.strictEqual(again.action, 'unchanged');
