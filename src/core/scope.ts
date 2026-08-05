@@ -3,7 +3,7 @@
  * (requested/automatic/effective/execution) no depende de un proyecto; el
  * workspace aporta únicamente configuración declarativa (fullPatterns y
  * perfiles). No importa VS Code, LSP, VarSense ni código de un proyecto. */
-import { access, readFile, rename, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import path from 'node:path';
@@ -262,6 +262,9 @@ async function writeAtomic(target: string, content: string): Promise<void> {
 
 export async function detectScope(context: ScopeContext, args: ScopeArgs): Promise<ScopeResult> {
   const base = args.base ?? 'HEAD';
+  /* [028A-6] El core crea su propio directorio de reportes: no depende de que
+   * un preflight externo lo haya preparado (el orquestador original lo hacía). */
+  await mkdir(context.reportRoot, { recursive: true });
   const [changedStatus, untracked, tracked] = await Promise.all([
     gitLines(context.projectRoot, ['diff', '--name-status', '--diff-filter=ACMRD', base]),
     gitLines(context.projectRoot, ['ls-files', '--others', '--exclude-standard']),

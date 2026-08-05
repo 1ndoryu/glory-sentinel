@@ -355,6 +355,9 @@ async function writeOrPrint(output: string, outputPath?: string): Promise<void> 
 }
 
 async function loadScopeQualityConfig(workspace: string): Promise<ScopeQualityConfig> {
+  /* [028A-6] Fuente de transición: quality.config.json aporta fullPatterns y
+   * perfiles como datos. La fuente canónica del core será la política v2
+   * (sentinel.config.json) cuando la Fase 1 del plan 028A-6 la consuma. */
   try {
     const raw = JSON.parse(await fs.readFile(path.join(workspace, 'quality.config.json'), 'utf8')) as Partial<ScopeQualityConfig>;
     return {
@@ -386,7 +389,7 @@ export async function checkCliTarget(args: ParsedCliArgs): Promise<string> {
       profiles: args.profile ? args.profile.split(',').map(item => item.trim()).filter(Boolean) : [],
     },
   );
-  return `${JSON.stringify({ ...scope, profiles: [...scope.profiles] }, null, 2)}\n`;
+  return `${JSON.stringify({ ...scope, profiles: [...scope.profiles], taskId: args.taskId ?? null }, null, 2)}\n`;
 }
 
 export async function runCli(rawArgs: string[]): Promise<number> {
