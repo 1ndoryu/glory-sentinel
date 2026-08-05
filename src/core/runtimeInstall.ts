@@ -302,11 +302,39 @@ export async function rollbackRuntime(options: RuntimeRollbackOptions = {}): Pro
   if (!target) {
     return { dryRun, targetRoot, previousVersion: active, restoredVersion: null, reason: 'no hay versión anterior conservada' };
   }
-  if (!dryRun) {
-    const artifactSha256 = versions.find(info => info.version === target)?.artifactSha256 ?? null;
-    await writeAtomic(path.join(targetRoot, 'current.json'), `${JSON.stringify({ version: target, artifactSha256 }, null, 2)}\n`);
+  const targetInfo = versions.find(info => info.version === target) ?? null;
+  /* [SNT-10/028A-6] El rollback exige artifactSha256 real y verificado: sin
+   * manifest o con hash ausente no se restaura (una versión sin verificar
+   * podría ser un directorio corrupto o ajeno al runtime). El hash se
+   * recalcula sobre la copia instalada y debe coincidir con el manifest. */
+  if (!targetInfo?.artifactSha256) {
+    return {
+      dryRun,
+      targetRoot,
+      previousVersion: active,
+      restoredVersion: null,
+      reason: `la versión ${target} no declara artifactSha256 (manifest ausente o corrupto); no se restaura`,
+    };
   }
-  return { dryRun, targetRoot, previousVersion: active, restoredVersion: target, reason: 'rollback a versión conservada' };
+  let verified = false;
+  try {
+    verified = await hashArtifact(path.join(targetRoot, 'versions', target)) === targetInfo.artifactSha256;
+  } catch {
+    verified = false;
+  }
+  if (!verified) {
+    return {
+      dryRun,
+      targetRoot,
+      previousVersion: active,
+      restoredVersion: null,
+      reason: `la versión ${target} no supera la verificación de artifactSha256; no se restaura`,
+    };
+  }
+  if (!dryRun) {
+    await writeAtomic(path.join(targetRoot, 'current.json'), `${JSON.stringify({ version: target, artifactSha256: targetInfo.artifactSha256 }, null, 2)}\n`);
+  }
+  return { dryRun, targetRoot, previousVersion: active, restoredVersion: target, reason: 'rollback a versión conservada y verificada' };
 }
 
 export async function runtimeStatus(options: { targetRoot?: string } = {}): Promise<RuntimeStatusResult> {

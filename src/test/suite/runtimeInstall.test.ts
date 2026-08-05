@@ -117,6 +117,56 @@ suite('Sentinel core runtimeInstall (contrato de actualización)', () => {
     }
   });
 
+  test('rollback rechaza una versión sin artifactSha256 (manifest ausente)', async () => {
+    const sourceV1 = makeSource('4.0.0');
+    const sourceV2 = makeSource('4.1.0');
+    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-runtime-nohash-'));
+    try {
+      await installRuntime({ sourceRoot: sourceV1, targetRoot: target });
+      await installRuntime({ sourceRoot: sourceV2, targetRoot: target });
+      /* Corrupto el manifest de la anterior: pierde el hash declarado. */
+      fs.writeFileSync(
+        path.join(target, 'versions', '4.0.0', 'manifest.json'),
+        `${JSON.stringify({ version: '4.0.0' })}\n`,
+        'utf8',
+      );
+      const result = await rollbackRuntime({ targetRoot: target });
+      assert.strictEqual(result.restoredVersion, null);
+      assert.match(result.reason, /no declara artifactSha256/);
+      /* El current sigue apuntando a la versión activa. */
+      assert.strictEqual((await runtimeStatus({ targetRoot: target })).activeVersion, '4.1.0');
+    } finally {
+      fs.rmSync(sourceV1, { recursive: true, force: true });
+      fs.rmSync(sourceV2, { recursive: true, force: true });
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+  });
+
+  test('rollback rechaza una versión cuyo contenido no coincide con su hash', async () => {
+    const sourceV1 = makeSource('5.0.0');
+    const sourceV2 = makeSource('5.1.0');
+    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-runtime-tampered-'));
+    try {
+      await installRuntime({ sourceRoot: sourceV1, targetRoot: target });
+      await installRuntime({ sourceRoot: sourceV2, targetRoot: target });
+      /* Manipulo el artefacto instalado de la anterior: ya no coincide con
+       * el artifactSha256 del manifest. El rollback debe negarse. */
+      fs.appendFileSync(
+        path.join(target, 'versions', '5.0.0', 'out', 'cli', 'index.js'),
+        '// tampered\n',
+        'utf8',
+      );
+      const result = await rollbackRuntime({ targetRoot: target });
+      assert.strictEqual(result.restoredVersion, null);
+      assert.match(result.reason, /no supera la verificación/);
+      assert.strictEqual((await runtimeStatus({ targetRoot: target })).activeVersion, '5.1.0');
+    } finally {
+      fs.rmSync(sourceV1, { recursive: true, force: true });
+      fs.rmSync(sourceV2, { recursive: true, force: true });
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+  });
+
   test('rollback sin versión anterior informa motivo y no muta', async () => {
     const source = makeSource('3.0.0');
     const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-runtime-noprev-'));

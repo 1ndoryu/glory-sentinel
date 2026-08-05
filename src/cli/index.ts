@@ -27,6 +27,12 @@ import {
   RuntimeInstallResult,
   RuntimeRollbackResult,
 } from '../core/runtimeInstall';
+import {
+  defaultProfilePaths,
+  formatProfilesResult,
+  installProfiles,
+  writeInterceptorShims,
+} from '../core/interceptorShims';
 import { inicializarGloryAnalyzer } from '../analyzers/gloryAnalyzer';
 
 export type CliFormat = 'markdown' | 'json';
@@ -58,6 +64,8 @@ export interface ParsedCliArgs {
   targetRoot?: string;
   sourceRoot?: string;
   runtimeVersion?: string;
+  withShims?: boolean;
+  withProfiles?: boolean;
 }
 
 export interface CliAnalysisResult {
@@ -80,8 +88,8 @@ function usage(): string {
     '  sentinel guard --executable <exe> [--project-root <dir>] [--json] -- <args...>',
     '  sentinel doctor [--json] [--workspace .]',
     '  sentinel status [--json] [--workspace .]',
-    '  sentinel install [--target-root <dir>] [--source-root <dir>] [--version <v>] [--dry-run] [--json]',
-    '  sentinel update [--target-root <dir>] [--source-root <dir>] [--version <v>] [--dry-run] [--json]',
+    '  sentinel install [--target-root <dir>] [--source-root <dir>] [--version <v>] [--dry-run] [--with-shims] [--with-profiles] [--json]',
+    '  sentinel update [--target-root <dir>] [--source-root <dir>] [--version <v>] [--dry-run] [--with-shims] [--with-profiles] [--json]',
     '  sentinel rollback [--target-root <dir>] [--version <v>] [--dry-run] [--json]',
     '  sentinel --version',
     '',
@@ -102,6 +110,8 @@ function usage(): string {
     '  --source-root <dir> Origen del artefacto a instalar (install/update)',
     '  --version <v>       Version a instalar o restaurar (install/update/rollback)',
     '  --dry-run           Simula sin escribir nada (install/update/rollback)',
+    '  --with-shims        Genera los shims interceptores en <target>/shims (install/update)',
+    '  --with-profiles     Dot-sourcea el guard en los perfiles con backup previo (install/update)',
     '  --json              Salida JSON (guard/doctor/status/install/update/rollback)',
     '  --help              Muestra esta ayuda',
     '  --version           Muestra la version instalada',
@@ -166,6 +176,10 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
         index++;
       } else if (arg === '--dry-run') {
         parsed.dryRun = true;
+      } else if (arg === '--with-shims') {
+        parsed.withShims = true;
+      } else if (arg === '--with-profiles') {
+        parsed.withProfiles = true;
       } else if (arg === '--json') {
         parsed.json = true;
       } else if (arg === '--help' || arg === '-h') {
@@ -547,13 +561,33 @@ export async function runCli(rawArgs: string[]): Promise<number> {
     return guardCliTarget(args);
   }
   if (args.command === 'install' || args.command === 'update' || args.command === 'rollback') {
-    const result = args.command === 'rollback'
-      ? await rollbackCliTarget(args)
-      : await installCliTarget(args);
-    const output = args.json
-      ? `${JSON.stringify(result, null, 2)}\n`
-      : formatRuntimeResult(result);
-    await writeOrPrint(output, args.outputPath);
+    if (args.command === 'rollback') {
+      const result = await rollbackCliTarget(args);
+      const output = args.json ? `${JSON.stringify(result, null, 2)}\n` : formatRuntimeResult(result);
+      await writeOrPrint(output, args.outputPath);
+      return 0;
+    }
+    const result = await installCliTarget(args);
+    const targetRoot = result.targetRoot;
+    const chunks: string[] = [args.json ? JSON.stringify(result, null, 2) : formatRuntimeResult(result)];
+    /* [028A-6 Fase 1] Shims interceptores y dot-source en perfiles son
+     * operaciones explícitas: solo se ejecutan con --with-shims /
+     * --with-profiles y solo tras instalar la versión (no en dry-run ni en
+     * rollback). Los perfiles se tocan SIEMPRE con backup previo. */
+    if (args.withShims && !args.dryRun) {
+      const shims = await writeInterceptorShims(targetRoot);
+      if (args.json) chunks.push(JSON.stringify({ shims }, null, 2));
+      else chunks.push(`Shims interceptores: ${shims.files.join(', ')}`);
+    }
+    if (args.withProfiles && !args.dryRun) {
+      const profilesResult = await installProfiles({
+        shimDir: path.join(targetRoot, 'shims'),
+        profiles: defaultProfilePaths(),
+      });
+      if (args.json) chunks.push(JSON.stringify(profilesResult, null, 2));
+      else chunks.push(formatProfilesResult(profilesResult));
+    }
+    await writeOrPrint(chunks.join('\n'), args.outputPath);
     return 0;
   }
   if (args.command === 'doctor' || args.command === 'status') {

@@ -65,6 +65,15 @@ suite('Sentinel CLI contract', () => {
     assert.strictEqual(rollback.runtimeVersion, '0.9.0');
   });
 
+  test('parsea --with-shims y --with-profiles en install', () => {
+    const withFlags = parseCliArgs(['install', '--target-root', 'rt', '--with-shims', '--with-profiles']);
+    assert.strictEqual(withFlags.withShims, true);
+    assert.strictEqual(withFlags.withProfiles, true);
+    const plain = parseCliArgs(['install', '--target-root', 'rt']);
+    assert.strictEqual(plain.withShims, undefined);
+    assert.strictEqual(plain.withProfiles, undefined);
+  });
+
   test('rechaza opciones desconocidas en install', () => {
     assert.throws(() => parseCliArgs(['install', '--no-such-flag']), /Opcion no reconocida/);
   });
