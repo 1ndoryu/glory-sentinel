@@ -124,8 +124,32 @@ export async function runCheck(args: CheckRunArgs): Promise<CheckRunResult> {
   const workspace = path.resolve(args.workspace);
   const reportRoot = path.resolve(args.reportRoot);
   await fs.mkdir(reportRoot, { recursive: true });
+  /* [028A-6 Fase 3] El gate es la vía sancionada: el token se hereda por el
+   * árbol de procesos y exime a las etapas del guard de comandos directos,
+   * igual que hace task-check.mjs en el orquestador. Fuera del gate (una
+   * invocación manual) el token no existe y el bloqueo sigue vigente. Se
+   * restaura el valor previo al salir: el token es por-ejecución y no debe
+   * filtrarse entre llamadas del mismo proceso (p. ej. la suite de tests). */
+  const previousGateToken = process.env.GLORY_QUALITY_GATE_TOKEN;
+  process.env.GLORY_QUALITY_GATE_TOKEN ||= globalThis.crypto?.randomUUID?.()
+    ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   const requestedFull = args.full ?? false;
   const requestedCi = args.ci ?? false;
+  try {
+    return await runCheckWithToken(args, workspace, reportRoot, requestedFull, requestedCi);
+  } finally {
+    if (previousGateToken === undefined) delete process.env.GLORY_QUALITY_GATE_TOKEN;
+    else process.env.GLORY_QUALITY_GATE_TOKEN = previousGateToken;
+  }
+}
+
+async function runCheckWithToken(
+  args: CheckRunArgs,
+  workspace: string,
+  reportRoot: string,
+  requestedFull: boolean,
+  requestedCi: boolean,
+): Promise<CheckRunResult> {
   /* [028A-6] El scheduler decide el full diferido: si el guard está en
    * cooldown (y no hay override), el alcance efectivo es local-light y el
    * motivo llega al manifest como heavy-deferred, igual que el orquestador. */
