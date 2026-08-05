@@ -41,6 +41,7 @@ export interface ToolReportFinding {
   severity?: unknown;
   message?: unknown;
   file?: unknown;
+  line?: unknown;
   range?: { start?: { line?: unknown } };
   suggestion?: unknown;
   remediation?: unknown;
@@ -61,12 +62,25 @@ export interface ToolReport {
 
 export function normalizeEntries(entries: ToolReportEntry[] = []): GateFinding[] {
   return entries.flatMap(entry => (entry.findings ?? []).map(finding => {
-    const line = finding.range?.start?.line;
+    /* [028A-6 Fase 3] La línea llega en dos formatos según el emisor: el
+     * adapter del orquestador publica `range.start.line` (0-based) y el
+     * wrapper stage-process.mjs normaliza a `line` directo (1-based). El
+     * core debe aceptar ambos para que los reportes de etapa conserven la
+     * ubicación y la paridad observe no cuente el mismo hallazgo dos veces
+     * (ruleId:file:line sin línea ≠ con línea). El número se emite SIEMPRE
+     * 1-based en el reporte combinado. */
+    const rangeLine = finding.range?.start?.line;
+    const directLine = finding.line;
+    const line = Number.isInteger(directLine)
+      ? Number(directLine)
+      : Number.isInteger(rangeLine)
+        ? Number(rangeLine) + 1
+        : undefined;
     return {
       ruleId: String(finding.ruleId ?? 'unknown'),
       severity: normalizeSeverity(finding.severity),
       file: (entry.ruta ?? entry.file ?? finding.file) ? String(entry.ruta ?? entry.file ?? finding.file).replace(/\\/g, '/') : undefined,
-      line: Number.isInteger(line) ? Number(line) + 1 : undefined,
+      line,
       message: redact(String(finding.message ?? 'Hallazgo sin mensaje')),
     };
   }));

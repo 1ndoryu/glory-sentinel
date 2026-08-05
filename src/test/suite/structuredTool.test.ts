@@ -5,7 +5,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { runStructuredTool, StructuredToolOptions } from '../../core/structuredTool';
+import { normalizeEntries, runStructuredTool, StructuredToolOptions } from '../../core/structuredTool';
 
 function optionsFor(root: string, isCancelled?: () => boolean): StructuredToolOptions {
   const logs = path.join(root, 'logs');
@@ -119,5 +119,31 @@ suite('Sentinel core structured tool (orquestador agnóstico)', () => {
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  /* [028A-6 Fase 3] Paridad observe: el wrapper emite `line` (1-based) y el
+   * adapter del orquestador `range.start.line` (0-based). Ambos deben
+   * conservar la misma línea 1-based en el reporte combinado, o el
+   * comparador contaría el mismo hallazgo dos veces. */
+  test('normalizeEntries conserva la línea en formato directo y range', () => {
+    const direct = normalizeEntries([{ findings: [
+      { ruleId: 'r1', severity: 'warning', file: 'src/a.ts', line: 35, message: 'm1' },
+    ] }]);
+    assert.strictEqual(direct[0].line, 35, 'line directo (1-based) se conserva tal cual');
+
+    const ranged = normalizeEntries([{ findings: [
+      { ruleId: 'r1', severity: 'warning', file: 'src/a.ts', range: { start: { line: 34 } }, message: 'm1' },
+    ] }]);
+    assert.strictEqual(ranged[0].line, 35, 'range.start.line (0-based) se convierte a 1-based');
+
+    const none = normalizeEntries([{ findings: [
+      { ruleId: 'r1', severity: 'warning', file: 'src/a.ts', message: 'm1' },
+    ] }]);
+    assert.strictEqual(none[0].line, undefined, 'sin ubicación no se inventa línea');
+
+    const directWins = normalizeEntries([{ findings: [
+      { ruleId: 'r1', severity: 'warning', file: 'src/a.ts', line: 40, range: { start: { line: 4 } }, message: 'm1' },
+    ] }]);
+    assert.strictEqual(directWins[0].line, 40, 'con ambos, el directo (ya normalizado) manda');
   });
 });
