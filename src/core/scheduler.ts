@@ -5,6 +5,7 @@
  * interceptaba `cargo` (--execute-cargo) queda en el orquestador: es
  * integración de migración, no capacidad del core. */
 import { lstat, mkdir, readFile, realpath, rename, unlink, writeFile } from 'node:fs/promises';
+import { lstatSync } from 'node:fs';
 import crypto from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
@@ -128,6 +129,22 @@ async function readProjectConfig(projectRoot: string): Promise<Record<string, un
     return { ...v2, heavyRun: v1.heavyRun };
   }
   return v2;
+}
+
+/* [028A-6] Verifica que una raíz tenga un marcador declarativo real
+ * (sentinel.config.json o quality.config.json como archivo regular, sin
+ * symlinks). findQualityRoot devuelve el startPath como fallback cuando no
+ * hay marcador; esta función permite distinguir "raíz encontrada por
+ * marcador" de "fallback", para que doctor/guard no mientan sobre la raíz. */
+export function hasQualityMarker(candidate: string): boolean {
+  for (const marker of ['sentinel.config.json', 'quality.config.json']) {
+    try {
+      if (lstatSync(path.join(candidate, marker)).isFile()) return true;
+    } catch {
+      /* Marcador ausente. */
+    }
+  }
+  return false;
 }
 
 export async function findQualityRoot(startPath: string = process.cwd()): Promise<string> {

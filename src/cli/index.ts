@@ -12,8 +12,14 @@ import {
 import { generarReporteMarkdown, CoreReportEntry } from '../core/report';
 import { CoreAnalysisConfig, createCoreDocument } from '../core/types';
 import { languageIdForFile } from '../core/language';
-import { detectScope, ScopeQualityConfig } from '../core/scope';
-import { inspectHeavyRun } from '../core/scheduler';
+import {
+  formatBlockMessage,
+  inspectDirectCommand,
+  QUALITY_GUARD_EXIT_CODE,
+} from '../core/guardCommand';
+import { diagnoseWorkspace, formatDiagnose, formatStatus } from '../core/diagnose';
+import { runCheck, CheckRunResult } from '../core/gateRun';
+import { cancelAll } from '../core/toolRunner';
 import { inicializarGloryAnalyzer } from '../analyzers/gloryAnalyzer';
 
 export type CliFormat = 'markdown' | 'json';
@@ -24,7 +30,7 @@ export type SentinelCliConfigFile = SentinelConfigFile;
 
 
 export interface ParsedCliArgs {
-  command: 'analyze' | 'check';
+  command: 'analyze' | 'check' | 'guard' | 'doctor' | 'status';
   workspacePath?: string;
   filePath?: string;
   filesFromPath?: string;
@@ -37,6 +43,11 @@ export interface ParsedCliArgs {
   ci?: boolean;
   profile?: string;
   allowHeavy?: boolean;
+  json?: boolean;
+  stagesPath?: string;
+  guardExecutable?: string;
+  guardProjectRoot?: string;
+  guardArgs?: string[];
 }
 
 export interface CliAnalysisResult {
@@ -55,6 +66,10 @@ function usage(): string {
     '  sentinel analyze --file src/app.ts --format json',
     '  sentinel analyze --workspace . --files-from .changed-files --format json',
     '  sentinel check <task-id> --dry-run [--workspace .] [--full|--ci] [--profile rust,...]',
+    '  sentinel check <task-id> --stages <json> [--full|--ci] [--workspace .]',
+    '  sentinel guard --executable <exe> [--project-root <dir>] [--json] -- <args...>',
+    '  sentinel doctor [--json] [--workspace .]',
+    '  sentinel status [--json] [--workspace .]',
     '  sentinel --version',
     '',
     'Opciones:',
@@ -69,6 +84,8 @@ function usage(): string {
     '  --full / --ci       Fuerza alcance full (check)',
     '  --profile <csv>     Perfiles ejecutables explicitos (check)',
     '  --allow-heavy       Tolera full aunque el guard este en cooldown (check)',
+    '  --stages <path>     Ejecuta las etapas declarativas JSON (check sin --dry-run)',
+    '  --json              Salida JSON (guard/doctor/status)',
     '  --help              Muestra esta ayuda',
     '  --version           Muestra la version instalada',
   ].join('\n');
@@ -83,14 +100,40 @@ function takeValue(args: string[], index: number, option: string): string {
 }
 
 export function parseCliArgs(args: string[]): ParsedCliArgs {
-  if (args[0] !== 'analyze' && args[0] !== 'check') {
+  if (!['analyze', 'check', 'guard', 'doctor', 'status'].includes(args[0] ?? '')) {
     throw new Error(usage());
   }
 
   const parsed: ParsedCliArgs = {
-    command: args[0],
+    command: args[0] as ParsedCliArgs['command'],
     format: 'markdown',
   };
+
+  if (args[0] === 'guard') {
+    const separator = args.indexOf('--');
+    const before = args.slice(1, separator === -1 ? args.length : separator);
+    parsed.guardArgs = separator === -1 ? [] : args.slice(separator + 1);
+    for (let index = 0; index < before.length; index++) {
+      const arg = before[index];
+      if (arg === '--executable') {
+        parsed.guardExecutable = takeValue(before, index, arg);
+        index++;
+      } else if (arg === '--project-root') {
+        parsed.guardProjectRoot = takeValue(before, index, arg);
+        index++;
+      } else if (arg === '--json') {
+        parsed.json = true;
+      } else if (arg === '--workspace') {
+        parsed.workspacePath = takeValue(before, index, arg);
+        index++;
+      } else if (arg === '--help' || arg === '-h') {
+        throw new Error(usage());
+      } else {
+        throw new Error(`Opcion no reconocida: ${arg}\n${usage()}`);
+      }
+    }
+    return parsed;
+  }
 
   let positionalIndex = -1;
   if (args[0] === 'check' && args.length > 1 && !args[1].startsWith('--')) {
@@ -153,6 +196,13 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
         /* [028A-6] El scheduler del core decide el full diferido: sin este
          * flag, un full en cooldown queda como local-light en el alcance. */
         parsed.allowHeavy = true;
+        break;
+      case '--stages':
+        parsed.stagesPath = takeValue(args, index, arg);
+        index++;
+        break;
+      case '--json':
+        parsed.json = true;
         break;
       case '--help':
       case '-h':
@@ -362,62 +412,43 @@ async function writeOrPrint(output: string, outputPath?: string): Promise<void> 
   await fs.writeFile(resolved, output, 'utf8');
 }
 
-async function loadScopeQualityConfig(workspace: string): Promise<ScopeQualityConfig> {
-  /* [028A-6] Fuente de transición: quality.config.json aporta fullPatterns y
-   * perfiles como datos. La fuente canónica del core será la política v2
-   * (sentinel.config.json) cuando la Fase 1 del plan 028A-6 la consuma. */
-  try {
-    const raw = JSON.parse(await fs.readFile(path.join(workspace, 'quality.config.json'), 'utf8')) as Partial<ScopeQualityConfig>;
-    return {
-      fullPatterns: Array.isArray(raw.fullPatterns) ? raw.fullPatterns : [],
-      profiles: raw.profiles && typeof raw.profiles === 'object' ? raw.profiles : {},
-    };
-  } catch {
-    return { fullPatterns: [], profiles: {} };
-  }
+export async function checkCliTarget(args: ParsedCliArgs): Promise<CheckRunResult> {
+  const workspace = path.resolve(args.workspacePath ?? process.cwd());
+  return runCheck({
+    workspace,
+    reportRoot: args.dryRun
+      ? path.join(workspace, '.quality-reports', 'check-dry-run')
+      : path.join(workspace, '.quality-reports', 'check', args.taskId ?? 'task'),
+    dryRun: Boolean(args.dryRun),
+    taskId: args.taskId,
+    full: args.full,
+    ci: args.ci,
+    allowHeavy: args.allowHeavy,
+    profile: args.profile,
+    stagesPath: args.stagesPath,
+  });
 }
 
-export async function checkCliTarget(args: ParsedCliArgs): Promise<string> {
-  if (!args.dryRun) {
-    throw new Error('check requiere --dry-run: el orquestador completo se está migrando (028A-6 Fase 1)');
+export async function guardCliTarget(args: ParsedCliArgs): Promise<number> {
+  const decision = await inspectDirectCommand({
+    executable: args.guardExecutable ?? '',
+    args: args.guardArgs ?? [],
+    cwd: args.workspacePath ?? process.cwd(),
+    projectRoot: args.guardProjectRoot,
+  });
+  if (args.json) {
+    process.stdout.write(`${JSON.stringify(decision, null, 2)}\n`);
+  } else if (decision.blocked) {
+    process.stderr.write(`${formatBlockMessage(decision)}\n`);
   }
-  const workspace = path.resolve(args.workspacePath ?? process.cwd());
-  const reportRoot = path.join(workspace, '.quality-reports', 'check-dry-run');
-  await fs.mkdir(reportRoot, { recursive: true });
-  const requestedFull = args.full ?? false;
-  const requestedCi = args.ci ?? false;
-  /* [028A-6] El scheduler decide el full diferido: si el guard está en
-   * cooldown (y no hay override), el alcance efectivo es local-light y el
-   * motivo llega al manifest como heavy-deferred, igual que el orquestador. */
-  const guardDecision = requestedFull || requestedCi
-    ? await inspectHeavyRun({
-        projectRoot: workspace,
-        mode: requestedCi ? 'ci' : 'full',
-        allowHeavy: args.allowHeavy ?? false,
-      })
-    : null;
-  const heavyGuard = guardDecision && !guardDecision.allowed
-    ? { reason: guardDecision.reason ?? 'guard', nextAllowedAt: guardDecision.nextAllowedAt ?? null }
-    : null;
-  const scope = await detectScope(
-    {
-      projectRoot: workspace,
-      reportRoot,
-      qualityConfig: await loadScopeQualityConfig(workspace),
-    },
-    {
-      full: requestedFull,
-      ci: requestedCi,
-      heavyDeferred: heavyGuard,
-      profiles: args.profile ? args.profile.split(',').map(item => item.trim()).filter(Boolean) : [],
-    },
-  );
-  return `${JSON.stringify({
-    ...scope,
-    profiles: [...scope.profiles],
-    taskId: args.taskId ?? null,
-    heavyGuard,
-  }, null, 2)}\n`;
+  return decision.blocked ? (decision.exitCode ?? QUALITY_GUARD_EXIT_CODE) : 0;
+}
+
+export async function diagnoseCliTarget(args: ParsedCliArgs, command: 'doctor' | 'status'): Promise<string> {
+  const result = await diagnoseWorkspace(path.resolve(args.workspacePath ?? process.cwd()));
+  return args.json
+    ? `${JSON.stringify(result, null, 2)}\n`
+    : `${(command === 'doctor' ? formatDiagnose(result) : formatStatus(result))}\n`;
 }
 
 export async function runCli(rawArgs: string[]): Promise<number> {
@@ -435,7 +466,26 @@ export async function runCli(rawArgs: string[]): Promise<number> {
 
   const args = parseCliArgs(rawArgs);
   if (args.command === 'check') {
-    const output = await checkCliTarget(args);
+    /* [028A-6] En una ejecución real, Ctrl+C/SIGTERM debe terminar también
+     * los hijos del gate (cancelAll), no dejarlos huérfanos. */
+    const onSignal = () => cancelAll();
+    process.on('SIGINT', onSignal);
+    process.on('SIGTERM', onSignal);
+    let result: CheckRunResult;
+    try {
+      result = await checkCliTarget(args);
+    } finally {
+      process.removeListener('SIGINT', onSignal);
+      process.removeListener('SIGTERM', onSignal);
+    }
+    await writeOrPrint(result.output, args.outputPath);
+    return result.exitCode;
+  }
+  if (args.command === 'guard') {
+    return guardCliTarget(args);
+  }
+  if (args.command === 'doctor' || args.command === 'status') {
+    const output = await diagnoseCliTarget(args, args.command);
     await writeOrPrint(output, args.outputPath);
     return 0;
   }
