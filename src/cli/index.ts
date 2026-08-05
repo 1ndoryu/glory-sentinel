@@ -37,8 +37,11 @@ import {
 } from '../core/runtimeInstall';
 import {
   defaultProfilePaths,
+  formatPathEntryResult,
   formatProfilesResult,
+  installPathEntry,
   installProfiles,
+  uninstallPathEntry,
   writeInterceptorShims,
 } from '../core/interceptorShims';
 import { inicializarGloryAnalyzer } from '../analyzers/gloryAnalyzer';
@@ -79,6 +82,8 @@ export interface ParsedCliArgs {
   runtimeVersion?: string;
   withShims?: boolean;
   withProfiles?: boolean;
+  withPath?: boolean;
+  withoutPath?: boolean;
 }
 
 export interface CliAnalysisResult {
@@ -101,8 +106,8 @@ function usage(): string {
     '  sentinel guard --executable <exe> [--project-root <dir>] [--json] -- <args...>',
     '  sentinel doctor [--json] [--workspace .]',
     '  sentinel status [--json] [--workspace .]',
-    '  sentinel install [--target-root <dir>] [--source-root <dir>] [--version <v>] [--dry-run] [--with-shims] [--with-profiles] [--json]',
-    '  sentinel update [--target-root <dir>] [--source-root <dir>] [--version <v>] [--dry-run] [--with-shims] [--with-profiles] [--json]',
+    '  sentinel install [--target-root <dir>] [--source-root <dir>] [--version <v>] [--dry-run] [--with-shims] [--with-profiles] [--with-path] [--without-path] [--json]',
+    '  sentinel update [--target-root <dir>] [--source-root <dir>] [--version <v>] [--dry-run] [--with-shims] [--with-profiles] [--with-path] [--without-path] [--json]',
     '  sentinel rollback [--target-root <dir>] [--version <v>] [--dry-run] [--json]',
     '  sentinel lease issue --project-root <dir> [--task-id <id>] [--command <cmd>] [--ttl-ms <ms>] [--json]',
     '  sentinel lease list [--json]',
@@ -129,6 +134,8 @@ function usage(): string {
     '  --dry-run           Simula sin escribir nada (install/update/rollback)',
     '  --with-shims        Genera los shims interceptores en <target>/shims (install/update)',
     '  --with-profiles     Dot-sourcea el guard en los perfiles con backup previo (install/update)',
+    '  --with-path         Añade <target>/shims al PATH de usuario (install/update; implica --with-shims)',
+    '  --without-path      Retira <target>/shims del PATH de usuario (install)',
     '  --lease <path>      Ruta del lease (revoke/verify)',
     '  --pid <n>           PID a verificar como descendiente del emisor (verify)',
     '  --command <cmd>     Comando/propósito del lease (issue/verify)',
@@ -243,6 +250,10 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
         parsed.withShims = true;
       } else if (arg === '--with-profiles') {
         parsed.withProfiles = true;
+      } else if (arg === '--with-path') {
+        parsed.withPath = true;
+      } else if (arg === '--without-path') {
+        parsed.withoutPath = true;
       } else if (arg === '--json') {
         parsed.json = true;
       } else if (arg === '--help' || arg === '-h') {
@@ -681,7 +692,11 @@ export async function runCli(rawArgs: string[]): Promise<number> {
      * operaciones explícitas: solo se ejecutan con --with-shims /
      * --with-profiles y solo tras instalar la versión (no en dry-run ni en
      * rollback). Los perfiles se tocan SIEMPRE con backup previo. */
-    if (args.withShims && !args.dryRun) {
+    /* [028A-6 Fase 3] --with-path expone los shims en el PATH de usuario;
+     * implica escribir los shims aunque no se pase --with-shims (una entrada
+     * de PATH que apunta a un directorio inexistente rompería npm/cargo). */
+    const wantShims = args.withShims || args.withPath;
+    if (wantShims && !args.dryRun) {
       const shims = await writeInterceptorShims(targetRoot);
       if (args.json) chunks.push(JSON.stringify({ shims }, null, 2));
       else chunks.push(`Shims interceptores: ${shims.files.join(', ')}`);
@@ -693,6 +708,16 @@ export async function runCli(rawArgs: string[]): Promise<number> {
       });
       if (args.json) chunks.push(JSON.stringify(profilesResult, null, 2));
       else chunks.push(formatProfilesResult(profilesResult));
+    }
+    if (args.withPath) {
+      const pathResult = await installPathEntry(targetRoot, { dryRun: args.dryRun });
+      if (args.json) chunks.push(JSON.stringify(pathResult, null, 2));
+      else chunks.push(formatPathEntryResult(pathResult));
+    }
+    if (args.withoutPath) {
+      const pathResult = await uninstallPathEntry(targetRoot, { dryRun: args.dryRun });
+      if (args.json) chunks.push(JSON.stringify(pathResult, null, 2));
+      else chunks.push(formatPathEntryResult(pathResult));
     }
     await writeOrPrint(chunks.join('\n'), args.outputPath);
     return 0;

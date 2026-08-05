@@ -9,6 +9,9 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import {
+  installPathEntry,
+  shimsPathFor,
+  uninstallPathEntry,
   assertSafeRuntimePath,
   generateBashGuard,
   generateCmdShim,
@@ -282,5 +285,71 @@ suite('Sentinel core interceptorShims (shims y perfiles)', () => {
     const contents = backups.map(name => fs.readFileSync(path.join(backupDir, name), 'utf8'));
     assert.ok(contents.includes('PS7 original\n'));
     assert.ok(contents.includes('PS5 original\n'));
+  });
+
+  /* [028A-6 Fase 3] PATH de usuario administrable: la entrada <target>/shims
+   * se añade al principio, es idempotente, respeta dry-run y se retira sin
+   * tocar el resto. El acceso real (PowerShell User) queda fuera de los
+   * tests; aquí se inyecta un almacén en memoria. */
+  test('installPathEntry añade la entrada al PATH de usuario y es idempotente', async () => {
+    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-path-target-'));
+    try {
+      let stored = 'C:\\Python\\Scripts';
+      const read = async () => stored;
+      const write = async (value: string) => { stored = value; };
+
+      const first = await installPathEntry(target, { read, write });
+      assert.strictEqual(first.action, 'added');
+      assert.strictEqual(shimsPathFor(target), path.join(target, 'shims'));
+      assert.ok(stored.startsWith(path.join(target, 'shims') + ';'), 'la entrada va al principio');
+      assert.ok(stored.endsWith('C:\\Python\\Scripts'), 'el resto se conserva');
+
+      const again = await installPathEntry(target, { read, write });
+      assert.strictEqual(again.action, 'unchanged', 'segunda llamada no duplica');
+    } finally {
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+  });
+
+  test('installPathEntry con dry-run no escribe y devuelve el próximo valor', async () => {
+    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-path-target-'));
+    try {
+      let stored = 'C:\\Python';
+      const read = async () => stored;
+      const write = async (value: string) => { stored = value; };
+      const result = await installPathEntry(target, { read, write, dryRun: true });
+      assert.strictEqual(result.action, 'added');
+      assert.strictEqual(stored, 'C:\\Python', 'dry-run no muta');
+      assert.ok(result.next?.startsWith(path.join(target, 'shims')), 'next contiene el preview');
+    } finally {
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+  });
+
+  test('uninstallPathEntry retira solo la entrada del runtime', async () => {
+    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-path-target-'));
+    try {
+      let stored = `${path.join(target, 'shims')};C:\\Python;${path.join(target, 'shims')};C:\\Node`;
+      const read = async () => stored;
+      const write = async (value: string) => { stored = value; };
+      const removed = await uninstallPathEntry(target, { read, write });
+      assert.strictEqual(removed.action, 'removed');
+      assert.ok(!stored.includes('shims'), 'todas las copias de la entrada desaparecen');
+      assert.strictEqual(stored, 'C:\\Python;C:\\Node', 'el resto se conserva');
+      const again = await uninstallPathEntry(target, { read, write });
+      assert.strictEqual(again.action, 'unchanged');
+    } finally {
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+  });
+
+  test('sin PATH de usuario administrable devuelve unsupported', async () => {
+    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-path-target-'));
+    try {
+      const result = await installPathEntry(target, { read: async () => null, write: async () => {} });
+      assert.strictEqual(result.action, 'unsupported');
+    } finally {
+      fs.rmSync(target, { recursive: true, force: true });
+    }
   });
 });
