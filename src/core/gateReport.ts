@@ -4,7 +4,7 @@
  * redacción de secretos. No depende de wandori.us; el comando recomendado del
  * runtime agnóstico es `sentinel check <task-id>`. */
 import path from 'node:path';
-import { rename, writeFile } from 'node:fs/promises';
+import { writeAtomic } from './atomicFile';
 import { sanitize } from './redaction';
 
 export type StageStatus = 'pass' | 'fail' | 'error' | 'pending' | 'cancelled' | 'skipped';
@@ -178,12 +178,6 @@ function markdown(report: GateReport): string {
   }
   lines.push('', '## Recordatorios', '', ...report.reminders.map(item => `- ${item}`), '');
   return lines.join('\n');
-}
-
-async function writeAtomic(target: string, content: string): Promise<void> {
-  const temporary = `${target}.tmp`;
-  await writeFile(temporary, content, 'utf8');
-  await rename(temporary, target);
 }
 
 export async function createReport(

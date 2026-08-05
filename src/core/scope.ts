@@ -3,11 +3,12 @@
  * (requested/automatic/effective/execution) no depende de un proyecto; el
  * workspace aporta únicamente configuración declarativa (fullPatterns y
  * perfiles). No importa VS Code, LSP, VarSense ni código de un proyecto. */
-import { access, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { writeAtomic } from './atomicFile';
 
 const execFileAsync = promisify(execFile);
 
@@ -252,12 +253,6 @@ export function resolveExplicitProfiles(
     explicit: true,
     source: cliProfiles.length > 0 ? 'cli' : 'env',
   };
-}
-
-async function writeAtomic(target: string, content: string): Promise<void> {
-  const temporary = `${target}.tmp`;
-  await writeFile(temporary, content, 'utf8');
-  await rename(temporary, target);
 }
 
 export async function detectScope(context: ScopeContext, args: ScopeArgs): Promise<ScopeResult> {

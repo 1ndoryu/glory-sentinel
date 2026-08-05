@@ -13,6 +13,7 @@ import { generarReporteMarkdown, CoreReportEntry } from '../core/report';
 import { CoreAnalysisConfig, createCoreDocument } from '../core/types';
 import { languageIdForFile } from '../core/language';
 import { detectScope, ScopeQualityConfig } from '../core/scope';
+import { inspectHeavyRun } from '../core/scheduler';
 import { inicializarGloryAnalyzer } from '../analyzers/gloryAnalyzer';
 
 export type CliFormat = 'markdown' | 'json';
@@ -67,6 +68,7 @@ function usage(): string {
     '  --dry-run           Calcula el alcance sin ejecutar el gate (check)',
     '  --full / --ci       Fuerza alcance full (check)',
     '  --profile <csv>     Perfiles ejecutables explicitos (check)',
+    '  --allow-heavy       Tolera full aunque el guard este en cooldown (check)',
     '  --help              Muestra esta ayuda',
     '  --version           Muestra la version instalada',
   ].join('\n');
@@ -148,8 +150,8 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
         index++;
         break;
       case '--allow-heavy':
-        /* [028A-6] Tolerado por el orquestador en migración: el reporter puede
-         * recomendarlo para un full diferido; aún no tiene efecto en check. */
+        /* [028A-6] El scheduler del core decide el full diferido: sin este
+         * flag, un full en cooldown queda como local-light en el alcance. */
         parsed.allowHeavy = true;
         break;
       case '--help':
@@ -382,6 +384,21 @@ export async function checkCliTarget(args: ParsedCliArgs): Promise<string> {
   const workspace = path.resolve(args.workspacePath ?? process.cwd());
   const reportRoot = path.join(workspace, '.quality-reports', 'check-dry-run');
   await fs.mkdir(reportRoot, { recursive: true });
+  const requestedFull = args.full ?? false;
+  const requestedCi = args.ci ?? false;
+  /* [028A-6] El scheduler decide el full diferido: si el guard está en
+   * cooldown (y no hay override), el alcance efectivo es local-light y el
+   * motivo llega al manifest como heavy-deferred, igual que el orquestador. */
+  const guardDecision = requestedFull || requestedCi
+    ? await inspectHeavyRun({
+        projectRoot: workspace,
+        mode: requestedCi ? 'ci' : 'full',
+        allowHeavy: args.allowHeavy ?? false,
+      })
+    : null;
+  const heavyGuard = guardDecision && !guardDecision.allowed
+    ? { reason: guardDecision.reason ?? 'guard', nextAllowedAt: guardDecision.nextAllowedAt ?? null }
+    : null;
   const scope = await detectScope(
     {
       projectRoot: workspace,
@@ -389,13 +406,18 @@ export async function checkCliTarget(args: ParsedCliArgs): Promise<string> {
       qualityConfig: await loadScopeQualityConfig(workspace),
     },
     {
-      full: args.full ?? false,
-      ci: args.ci ?? false,
-      heavyDeferred: null,
+      full: requestedFull,
+      ci: requestedCi,
+      heavyDeferred: heavyGuard,
       profiles: args.profile ? args.profile.split(',').map(item => item.trim()).filter(Boolean) : [],
     },
   );
-  return `${JSON.stringify({ ...scope, profiles: [...scope.profiles], taskId: args.taskId ?? null }, null, 2)}\n`;
+  return `${JSON.stringify({
+    ...scope,
+    profiles: [...scope.profiles],
+    taskId: args.taskId ?? null,
+    heavyGuard,
+  }, null, 2)}\n`;
 }
 
 export async function runCli(rawArgs: string[]): Promise<number> {
