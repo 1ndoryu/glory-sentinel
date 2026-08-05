@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 2,
+  "mode": "enforce",
+  "gate": { "command": ["sentinel", "check", "--"], "taskIdRequired": true },
+  "guard": {
+    "directCommands": {
+      "npmScripts": ["test", "test:watch", "lint", "build", "type-check"],
+      "npxTools": ["vitest", "tsc", "eslint", "prettier"],
+      "cargoSubcommands": [],
+      "tools": ["vitest", "tsc", "eslint", "prettier", "rustfmt"]
+    }
+  }
+}

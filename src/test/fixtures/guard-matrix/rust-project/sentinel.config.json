@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 2,
+  "mode": "enforce",
+  "gate": { "command": ["sentinel", "check", "--"], "taskIdRequired": true },
+  "guard": {
+    "directCommands": {
+      "npmScripts": [],
+      "npxTools": [],
+      "cargoSubcommands": ["check", "clippy", "test", "bench", "fmt"],
+      "tools": ["rustfmt"]
+    }
+  }
+}
