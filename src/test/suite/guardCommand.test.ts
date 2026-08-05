@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { formatBlockMessage, inspectDirectCommand, QUALITY_GUARD_EXIT_CODE } from '../../core/guardCommand';
+import { LEASE_ENV_VAR, issueLease } from '../../core/lease';
 
 function writeV2Policy(root: string, mode: string, directCommands: Record<string, string[]>): void {
   fs.writeFileSync(path.join(root, 'sentinel.config.json'), JSON.stringify({
@@ -108,7 +109,7 @@ suite('Sentinel core guard command (orquestador agnóstico)', () => {
     }
   });
 
-  test('el token del gate exime invocaciones internas', async () => {
+  test('el token del gate exime invocaciones internas (legacy)', async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-token-'));
     try {
       writeV2Policy(root, 'enforce', { npmScripts: ['test'], npxTools: [], cargoSubcommands: [], tools: [] });
@@ -122,6 +123,89 @@ suite('Sentinel core guard command (orquestador agnóstico)', () => {
       assert.strictEqual(decision.root, null);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('un lease válido exime la invocación que iba a bloquearse', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-lease-'));
+    const guardRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-lease-gr-'));
+    try {
+      writeV2Policy(root, 'enforce', { npmScripts: ['test'], npxTools: [], cargoSubcommands: [], tools: [] });
+      const issued = await issueLease({ projectRoot: root, guardRoot, taskId: '297A-16' });
+      const decision = await inspectDirectCommand({
+        executable: 'npm',
+        args: ['run', 'test'],
+        projectRoot: root,
+        env: { [LEASE_ENV_VAR]: issued.path },
+      });
+      assert.strictEqual(decision.blocked, false);
+      assert.strictEqual(decision.leaseVerified, true);
+      assert.strictEqual(decision.leaseId, issued.lease.id);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+      fs.rmSync(guardRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('un lease inválido no exime: el bloqueo sigue vigente', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-lease-bad-'));
+    const guardRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-lease-bad-gr-'));
+    try {
+      writeV2Policy(root, 'enforce', { npmScripts: ['test'], npxTools: [], cargoSubcommands: [], tools: [] });
+      const issued = await issueLease({ projectRoot: root, guardRoot, ttlMs: 60_000, now: 1_000_000 });
+      const decision = await inspectDirectCommand({
+        executable: 'npm',
+        args: ['run', 'test'],
+        projectRoot: root,
+        env: { [LEASE_ENV_VAR]: issued.path },
+      });
+      assert.strictEqual(decision.blocked, true, 'lease expirado no exime');
+      assert.strictEqual(decision.leaseVerified, undefined);
+      assert.strictEqual(decision.exitCode, QUALITY_GUARD_EXIT_CODE);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+      fs.rmSync(guardRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('un lease válido de otro proyecto no exime', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-lease-proj-'));
+    const other = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-lease-proj-other-'));
+    const guardRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-lease-proj-gr-'));
+    try {
+      writeV2Policy(root, 'enforce', { npmScripts: ['test'], npxTools: [], cargoSubcommands: [], tools: [] });
+      const issued = await issueLease({ projectRoot: other, guardRoot });
+      const decision = await inspectDirectCommand({
+        executable: 'npm',
+        args: ['run', 'test'],
+        projectRoot: root,
+        env: { [LEASE_ENV_VAR]: issued.path },
+      });
+      assert.strictEqual(decision.blocked, true, 'el lease ata proyecto; otro proyecto sigue bloqueado');
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+      fs.rmSync(other, { recursive: true, force: true });
+      fs.rmSync(guardRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('el lease no corre para comandos que la política ya deja pasar', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-lease-dev-'));
+    const guardRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-lease-dev-gr-'));
+    try {
+      writeV2Policy(root, 'enforce', { npmScripts: ['test'], npxTools: [], cargoSubcommands: [], tools: [] });
+      const issued = await issueLease({ projectRoot: root, guardRoot });
+      const decision = await inspectDirectCommand({
+        executable: 'npm',
+        args: ['run', 'dev'],
+        projectRoot: root,
+        env: { [LEASE_ENV_VAR]: issued.path },
+      });
+      assert.strictEqual(decision.blocked, false);
+      assert.strictEqual(decision.leaseVerified, undefined, 'npm run dev no requiere exención');
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+      fs.rmSync(guardRoot, { recursive: true, force: true });
     }
   });
 

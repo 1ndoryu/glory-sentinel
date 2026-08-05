@@ -77,4 +77,30 @@ suite('Sentinel CLI contract', () => {
   test('rechaza opciones desconocidas en install', () => {
     assert.throws(() => parseCliArgs(['install', '--no-such-flag']), /Opcion no reconocida/);
   });
+
+  test('parsea el subcomando lease con sus opciones', () => {
+    const issue = parseCliArgs(['lease', 'issue', '--project-root', '/p', '--task-id', 'T-1', '--command', 'cargo test', '--ttl-ms', '60000', '--json']);
+    assert.strictEqual(issue.command, 'lease');
+    assert.strictEqual(issue.leaseAction, 'issue');
+    assert.strictEqual(issue.workspacePath, '/p');
+    assert.strictEqual(issue.taskId, 'T-1');
+    assert.strictEqual(issue.leaseCommand, 'cargo test');
+    assert.strictEqual(issue.leaseTtlMs, 60000);
+    assert.strictEqual(issue.json, true);
+
+    const revoke = parseCliArgs(['lease', 'revoke', '--lease', '/x/lease.json']);
+    assert.strictEqual(revoke.leaseAction, 'revoke');
+    assert.strictEqual(revoke.leasePath, '/x/lease.json');
+
+    const verify = parseCliArgs(['lease', 'verify', '--lease', '/x/lease.json', '--pid', '42']);
+    assert.strictEqual(verify.leaseAction, 'verify');
+    assert.strictEqual(verify.leasePid, 42);
+
+    const list = parseCliArgs(['lease', 'list']);
+    assert.strictEqual(list.leaseAction, 'list');
+
+    assert.throws(() => parseCliArgs(['lease', 'bogus']), /Acción lease no reconocida/);
+    assert.throws(() => parseCliArgs(['lease', 'verify', '--lease', '/x', '--pid', 'abc']), /--pid debe ser un PID válido/);
+    assert.throws(() => parseCliArgs(['lease', 'issue', '--ttl-ms', '-5']), /--ttl-ms debe ser un entero positivo/);
+  });
 });

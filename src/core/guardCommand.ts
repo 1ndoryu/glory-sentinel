@@ -8,6 +8,7 @@ import path from 'node:path';
 import { lstatSync, readFileSync } from 'node:fs';
 import { decisionForGuard } from './policyDecision';
 import { findQualityRoot, hasQualityMarker } from './scheduler';
+import { LEASE_ENV_VAR, verifyLease } from './lease';
 
 export const QUALITY_GUARD_EXIT_CODE = 78;
 
@@ -121,14 +122,20 @@ export interface GuardDecision {
   category?: string | null;
   command?: string;
   exitCode?: number;
+  /* [028A-6 Fase 2] El lease firmado eximió la invocación: expone su id para
+   * que el JSON del guard muestre la vía sancionada usada. */
+  leaseId?: string | null;
+  leaseVerified?: boolean;
 }
 
 export async function inspectDirectCommand(options: GuardInspectOptions = {}): Promise<GuardDecision> {
   const { executable = '', args = [], cwd = process.cwd(), projectRoot, env = process.env } = options;
-  /* [297A-58] Las etapas internas del gate son la vía sancionada: el gate
-   * establece un token aleatorio por ejecución que se hereda solo por su árbol
-   * de procesos; fuera de él el token no existe y el bloqueo sigue vigente. */
-  if (env.GLORY_QUALITY_GATE_TOKEN) return { blocked: false, root: null };
+  const leasePath = env[LEASE_ENV_VAR];
+  /* [297A-58] Token legacy: las etapas internas del gate anterior se eximen
+   * con un valor aleatorio por ejecución. [028A-6 Fase 2] Con lease presente
+   * la exención pasa por el lease firmado (más abajo); el token solo aplica
+   * cuando no hay lease (migración del orquestador anterior). */
+  if (!leasePath && env.GLORY_QUALITY_GATE_TOKEN) return { blocked: false, root: null };
   const candidate = await findQualityRoot(projectRoot ? path.resolve(projectRoot) : cwd);
   /* [028A-6] El fallback de findQualityRoot es el startPath; sin marcador
    * declarativo real no hay política que aplicar y el comando pasa. */
@@ -185,6 +192,31 @@ export async function inspectDirectCommand(options: GuardInspectOptions = {}): P
     : baseDecision;
   if (!reason || (!decision.blocked && !decision.observed)) {
     return { ...decision, blocked: false, root, policyStatus: policy.status };
+  }
+  /* [028A-6 Fase 2] Lease efímero firmado: exime SOLO la invocación que iba
+   * a bloquearse, si la verificación valida (firma, proyecto, expiración y
+   * PID descendiente del emisor). La exención queda auditada. Un lease
+   * inválido nunca exime: se devuelve el bloqueo normal. La verificación no
+   * corre para comandos que la política ya deja pasar, así la vía caliente
+   * no paga resolución de procesos. */
+  if (leasePath && decision.blocked) {
+    const verification = await verifyLease({
+      leasePath,
+      projectRoot: root,
+      pid: process.pid,
+      command: normalizeExecutable(executable),
+    });
+    if (verification.valid) {
+      return {
+        ...decision,
+        blocked: false,
+        observed: false,
+        root,
+        policyStatus: policy.status,
+        leaseId: verification.lease?.id ?? null,
+        leaseVerified: true,
+      };
+    }
   }
   return {
     ...decision,

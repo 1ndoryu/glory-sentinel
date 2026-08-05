@@ -20,6 +20,14 @@ import {
 import { diagnoseWorkspace, formatDiagnose, formatStatus } from '../core/diagnose';
 import { runCheck, CheckRunResult } from '../core/gateRun';
 import { cancelAll } from '../core/toolRunner';
+import { resolveGuardRoot, resolveTargetBase } from '../core/scheduler';
+import {
+  formatLeaseList,
+  issueLease,
+  listLeases,
+  revokeLease,
+  verifyLease,
+} from '../core/lease';
 import {
   installRuntime,
   rollbackRuntime,
@@ -43,7 +51,12 @@ export type SentinelCliConfigFile = SentinelConfigFile;
 
 
 export interface ParsedCliArgs {
-  command: 'analyze' | 'check' | 'guard' | 'doctor' | 'status' | 'install' | 'update' | 'rollback';
+  command: 'analyze' | 'check' | 'guard' | 'doctor' | 'status' | 'install' | 'update' | 'rollback' | 'lease';
+  leaseAction?: 'issue' | 'list' | 'revoke' | 'verify';
+  leasePath?: string;
+  leaseCommand?: string;
+  leasePid?: number;
+  leaseTtlMs?: number;
   workspacePath?: string;
   filePath?: string;
   filesFromPath?: string;
@@ -91,6 +104,10 @@ function usage(): string {
     '  sentinel install [--target-root <dir>] [--source-root <dir>] [--version <v>] [--dry-run] [--with-shims] [--with-profiles] [--json]',
     '  sentinel update [--target-root <dir>] [--source-root <dir>] [--version <v>] [--dry-run] [--with-shims] [--with-profiles] [--json]',
     '  sentinel rollback [--target-root <dir>] [--version <v>] [--dry-run] [--json]',
+    '  sentinel lease issue --project-root <dir> [--task-id <id>] [--command <cmd>] [--ttl-ms <ms>] [--json]',
+    '  sentinel lease list [--json]',
+    '  sentinel lease revoke --lease <path> [--json]',
+    '  sentinel lease verify --lease <path> [--project-root <dir>] [--pid <n>] [--json]',
     '  sentinel --version',
     '',
     'Opciones:',
@@ -112,7 +129,11 @@ function usage(): string {
     '  --dry-run           Simula sin escribir nada (install/update/rollback)',
     '  --with-shims        Genera los shims interceptores en <target>/shims (install/update)',
     '  --with-profiles     Dot-sourcea el guard en los perfiles con backup previo (install/update)',
-    '  --json              Salida JSON (guard/doctor/status/install/update/rollback)',
+    '  --lease <path>      Ruta del lease (revoke/verify)',
+    '  --pid <n>           PID a verificar como descendiente del emisor (verify)',
+    '  --command <cmd>     Comando/propósito del lease (issue/verify)',
+    '  --ttl-ms <ms>       TTL del lease en ms (issue)',
+    '  --json              Salida JSON (guard/doctor/status/install/update/rollback/lease)',
     '  --help              Muestra esta ayuda',
     '  --version           Muestra la version instalada',
   ].join('\n');
@@ -127,7 +148,7 @@ function takeValue(args: string[], index: number, option: string): string {
 }
 
 export function parseCliArgs(args: string[]): ParsedCliArgs {
-  if (!['analyze', 'check', 'guard', 'doctor', 'status', 'install', 'update', 'rollback'].includes(args[0] ?? '')) {
+  if (!['analyze', 'check', 'guard', 'doctor', 'status', 'install', 'update', 'rollback', 'lease'].includes(args[0] ?? '')) {
     throw new Error(usage());
   }
 
@@ -153,6 +174,48 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
       } else if (arg === '--workspace') {
         parsed.workspacePath = takeValue(before, index, arg);
         index++;
+      } else if (arg === '--help' || arg === '-h') {
+        throw new Error(usage());
+      } else {
+        throw new Error(`Opcion no reconocida: ${arg}\n${usage()}`);
+      }
+    }
+    return parsed;
+  }
+
+  if (args[0] === 'lease') {
+    const action = args[1];
+    if (!['issue', 'list', 'revoke', 'verify'].includes(action ?? '')) {
+      throw new Error(`Acción lease no reconocida: ${String(action)}\n${usage()}`);
+    }
+    parsed.command = 'lease';
+    parsed.leaseAction = action as ParsedCliArgs['leaseAction'];
+    for (let index = 2; index < args.length; index++) {
+      const arg = args[index];
+      if (arg === '--project-root') {
+        parsed.workspacePath = takeValue(args, index, arg);
+        index++;
+      } else if (arg === '--task-id') {
+        parsed.taskId = takeValue(args, index, arg);
+        index++;
+      } else if (arg === '--command') {
+        parsed.leaseCommand = takeValue(args, index, arg);
+        index++;
+      } else if (arg === '--lease') {
+        parsed.leasePath = takeValue(args, index, arg);
+        index++;
+      } else if (arg === '--pid') {
+        const pid = Number(takeValue(args, index, arg));
+        if (!Number.isInteger(pid) || pid <= 0) throw new Error('--pid debe ser un PID válido');
+        parsed.leasePid = pid;
+        index++;
+      } else if (arg === '--ttl-ms') {
+        const ms = Number(takeValue(args, index, arg));
+        if (!Number.isFinite(ms) || ms <= 0) throw new Error('--ttl-ms debe ser un entero positivo');
+        parsed.leaseTtlMs = ms;
+        index++;
+      } else if (arg === '--json') {
+        parsed.json = true;
       } else if (arg === '--help' || arg === '-h') {
         throw new Error(usage());
       } else {
@@ -527,6 +590,50 @@ export async function diagnoseCliTarget(args: ParsedCliArgs, command: 'doctor' |
     : `${(command === 'doctor' ? formatDiagnose(result) : formatStatus(result))}\n`;
 }
 
+export async function leaseCliTarget(args: ParsedCliArgs): Promise<string> {
+  const guardRoot = resolveGuardRoot(resolveTargetBase());
+  switch (args.leaseAction) {
+    case 'issue': {
+      const projectRoot = path.resolve(args.workspacePath ?? process.cwd());
+      const issued = await issueLease({
+        projectRoot,
+        taskId: args.taskId ?? null,
+        command: args.leaseCommand ?? 'gate',
+        ttlMs: args.leaseTtlMs,
+      });
+      return args.json
+        ? `${JSON.stringify({ path: issued.path, envVar: issued.envVar, lease: issued.lease }, null, 2)}\n`
+        : `Lease emitido:\n  ${issued.envVar}=${issued.path}\n`;
+    }
+    case 'list': {
+      const leases = await listLeases(guardRoot);
+      return args.json ? `${JSON.stringify(leases, null, 2)}\n` : formatLeaseList(leases);
+    }
+    case 'revoke': {
+      if (!args.leasePath) throw new Error('lease revoke requiere --lease <path>');
+      const result = await revokeLease({ leasePath: args.leasePath, reason: 'revocación manual' });
+      return args.json
+        ? `${JSON.stringify(result, null, 2)}\n`
+        : `Lease ${result.revoked ? 'revocado' : 'ya ausente'}: ${args.leasePath}\n`;
+    }
+    case 'verify': {
+      if (!args.leasePath) throw new Error('lease verify requiere --lease <path>');
+      const projectRoot = path.resolve(args.workspacePath ?? process.cwd());
+      const verification = await verifyLease({
+        leasePath: args.leasePath,
+        projectRoot,
+        pid: args.leasePid ?? process.pid,
+        command: args.leaseCommand ?? '',
+      });
+      return args.json
+        ? `${JSON.stringify(verification, null, 2)}\n`
+        : `Lease ${verification.valid ? 'válido' : `inválido (${verification.reason ?? 'desconocido'})`}\n`;
+    }
+    default:
+      throw new Error(usage());
+  }
+}
+
 export async function runCli(rawArgs: string[]): Promise<number> {
   /* [085A-3] CLI real de reportes sobre el core editor-agnostico.
    * Gotcha: los smoke tests deben ejecutar el JS compilado porque los mocks unitarios de VS Code pueden ocultar imports indirectos de `vscode` en Node puro.
@@ -592,6 +699,11 @@ export async function runCli(rawArgs: string[]): Promise<number> {
   }
   if (args.command === 'doctor' || args.command === 'status') {
     const output = await diagnoseCliTarget(args, args.command);
+    await writeOrPrint(output, args.outputPath);
+    return 0;
+  }
+  if (args.command === 'lease') {
+    const output = await leaseCliTarget(args);
     await writeOrPrint(output, args.outputPath);
     return 0;
   }

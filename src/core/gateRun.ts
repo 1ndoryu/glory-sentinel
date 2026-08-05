@@ -7,13 +7,15 @@ import * as fs from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { detectScope } from './scope';
-import { inspectHeavyRun } from './scheduler';
+import { findQualityRoot, inspectHeavyRun } from './scheduler';
 import { readV2GuardPolicy } from './guardCommand';
 import { currentBranch, policyHashFor } from './diagnose';
 import { runBoundedStages } from './stageRunner';
 import { fingerprint, readCachedPass, writeCachedPass, StageCacheContext } from './stageCache';
 import { runStructuredTool, StructuredToolDefinition, ToolOutcome } from './structuredTool';
 import { createReport, compactLines, GateStage } from './gateReport';
+import { issueLease, revokeLease, LEASE_ENV_VAR } from './lease';
+import type { IssuedLease } from './lease';
 
 const execFileAsync = promisify(execFile);
 
@@ -124,20 +126,40 @@ export async function runCheck(args: CheckRunArgs): Promise<CheckRunResult> {
   const workspace = path.resolve(args.workspace);
   const reportRoot = path.resolve(args.reportRoot);
   await fs.mkdir(reportRoot, { recursive: true });
-  /* [028A-6 Fase 3] El gate es la vía sancionada: el token se hereda por el
-   * árbol de procesos y exime a las etapas del guard de comandos directos,
-   * igual que hace task-check.mjs en el orquestador. Fuera del gate (una
-   * invocación manual) el token no existe y el bloqueo sigue vigente. Se
-   * restaura el valor previo al salir: el token es por-ejecución y no debe
-   * filtrarse entre llamadas del mismo proceso (p. ej. la suite de tests). */
+  /* [028A-6 Fase 2] Lease efímero firmado por ejecución: exime a las etapas
+   * del guard de comandos directos sin depender del token plano (firma +
+   * binding de proyecto/PID + expiración + auditoría). La emisión es
+   * best-effort: si el runtime no puede emitir, el gate continúa con el
+   * token legacy y los shims nuevos no eximen (el guard bloquea, nunca
+   * degrada a permisivo). El lease se revoca SIEMPRE al cerrar, aunque el
+   * gate falle. */
   const previousGateToken = process.env.GLORY_QUALITY_GATE_TOKEN;
+  const previousLeaseEnv = process.env[LEASE_ENV_VAR];
   process.env.GLORY_QUALITY_GATE_TOKEN ||= globalThis.crypto?.randomUUID?.()
     ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-  const requestedFull = args.full ?? false;
-  const requestedCi = args.ci ?? false;
+  let issuedLease: IssuedLease | null = null;
   try {
+    try {
+      const leaseRoot = await findQualityRoot(workspace);
+      issuedLease = await issueLease({
+        projectRoot: leaseRoot,
+        taskId: args.taskId ?? null,
+        command: 'gate',
+      });
+      process.env[LEASE_ENV_VAR] = issuedLease.path;
+    } catch (error) {
+      /* Sin lease: el token legacy cubre las etapas, pero el operador debe
+       * saber que los shims nuevos no eximirán (el guard bloquea, nunca
+       * degrada a permisivo). */
+      process.stderr.write(`[glory-sentinel] aviso: no se pudo emitir el lease del gate (${error instanceof Error ? error.message : String(error)}); las etapas corren con el token legacy.\n`);
+    }
+    const requestedFull = args.full ?? false;
+    const requestedCi = args.ci ?? false;
     return await runCheckWithToken(args, workspace, reportRoot, requestedFull, requestedCi);
   } finally {
+    if (issuedLease) await revokeLease({ leasePath: issuedLease.path }).catch(() => {});
+    if (previousLeaseEnv === undefined) delete process.env[LEASE_ENV_VAR];
+    else process.env[LEASE_ENV_VAR] = previousLeaseEnv;
     if (previousGateToken === undefined) delete process.env.GLORY_QUALITY_GATE_TOKEN;
     else process.env.GLORY_QUALITY_GATE_TOKEN = previousGateToken;
   }

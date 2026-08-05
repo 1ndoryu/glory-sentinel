@@ -10,6 +10,7 @@ import { promisify } from 'node:util';
 import { findQualityRoot, hasQualityMarker, resolveGuardRoot, resolveTargetBase } from './scheduler';
 import { readV2GuardPolicy, GuardPolicy } from './guardCommand';
 import { runtimeStatus, RuntimeStatusResult } from './runtimeInstall';
+import { keyPresent, listLeases } from './lease';
 
 const execFileAsync = promisify(execFile);
 
@@ -35,6 +36,13 @@ export interface DiagnoseScheduler {
   activeCommand?: unknown;
 }
 
+export interface DiagnoseLeases {
+  guardRoot: string;
+  keyPresent: boolean;
+  active: number;
+  expired: number;
+}
+
 export interface DiagnoseResult {
   workspace: string;
   root: string | null;
@@ -43,6 +51,7 @@ export interface DiagnoseResult {
   policy: DiagnosePolicy;
   lock: DiagnoseLock;
   scheduler: DiagnoseScheduler | null;
+  leases: DiagnoseLeases | null;
   tools: Record<string, { commit: string | null }>;
   runtime: RuntimeStatusResult;
 }
@@ -139,6 +148,21 @@ export async function diagnoseWorkspace(workspace: string): Promise<DiagnoseResu
     ...(active ? { activePid: active.pid, activeCommand: active.command } : {}),
   };
 
+  /* [028A-6 Fase 2] Estado de leases efímeros: clave del guard root y
+   * recuento activo/expirado. Solo lectura. */
+  let leases: DiagnoseLeases | null = null;
+  try {
+    const all = await listLeases(guardRoot);
+    leases = {
+      guardRoot,
+      keyPresent: keyPresent(guardRoot),
+      active: all.filter(lease => !lease.expired).length,
+      expired: all.filter(lease => lease.expired).length,
+    };
+  } catch {
+    leases = null;
+  }
+
   const packagePath = path.resolve(__dirname, '../../package.json');
   const packageJson = await readJsonFile(packagePath) as { version?: unknown } | null;
   /* [028A-6] Estado del runtime global (contrato de actualización §3.7):
@@ -153,6 +177,7 @@ export async function diagnoseWorkspace(workspace: string): Promise<DiagnoseResu
     policy,
     lock,
     scheduler,
+    leases,
     tools,
     runtime,
   };
@@ -167,6 +192,7 @@ export function formatDiagnose(result: DiagnoseResult): string {
     `Política: ${result.policy.status}${result.policy.mode ? ` · modo ${result.policy.mode}` : ''}${result.policy.policyHash ? ` · hash ${result.policy.policyHash.slice(0, 12)}` : ''}`,
     `Lock: ${result.lock.present ? `presente (${result.lock.version ?? '?'} · ${result.lock.commit?.slice(0, 8) ?? '?'})` : 'ausente'}`,
     `Scheduler: ${result.scheduler ? `target ${result.scheduler.targetBase}${result.scheduler.stateProjects !== undefined ? ` · ${result.scheduler.stateProjects} proyectos` : ''}${result.scheduler.activePid !== undefined ? ` · activo PID ${String(result.scheduler.activePid)}` : ''}` : 'no disponible'}`,
+    `Leases: ${result.leases ? `clave ${result.leases.keyPresent ? 'ok' : 'ausente'} · ${result.leases.active} activas · ${result.leases.expired} expiradas` : 'no disponible'}`,
     `Runtime: ${result.runtime.activeVersion ? `activa v${result.runtime.activeVersion} (${result.runtime.activeVerified ? 'hash verificado' : 'hash pendiente'})` : 'no instalado'} · ${result.runtime.versions.length} versiones en ${result.runtime.targetRoot}`,
   ];
   for (const [name, tool] of Object.entries(result.tools)) {
