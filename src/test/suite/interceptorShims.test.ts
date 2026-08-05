@@ -355,4 +355,20 @@ suite('Sentinel core interceptorShims (shims y perfiles)', () => {
       fs.rmSync(target, { recursive: true, force: true });
     }
   });
+
+  /* [028A-6] La semántica que el CLI propaga como exit != 0: una escritura
+   * fallida (permiso, disco) es un error de instalación, no un éxito. */
+  test('installPathEntry devuelve error si la escritura falla', async () => {
+    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-path-target-'));
+    try {
+      const result = await installPathEntry(target, {
+        read: async () => 'C:\\old\\bin',
+        write: async () => { throw new Error('permiso denegado'); },
+      });
+      assert.strictEqual(result.action, 'error');
+      assert.match(result.error ?? '', /permiso denegado/);
+    } finally {
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+  });
 });

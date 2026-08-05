@@ -688,6 +688,10 @@ export async function runCli(rawArgs: string[]): Promise<number> {
     const result = await installCliTarget(args);
     const targetRoot = result.targetRoot;
     const chunks: string[] = [args.json ? JSON.stringify(result, null, 2) : formatRuntimeResult(result)];
+    /* [028A-6] Un error de perfiles o PATH (permiso, disco, perfil corrupto)
+     * hace fallar el install con exit != 0 para que el instalador del repo
+     * no declare "migración completa" sobre una integración rota. */
+    let installFailed = false;
     /* [028A-6 Fase 1] Shims interceptores y dot-source en perfiles son
      * operaciones explícitas: solo se ejecutan con --with-shims /
      * --with-profiles y solo tras instalar la versión (no en dry-run ni en
@@ -708,19 +712,26 @@ export async function runCli(rawArgs: string[]): Promise<number> {
       });
       if (args.json) chunks.push(JSON.stringify(profilesResult, null, 2));
       else chunks.push(formatProfilesResult(profilesResult));
+      /* [028A-6] Un perfil con error (permiso, disco, perfil corrupto) es un
+       * fallo de instalación real: el instalador del repo depende del exit
+       * code para no declarar "migración completa" sobre una integración
+       * rota. En dry-run nunca hay errores de escritura. */
+      if (profilesResult.profiles.some(profile => profile.action === 'error')) installFailed = true;
     }
     if (args.withPath) {
       const pathResult = await installPathEntry(targetRoot, { dryRun: args.dryRun });
       if (args.json) chunks.push(JSON.stringify(pathResult, null, 2));
       else chunks.push(formatPathEntryResult(pathResult));
+      if (pathResult.action === 'error') installFailed = true;
     }
     if (args.withoutPath) {
       const pathResult = await uninstallPathEntry(targetRoot, { dryRun: args.dryRun });
       if (args.json) chunks.push(JSON.stringify(pathResult, null, 2));
       else chunks.push(formatPathEntryResult(pathResult));
+      if (pathResult.action === 'error') installFailed = true;
     }
     await writeOrPrint(chunks.join('\n'), args.outputPath);
-    return 0;
+    return installFailed ? 1 : 0;
   }
   if (args.command === 'doctor' || args.command === 'status') {
     const output = await diagnoseCliTarget(args, args.command);
