@@ -12,6 +12,7 @@ import {
 import { generarReporteMarkdown, CoreReportEntry } from '../core/report';
 import { CoreAnalysisConfig, createCoreDocument } from '../core/types';
 import { languageIdForFile } from '../core/language';
+import { detectScope, ScopeQualityConfig } from '../core/scope';
 import { inicializarGloryAnalyzer } from '../analyzers/gloryAnalyzer';
 
 export type CliFormat = 'markdown' | 'json';
@@ -22,13 +23,18 @@ export type SentinelCliConfigFile = SentinelConfigFile;
 
 
 export interface ParsedCliArgs {
-  command: 'analyze';
+  command: 'analyze' | 'check';
   workspacePath?: string;
   filePath?: string;
   filesFromPath?: string;
   format: CliFormat;
   outputPath?: string;
   configPath?: string;
+  taskId?: string;
+  dryRun?: boolean;
+  full?: boolean;
+  ci?: boolean;
+  profile?: string;
 }
 
 export interface CliAnalysisResult {
@@ -46,6 +52,7 @@ function usage(): string {
     '  sentinel analyze --workspace . --format markdown --output .sentinel-report.md',
     '  sentinel analyze --file src/app.ts --format json',
     '  sentinel analyze --workspace . --files-from .changed-files --format json',
+    '  sentinel check <task-id> --dry-run [--workspace .] [--full|--ci] [--profile rust,...]',
     '  sentinel --version',
     '',
     'Opciones:',
@@ -55,6 +62,10 @@ function usage(): string {
     '  --format <type>     markdown | json. Por defecto: markdown',
     '  --output <path>     Escribe salida en archivo; si falta, imprime en stdout',
     '  --config <path>     Carga sentinel.config.json',
+    '  --task-id <id>      Tarea a comprobar (check)',
+    '  --dry-run           Calcula el alcance sin ejecutar el gate (check)',
+    '  --full / --ci       Fuerza alcance full (check)',
+    '  --profile <csv>     Perfiles ejecutables explicitos (check)',
     '  --help              Muestra esta ayuda',
     '  --version           Muestra la version instalada',
   ].join('\n');
@@ -69,16 +80,23 @@ function takeValue(args: string[], index: number, option: string): string {
 }
 
 export function parseCliArgs(args: string[]): ParsedCliArgs {
-  if (args[0] !== 'analyze') {
+  if (args[0] !== 'analyze' && args[0] !== 'check') {
     throw new Error(usage());
   }
 
   const parsed: ParsedCliArgs = {
-    command: 'analyze',
+    command: args[0],
     format: 'markdown',
   };
 
+  let positionalIndex = -1;
+  if (args[0] === 'check' && args.length > 1 && !args[1].startsWith('--')) {
+    parsed.taskId = args[1];
+    positionalIndex = 1;
+  }
+
   for (let index = 1; index < args.length; index++) {
+    if (index === positionalIndex) continue;
     const arg = args[index];
 
     switch (arg) {
@@ -109,6 +127,23 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
         break;
       case '--config':
         parsed.configPath = takeValue(args, index, arg);
+        index++;
+        break;
+      case '--task-id':
+        parsed.taskId = takeValue(args, index, arg);
+        index++;
+        break;
+      case '--dry-run':
+        parsed.dryRun = true;
+        break;
+      case '--full':
+        parsed.full = true;
+        break;
+      case '--ci':
+        parsed.ci = true;
+        break;
+      case '--profile':
+        parsed.profile = takeValue(args, index, arg);
         index++;
         break;
       case '--help':
@@ -319,6 +354,41 @@ async function writeOrPrint(output: string, outputPath?: string): Promise<void> 
   await fs.writeFile(resolved, output, 'utf8');
 }
 
+async function loadScopeQualityConfig(workspace: string): Promise<ScopeQualityConfig> {
+  try {
+    const raw = JSON.parse(await fs.readFile(path.join(workspace, 'quality.config.json'), 'utf8')) as Partial<ScopeQualityConfig>;
+    return {
+      fullPatterns: Array.isArray(raw.fullPatterns) ? raw.fullPatterns : [],
+      profiles: raw.profiles && typeof raw.profiles === 'object' ? raw.profiles : {},
+    };
+  } catch {
+    return { fullPatterns: [], profiles: {} };
+  }
+}
+
+export async function checkCliTarget(args: ParsedCliArgs): Promise<string> {
+  if (!args.dryRun) {
+    throw new Error('check requiere --dry-run: el orquestador completo se está migrando (028A-6 Fase 1)');
+  }
+  const workspace = path.resolve(args.workspacePath ?? process.cwd());
+  const reportRoot = path.join(workspace, '.quality-reports', 'check-dry-run');
+  await fs.mkdir(reportRoot, { recursive: true });
+  const scope = await detectScope(
+    {
+      projectRoot: workspace,
+      reportRoot,
+      qualityConfig: await loadScopeQualityConfig(workspace),
+    },
+    {
+      full: args.full ?? false,
+      ci: args.ci ?? false,
+      heavyDeferred: null,
+      profiles: args.profile ? args.profile.split(',').map(item => item.trim()).filter(Boolean) : [],
+    },
+  );
+  return `${JSON.stringify({ ...scope, profiles: [...scope.profiles] }, null, 2)}\n`;
+}
+
 export async function runCli(rawArgs: string[]): Promise<number> {
   /* [085A-3] CLI real de reportes sobre el core editor-agnostico.
    * Gotcha: los smoke tests deben ejecutar el JS compilado porque los mocks unitarios de VS Code pueden ocultar imports indirectos de `vscode` en Node puro.
@@ -333,6 +403,11 @@ export async function runCli(rawArgs: string[]): Promise<number> {
   }
 
   const args = parseCliArgs(rawArgs);
+  if (args.command === 'check') {
+    const output = await checkCliTarget(args);
+    await writeOrPrint(output, args.outputPath);
+    return 0;
+  }
   const result = await analyzeCliTarget(args);
   await writeOrPrint(renderOutput(result, args, await readPackageVersion()), args.outputPath);
   return result.hasErrors ? 1 : 0;
