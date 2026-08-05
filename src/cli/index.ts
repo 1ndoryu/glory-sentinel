@@ -20,6 +20,13 @@ import {
 import { diagnoseWorkspace, formatDiagnose, formatStatus } from '../core/diagnose';
 import { runCheck, CheckRunResult } from '../core/gateRun';
 import { cancelAll } from '../core/toolRunner';
+import {
+  installRuntime,
+  rollbackRuntime,
+  formatRuntimeResult,
+  RuntimeInstallResult,
+  RuntimeRollbackResult,
+} from '../core/runtimeInstall';
 import { inicializarGloryAnalyzer } from '../analyzers/gloryAnalyzer';
 
 export type CliFormat = 'markdown' | 'json';
@@ -30,7 +37,7 @@ export type SentinelCliConfigFile = SentinelConfigFile;
 
 
 export interface ParsedCliArgs {
-  command: 'analyze' | 'check' | 'guard' | 'doctor' | 'status';
+  command: 'analyze' | 'check' | 'guard' | 'doctor' | 'status' | 'install' | 'update' | 'rollback';
   workspacePath?: string;
   filePath?: string;
   filesFromPath?: string;
@@ -48,6 +55,9 @@ export interface ParsedCliArgs {
   guardExecutable?: string;
   guardProjectRoot?: string;
   guardArgs?: string[];
+  targetRoot?: string;
+  sourceRoot?: string;
+  runtimeVersion?: string;
 }
 
 export interface CliAnalysisResult {
@@ -70,6 +80,9 @@ function usage(): string {
     '  sentinel guard --executable <exe> [--project-root <dir>] [--json] -- <args...>',
     '  sentinel doctor [--json] [--workspace .]',
     '  sentinel status [--json] [--workspace .]',
+    '  sentinel install [--target-root <dir>] [--source-root <dir>] [--version <v>] [--dry-run] [--json]',
+    '  sentinel update [--target-root <dir>] [--source-root <dir>] [--version <v>] [--dry-run] [--json]',
+    '  sentinel rollback [--target-root <dir>] [--version <v>] [--dry-run] [--json]',
     '  sentinel --version',
     '',
     'Opciones:',
@@ -85,7 +98,11 @@ function usage(): string {
     '  --profile <csv>     Perfiles ejecutables explicitos (check)',
     '  --allow-heavy       Tolera full aunque el guard este en cooldown (check)',
     '  --stages <path>     Ejecuta las etapas declarativas JSON (check sin --dry-run)',
-    '  --json              Salida JSON (guard/doctor/status)',
+    '  --target-root <dir> Directorio del runtime global (install/update/rollback)',
+    '  --source-root <dir> Origen del artefacto a instalar (install/update)',
+    '  --version <v>       Version a instalar o restaurar (install/update/rollback)',
+    '  --dry-run           Simula sin escribir nada (install/update/rollback)',
+    '  --json              Salida JSON (guard/doctor/status/install/update/rollback)',
     '  --help              Muestra esta ayuda',
     '  --version           Muestra la version instalada',
   ].join('\n');
@@ -100,7 +117,7 @@ function takeValue(args: string[], index: number, option: string): string {
 }
 
 export function parseCliArgs(args: string[]): ParsedCliArgs {
-  if (!['analyze', 'check', 'guard', 'doctor', 'status'].includes(args[0] ?? '')) {
+  if (!['analyze', 'check', 'guard', 'doctor', 'status', 'install', 'update', 'rollback'].includes(args[0] ?? '')) {
     throw new Error(usage());
   }
 
@@ -126,6 +143,31 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
       } else if (arg === '--workspace') {
         parsed.workspacePath = takeValue(before, index, arg);
         index++;
+      } else if (arg === '--help' || arg === '-h') {
+        throw new Error(usage());
+      } else {
+        throw new Error(`Opcion no reconocida: ${arg}\n${usage()}`);
+      }
+    }
+    return parsed;
+  }
+
+  if (args[0] === 'install' || args[0] === 'update' || args[0] === 'rollback') {
+    for (let index = 1; index < args.length; index++) {
+      const arg = args[index];
+      if (arg === '--target-root') {
+        parsed.targetRoot = takeValue(args, index, arg);
+        index++;
+      } else if (arg === '--source-root') {
+        parsed.sourceRoot = takeValue(args, index, arg);
+        index++;
+      } else if (arg === '--version') {
+        parsed.runtimeVersion = takeValue(args, index, arg);
+        index++;
+      } else if (arg === '--dry-run') {
+        parsed.dryRun = true;
+      } else if (arg === '--json') {
+        parsed.json = true;
       } else if (arg === '--help' || arg === '-h') {
         throw new Error(usage());
       } else {
@@ -444,6 +486,26 @@ export async function guardCliTarget(args: ParsedCliArgs): Promise<number> {
   return decision.blocked ? (decision.exitCode ?? QUALITY_GUARD_EXIT_CODE) : 0;
 }
 
+export async function installCliTarget(args: ParsedCliArgs): Promise<RuntimeInstallResult> {
+  return installRuntime({
+    targetRoot: args.targetRoot,
+    sourceRoot: args.sourceRoot,
+    version: args.runtimeVersion,
+    dryRun: args.dryRun,
+    /* [028A-6] El contrato exige un runtime autónomo: el artefacto incluye
+     * sus dependencias (node_modules) para no depender del checkout. */
+    includeDependencies: true,
+  });
+}
+
+export async function rollbackCliTarget(args: ParsedCliArgs): Promise<RuntimeRollbackResult> {
+  return rollbackRuntime({
+    targetRoot: args.targetRoot,
+    version: args.runtimeVersion,
+    dryRun: args.dryRun,
+  });
+}
+
 export async function diagnoseCliTarget(args: ParsedCliArgs, command: 'doctor' | 'status'): Promise<string> {
   const result = await diagnoseWorkspace(path.resolve(args.workspacePath ?? process.cwd()));
   return args.json
@@ -483,6 +545,16 @@ export async function runCli(rawArgs: string[]): Promise<number> {
   }
   if (args.command === 'guard') {
     return guardCliTarget(args);
+  }
+  if (args.command === 'install' || args.command === 'update' || args.command === 'rollback') {
+    const result = args.command === 'rollback'
+      ? await rollbackCliTarget(args)
+      : await installCliTarget(args);
+    const output = args.json
+      ? `${JSON.stringify(result, null, 2)}\n`
+      : formatRuntimeResult(result);
+    await writeOrPrint(output, args.outputPath);
+    return 0;
   }
   if (args.command === 'doctor' || args.command === 'status') {
     const output = await diagnoseCliTarget(args, args.command);

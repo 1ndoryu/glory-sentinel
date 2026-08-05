@@ -9,6 +9,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { findQualityRoot, hasQualityMarker, resolveGuardRoot, resolveTargetBase } from './scheduler';
 import { readV2GuardPolicy, GuardPolicy } from './guardCommand';
+import { runtimeStatus, RuntimeStatusResult } from './runtimeInstall';
 
 const execFileAsync = promisify(execFile);
 
@@ -43,6 +44,7 @@ export interface DiagnoseResult {
   lock: DiagnoseLock;
   scheduler: DiagnoseScheduler | null;
   tools: Record<string, { commit: string | null }>;
+  runtime: RuntimeStatusResult;
 }
 
 export function policyHashFor(root: string, policy: GuardPolicy): string | null {
@@ -139,6 +141,9 @@ export async function diagnoseWorkspace(workspace: string): Promise<DiagnoseResu
 
   const packagePath = path.resolve(__dirname, '../../package.json');
   const packageJson = await readJsonFile(packagePath) as { version?: unknown } | null;
+  /* [028A-6] Estado del runtime global (contrato de actualización §3.7):
+   * doctor verifica versiones, alias activo y hash del artefacto. */
+  const runtime = await runtimeStatus();
 
   return {
     workspace,
@@ -149,6 +154,7 @@ export async function diagnoseWorkspace(workspace: string): Promise<DiagnoseResu
     lock,
     scheduler,
     tools,
+    runtime,
   };
 }
 
@@ -161,6 +167,7 @@ export function formatDiagnose(result: DiagnoseResult): string {
     `Política: ${result.policy.status}${result.policy.mode ? ` · modo ${result.policy.mode}` : ''}${result.policy.policyHash ? ` · hash ${result.policy.policyHash.slice(0, 12)}` : ''}`,
     `Lock: ${result.lock.present ? `presente (${result.lock.version ?? '?'} · ${result.lock.commit?.slice(0, 8) ?? '?'})` : 'ausente'}`,
     `Scheduler: ${result.scheduler ? `target ${result.scheduler.targetBase}${result.scheduler.stateProjects !== undefined ? ` · ${result.scheduler.stateProjects} proyectos` : ''}${result.scheduler.activePid !== undefined ? ` · activo PID ${String(result.scheduler.activePid)}` : ''}` : 'no disponible'}`,
+    `Runtime: ${result.runtime.activeVersion ? `activa v${result.runtime.activeVersion} (${result.runtime.activeVerified ? 'hash verificado' : 'hash pendiente'})` : 'no instalado'} · ${result.runtime.versions.length} versiones en ${result.runtime.targetRoot}`,
   ];
   for (const [name, tool] of Object.entries(result.tools)) {
     lines.push(`  ${name}: ${tool.commit?.slice(0, 8) ?? 'sin pin'}`);
@@ -171,5 +178,6 @@ export function formatDiagnose(result: DiagnoseResult): string {
 export function formatStatus(result: DiagnoseResult): string {
   const policy = result.policy.status === 'policy' ? `enforce:${result.policy.mode}` : result.policy.status;
   const lock = result.lock.present ? (result.lock.commit?.slice(0, 8) ?? 'locked') : 'no-lock';
-  return `sentinel ${result.sentinelVersion} · ${policy} · lock ${lock} · root ${result.root ?? 'none'}`;
+  const runtime = result.runtime.activeVersion ? `runtime v${result.runtime.activeVersion}` : 'runtime none';
+  return `sentinel ${result.sentinelVersion} · ${policy} · lock ${lock} · root ${result.root ?? 'none'} · ${runtime}`;
 }

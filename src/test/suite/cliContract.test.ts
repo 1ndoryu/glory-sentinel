@@ -46,4 +46,26 @@ suite('Sentinel CLI contract', () => {
     assert.throws(() => validateSentinelConfig({ unknown: true }), /clave desconocida/);
     assert.throws(() => validateSentinelConfig({ rules: { 'regla-inexistente': {} } }), /regla desconocida/);
   });
+
+  test('parsea install/update/rollback con sus opciones', () => {
+    const install = parseCliArgs(['install', '--source-root', 'src', '--target-root', 'rt', '--version', '1.0.0', '--dry-run', '--json']);
+    assert.strictEqual(install.command, 'install');
+    assert.strictEqual(install.sourceRoot, 'src');
+    assert.strictEqual(install.targetRoot, 'rt');
+    assert.strictEqual(install.runtimeVersion, '1.0.0');
+    assert.strictEqual(install.dryRun, true);
+    assert.strictEqual(install.json, true);
+
+    const update = parseCliArgs(['update', '--target-root', 'rt']);
+    assert.strictEqual(update.command, 'update');
+    assert.strictEqual(update.targetRoot, 'rt');
+
+    const rollback = parseCliArgs(['rollback', '--version', '0.9.0']);
+    assert.strictEqual(rollback.command, 'rollback');
+    assert.strictEqual(rollback.runtimeVersion, '0.9.0');
+  });
+
+  test('rechaza opciones desconocidas en install', () => {
+    assert.throws(() => parseCliArgs(['install', '--no-such-flag']), /Opcion no reconocida/);
+  });
 });
