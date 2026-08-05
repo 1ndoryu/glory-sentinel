@@ -35,6 +35,7 @@ export interface ParsedCliArgs {
   full?: boolean;
   ci?: boolean;
   profile?: string;
+  allowHeavy?: boolean;
 }
 
 export interface CliAnalysisResult {
@@ -145,6 +146,11 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
       case '--profile':
         parsed.profile = takeValue(args, index, arg);
         index++;
+        break;
+      case '--allow-heavy':
+        /* [028A-6] Tolerado por el orquestador en migración: el reporter puede
+         * recomendarlo para un full diferido; aún no tiene efecto en check. */
+        parsed.allowHeavy = true;
         break;
       case '--help':
       case '-h':

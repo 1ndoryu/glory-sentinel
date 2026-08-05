@@ -41,7 +41,8 @@ export interface ReportScope {
   executionFull?: boolean;
   files: string[];
   deletedFiles?: string[];
-  profiles?: string[];
+  /** Acepta Set (ScopeResult del core) o array para compatibilidad directa. */
+  profiles?: string[] | Set<string>;
 }
 
 export interface ReportPolicyIdentity {
@@ -228,7 +229,7 @@ export async function createReport(
       deletedFiles: scope.deletedFiles ?? [],
       profiles: [...scope.profiles ?? []],
     },
-    tools: Object.fromEntries(Object.entries(context.tools).map(([name, tool]) => [name, {
+    tools: Object.fromEntries(Object.entries(context.tools ?? {}).map(([name, tool]) => [name, {
       version: tool.version, commit: tool.commit, outputSchemaVersion: tool.outputSchemaVersion,
     }])),
     stages,
