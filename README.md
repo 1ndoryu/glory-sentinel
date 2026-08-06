@@ -115,13 +115,13 @@ Sentinel también coordina trabajo paralelo sin compartir un checkout mutable: c
 ownership atómico y un `git worktree`/rama exclusiva. La integración nunca hace push, reset, force ni
 commit implícito; exige target limpio, base estable, worktree limpio y `--ff-only`. Los worktrees
 temporales se crean dentro de `<repo>/.sentinel/worktrees/`; una ruta solicitada fuera de esa raíz se
-rechaza para que los agentes no tengan que salir de `glory-rust-template`. Si aparecen
+rechaza para que los agentes no tengan que salir de `la raíz del proyecto consumidor`. Si aparecen
 conflictos, el agente debe actualizar su rama desde la rama principal declarada en `project.primaryBranch`,
 resolver y revisar cada conflicto en su worktree, ejecutar el gate, commitear la resolución y
 reintentar. Sentinel no resuelve conflictos a ciegas, pero una tarea no se considera terminada mientras
 tenga conflictos o una rama pendiente. Toda tarea terminada se integra en la rama principal declarada
 por el proyecto; no existe un target alternativo para cerrar una tarea. En este repositorio esa rama es
-`wandorius`; `main` es solo el template vacío. Una excepción solo puede quedar como bloqueo documentado
+La rama primaria es siempre dato del consumidor; nunca se asume `main` ni el nombre de otro proyecto. Una excepción solo puede quedar como bloqueo documentado
 por una decisión explícita del usuario, nunca como tarea terminada. Después, `cleanup` retira el worktree,
 la rama y la metadata y se verifica que
 no quedan recursos de la tarea. El estado vive en `<repo>/.sentinel/coordination/` y los worktrees en `<repo>/.sentinel/worktrees/`;
@@ -129,12 +129,12 @@ son temporales, están ignorados por Git y no se integran en la rama del proyect
 
 ```bash
 sentinel task claim GAME-01 --project-root . --agent agent-a
-sentinel task start GAME-01 --project-root . --agent agent-a --primary-branch wandorius
-sentinel task heartbeat GAME-01 --project-root . --agent agent-a
-sentinel task gate GAME-01 --project-root ./.sentinel/worktrees/repo-<project-identity>-GAME-01 --agent agent-a
-sentinel task integrate GAME-01 --project-root . --agent agent-a --target wandorius
-sentinel task cleanup GAME-01 --project-root . --agent agent-a
-sentinel task release GAME-01 --project-root . --agent agent-a
+sentinel task start <TASK-ID> --project-root . --agent agent-a --primary-branch <primary-branch>
+sentinel task heartbeat <TASK-ID> --project-root . --agent agent-a
+sentinel task gate <TASK-ID> --project-root ./.sentinel/worktrees/repo-<project-identity>-GAME-01 --agent agent-a
+sentinel task integrate <TASK-ID> --project-root . --agent agent-a --target <primary-branch>
+sentinel task cleanup <TASK-ID> --project-root . --agent agent-a
+sentinel task release <TASK-ID> --project-root . --agent agent-a
 ```
 
 `claim` concurrente para el mismo ID y proyecto deja un único ganador. Proyectos distintos se aíslan por la identidad derivada del Git common dir y `project.primaryBranch`: pueden usar el mismo ID simultáneamente, con ramas `task/<project-identity>/<id>`, worktrees y status separados. Una toma expirada requiere takeover
@@ -484,7 +484,7 @@ Para excluir un archivo completo de una regla (justificando por regla, archivo, 
 ## Desarrollo local
 
 ```bash
-cd .agent/code-sentinel
+cd <sentinel-checkout>
 npm install
 npm run compile        # genera out/ (extensión + CLI + LSP)
 node out/cli/index.js --version
