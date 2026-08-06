@@ -88,12 +88,6 @@ export function defaultProfilePaths(env: NodeJS.ProcessEnv = process.env): Profi
   };
 }
 
-/* [028A-6] Ruta de Windows en el shim cmd: las barras se escapan para el
- * texto .cmd (%RUNTIME_ROOT% con dobles barras). */
-function cmdPath(value: string): string {
-  return value.replace(/\\/g, '\\\\');
-}
-
 /* [028A-6] Shim .cmd para npm/npx/cargo/node. Estructura: (1) resuelve el
  * node real excluyendo su propio node.cmd; (2) resuelve el ejecutable real
  * del comando (env var GLORY_REAL_* primero, `where` excluyendo el propio
@@ -103,8 +97,18 @@ function cmdPath(value: string): string {
 export function generateCmdShim(
   name: 'npm' | 'npx' | 'cargo' | 'node',
   targetRoot: string,
+  shimDir?: string,
 ): string {
-  const runtime = cmdPath(assertSafeRuntimePath(targetRoot));
+  const resolvedRoot = assertSafeRuntimePath(targetRoot);
+  const runtime = resolvedRoot;
+  /* Los shims estándar viven en <runtime>/shims. Resolver el entrypoint con
+   * %~dp0 hace que cmd use la ubicación del shim y no el cwd del proceso.
+   * El fallback absoluto conserva compatibilidad con shimDir personalizado. */
+  const resolvedShimDir = path.resolve(shimDir ?? path.join(resolvedRoot, 'shims'));
+  const standardShimDir = path.resolve(path.join(resolvedRoot, 'shims'));
+  const currentScript = resolvedShimDir === standardShimDir
+    ? '%~dp0..\\current.js'
+    : '%GLORY_SENTINEL_RUNTIME%\\current.js';
   const realEnvVar = `GLORY_REAL_${name.toUpperCase()}`;
   const realExe = name === 'cargo' ? 'cargo.exe' : name === 'node' ? 'node.exe' : `${name}.cmd`;
   const selfExclusion = name === 'node'
@@ -128,7 +132,7 @@ export function generateCmdShim(
     `  echo [glory-sentinel] No se encontro el ${name} real fuera del shim. 1>&2`,
     '  exit /b 127',
     ')',
-    `"%GLORY_REAL_NODE%" "%GLORY_SENTINEL_RUNTIME%\\current.js" guard --project-root "%CD%" --executable ${name} -- %*`,
+    `"%GLORY_REAL_NODE%" "${currentScript}" guard --project-root "%CD%" --executable ${name} -- %*`,
     'if errorlevel 1 exit /b %ERRORLEVEL%',
     `"%${realEnvVar}%" %*`,
     'exit /b %ERRORLEVEL%',
@@ -371,10 +375,10 @@ export async function writeInterceptorShims(
   await fs.mkdir(resolvedShimDir, { recursive: true });
   const files: string[] = [];
   const content: ReadonlyArray<readonly [string, string]> = [
-    ['npm.cmd', generateCmdShim('npm', resolvedRoot)],
-    ['npx.cmd', generateCmdShim('npx', resolvedRoot)],
-    ['cargo.cmd', generateCmdShim('cargo', resolvedRoot)],
-    ['node.cmd', generateCmdShim('node', resolvedRoot)],
+    ['npm.cmd', generateCmdShim('npm', resolvedRoot, resolvedShimDir)],
+    ['npx.cmd', generateCmdShim('npx', resolvedRoot, resolvedShimDir)],
+    ['cargo.cmd', generateCmdShim('cargo', resolvedRoot, resolvedShimDir)],
+    ['node.cmd', generateCmdShim('node', resolvedRoot, resolvedShimDir)],
     ['global-quality-guard.sh', generateBashGuard(resolvedRoot)],
     ['global-cargo-guard.ps1', generatePowerShellGuard(resolvedRoot)],
   ];

@@ -44,7 +44,7 @@ suite('Sentinel core interceptorShims (shims y perfiles)', () => {
     assert.ok(cargo.includes('if errorlevel 1 exit /b %ERRORLEVEL%'));
     assert.ok(cargo.includes('"%GLORY_REAL_CARGO%" %*'));
     assert.ok(cargo.includes('exit /b %ERRORLEVEL%'));
-    assert.ok(cargo.includes('C:\\\\Glory\\\\Runtime'));
+    assert.ok(cargo.includes('C:\\Glory\\Runtime'));
     /* CRLF para cmd */
     assert.ok(cargo.includes('\r\n'));
   });
@@ -56,6 +56,18 @@ suite('Sentinel core interceptorShims (shims y perfiles)', () => {
     assert.ok(node.includes('"%GLORY_REAL_NODE%" %*'));
     /* node no se resuelve a sí mismo: sin where npm.cmd */
     assert.ok(!node.includes('where npm.cmd'));
+  });
+
+  test('el guard del runtime queda fuera del cwd anidado', () => {
+    const runtime = 'C:\\Users\\Owner\\AppData\\Local\\GlorySentinel';
+    const npm = generateCmdShim('npm', runtime);
+    const custom = generateCmdShim('npm', runtime, 'C:\\tmp\\sentinel-shims');
+
+    assert.ok(npm.includes('"%~dp0..\\current.js" guard'));
+    assert.ok(custom.includes('"%GLORY_SENTINEL_RUNTIME%\\current.js" guard'));
+    assert.ok(npm.includes('--project-root "%CD%"'));
+    assert.ok(!npm.includes('%CD%\\quality-command-guard.mjs'));
+    assert.ok(!npm.includes('quality-command-guard.mjs'));
   });
 
   test('guard bash define funciones y resuelve el real sin caer a la función node()', () => {

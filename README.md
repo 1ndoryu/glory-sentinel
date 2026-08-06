@@ -70,6 +70,18 @@ conoce el stack del consumidor; cada proyecto fija únicamente el commit de Sent
 worktrees internos requiere consumir un commit de Sentinel que ya incluya este contrato; una copia
 modificada localmente o esta documentación por sí sola no habilita la capacidad en un clon limpio.
 
+## Resolución universal del guard en shells y cwd anidados
+
+Los interceptores generados por `sentinel install/update --with-shims` nunca construyen la ruta del guard desde el directorio actual. En `cmd`, el shim estándar resuelve `current.js` relativo a `%~dp0` (la ubicación real del shim); en Bash y PowerShell usa la ruta absoluta del runtime. El cwd solo se envía como `--project-root` para descubrir la política del proyecto. Por eso `npm --prefix <proyecto> run dev`, Vite y sus procesos hijos pueden arrancar desde un subdirectorio sin buscar `quality-command-guard.mjs` dentro de ese cwd.
+
+Si un equipo conserva shims antiguos o launchers propios en `PATH`, debe ejecutar una actualización del runtime para regenerarlos:
+
+```bash
+sentinel update --with-shims --with-profiles --with-path
+```
+
+La actualización es idempotente y no requiere copiar `scripts/quality` de un repositorio concreto. Un clon consumidor solo obtiene esta corrección cuando fija un commit de Sentinel que la contiene y regenera su lock del quality gate.
+
 ## CLI
 
 ```bash
