@@ -1,23 +1,59 @@
+Glory Sentinel 0.5.0
+
 Uso:
   sentinel analyze --workspace . --format markdown --output .sentinel-report.md
   sentinel analyze --file src/app.ts --format json
   sentinel analyze --workspace . --files-from .changed-files --format json
-  sentinel --version
+  sentinel check <task-id> --dry-run [--workspace .] [--full|--ci]
+  sentinel check <task-id> --stages <json> [--workspace .] [--full|--ci]
+  sentinel guard --executable <exe> [--project-root <dir>] [--json] -- <args...>
+  sentinel doctor [--json] [--workspace .]
+  sentinel status [--json] [--workspace .]
+  sentinel install [--target-root <dir>] [--source-root <dir>] [--version <v>] [--dry-run] [--with-shims] [--with-profiles] [--with-path] [--json]
+  sentinel update [--target-root <dir>] [--source-root <dir>] [--version <v>] [--dry-run] [--with-shims] [--with-profiles] [--with-path] [--json]
+  sentinel rollback [--target-root <dir>] [--version <v>] [--dry-run] [--json]
+  sentinel uninstall [--target-root <dir>] [--dry-run] [--keep-runtime] [--json]
+  sentinel lease issue --project-root <dir> [--task-id <id>] [--command <cmd>] [--ttl-ms <ms>] [--json]
+  sentinel lease list [--json]
+  sentinel lease revoke --lease <path> [--json]
+  sentinel lease verify --lease <path> [--project-root <dir>] [--pid <n>] [--json]
   sentinel task claim <id> --project-root <dir> --agent <id> [--force] [--json]
   sentinel task start <id> --project-root <dir> --agent <id> [--primary-branch <branch>] [--path <dir>]
   sentinel task heartbeat <id> --project-root <dir> --agent <id>
   sentinel task status --project-root <dir> [--json]
   sentinel task gate <id> --project-root <worktree> --agent <id> [--full|--ci]
   sentinel task integrate <id> --project-root <dir> --agent <id> [--target <primary-branch>]
-  sentinel task cleanup <id> --project-root <dir> --agent <id>
+  sentinel task cleanup <id> --project-root <dir> --agent <id> [--force]
   sentinel task release <id> --project-root <dir> --agent <id>
+  sentinel --version
 
-Opciones:
-  --workspace <path>  Analiza un workspace. Por defecto: cwd
-  --file <path>       Analiza un archivo puntual
-  --files-from <path> Lee archivos relativos al workspace, uno por linea
-  --format <type>     markdown | json. Por defecto: markdown
-  --output <path>     Escribe salida en archivo; si falta, imprime en stdout
-  --config <path>     Carga sentinel.config.json
-  --help              Muestra esta ayuda
-  --version           Muestra la version instalada
+Capacidades:
+  analyze  Analizador estático compatible con configuración v1.
+  check/guard/doctor/status  Plano global del proyecto, disponible en el release coordinado.
+  task  Claims, worktrees y ramas aisladas; requiere Git y project.primaryBranch.
+  install/update/rollback/uninstall  Runtime global versionado y reversible.
+
+Opciones comunes:
+  --workspace <path>       Workspace de análisis o diagnóstico; por defecto: cwd
+  --project-root <path>    Raíz del proyecto para guard, lease o coordinación
+  --file <path>            Analiza un archivo puntual
+  --files-from <path>      Lee archivos relativos al workspace, uno por línea
+  --format <type>          markdown | json; por defecto: markdown
+  --output <path>          Escribe salida en archivo; si falta, imprime stdout
+  --config <path>          Carga sentinel.config.json del analizador
+  --json                   Salida JSON en comandos que la soportan
+  --help                   Muestra esta ayuda
+  --version                Muestra la versión instalada
+
+Config analizador v1:
+  includePatterns, excludePatterns, directoryExceptions, portableBoundaries, rules
+
+El envelope v2 (schemaVersion, mode, project, gate, guard, runtime y analyzers)
+solo se acepta en el release coordinado 0.5.0. Nunca mezcles ambos esquemas ni
+asumas capacidades por el número de versión: fija siempre el commit exacto.
+
+Códigos:
+  0  éxito o análisis sin errores
+  1  hallazgos error o fallo de integración administrada
+  2  error de uso, configuración o ejecución
+  78 comando directo bloqueado por el guard

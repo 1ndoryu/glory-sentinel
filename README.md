@@ -4,14 +4,89 @@
 
 Glory Sentinel (Code Sentinel) es el plano de control de calidad agnóstico del ecosistema Glory: una extensión de VS Code, un CLI y un LSP con reglas estáticas que detectan problemas reales de arquitectura, seguridad y mantenimiento en Rust, PHP/WordPress, React/TypeScript y CSS.
 
-> **v0.4.0 eliminó el análisis IA.** Toda la detección es estática y determinista: no requiere red, claves, modelo externo ni backend. CLI, LSP y VS Code consumen el mismo motor (`src/core`) y el mismo registro de reglas (`src/config/ruleRegistry.ts`), de modo que producen hallazgos equivalentes.
+> **v0.4.0 eliminó el análisis IA.** Toda la detección es estática y determinista: no requiere red, claves, modelo externo ni backend. CLI, LSP y VS Code consumen el mismo motor (`src/core`) y el mismo registro de reglas (`src/config/ruleRegistry.ts`), de modo que producen hallazgos equivalentes. El checkout `main` publicado conserva el analizador `sentinel analyze`; el plano global (`check`, `guard`, `doctor`, `status`, `lease` y `task`) vive en el release coordinado más reciente y debe publicarse/fijarse como un commit posterior, nunca asumirse por el número `0.4.0`.
+
+> **Regla de compatibilidad:** `sentinel --version` informa la versión del paquete, no garantiza capacidades del plano global. Para conocer lo que realmente soporta una instalación usa `sentinel --help` y `sentinel doctor --json`. Un consumidor debe fijar el commit exacto en su lock; no basta con fijar `0.4.0`.
+
+## Estado publicado y desarrollo del plano global
+
+El `main` público de `glory-sentinel` puede estar temporalmente detrás del checkout coordinador del consumidor. Por eso este README se mantiene veraz para ambos casos:
+
+- **Release analizador 0.4.0:** `analyze`, `--files-from`, configuración estricta del analizador (`includePatterns`, `excludePatterns`, `directoryExceptions`, `portableBoundaries`, `rules`) y salida JSON v1.
+- **Release coordinado:** añade `check`, `guard`, `doctor`, `status`, `install`, `update`, `rollback`, `uninstall`, `lease` y `task`, además de `project.primaryBranch` y el envelope v2 del consumidor.
+
+No copies el `sentinel.config.json` v2 de un consumidor a una instalación que solo expone el release analizador. Si `--help` no muestra `task`, esa instalación no puede coordinar worktrees; usa `analyze` o actualiza desde un artefacto/release que declare esa capacidad.
+
+Para que Sentinel funcione en cualquier carpeta, el consumidor debe llevar su propia política y lock en la raíz del proyecto. La rama primaria es dato del consumidor: nunca debe aparecer hardcodeada como `wandorius` en Sentinel ni en una skill global.
+
+### Instalación reproducible del release coordinado
+
+Desde el checkout del release coordinado (o desde un artefacto publicado equivalente):
+
+```bash
+npm install
+npm run compile
+node out/cli/index.js --help
+node out/cli/index.js doctor --json --workspace /ruta/al/proyecto
+node out/cli/index.js install --source-root . --with-shims --with-path
+```
+
+El instalador global no debe copiar solo `out/`: debe incluir `package.json` y las dependencias de runtime, calcular y registrar `artifactSha256`, y verificar el hash después de instalar. Tras actualizar una instalación existente, abre una shell nueva y repite `sentinel --version`, `sentinel --help` y `sentinel doctor --json`.
+
+El coordinador `task` solo está disponible cuando `--help` lo lista. Para un proyecto sin Git o sin `project.primaryBranch`, usa `analyze`; `task` falla cerrado en vez de inventar `main`.
+
+## Comandos mínimos portables
+
+```bash
+# Analizar cualquier carpeta sin depender de cwd ni de una rama concreta
+sentinel analyze --workspace /ruta/al/proyecto --format json
+
+# Diagnóstico de una instalación y del proyecto detectado
+sentinel doctor --json --workspace /ruta/al/proyecto
+```
+
+Para añadir el plano coordinado a un proyecto nuevo no se copia `quality-tools.json` o `project.primaryBranch` desde otro proyecto: se genera una configuración local, se fija el commit publicado de Sentinel y se ejecuta el lock-check del consumidor.
+
+## Compatibilidad de capacidades
+
+Antes de usar una orden avanzada, comprueba la ayuda: un binario que solo muestra `analyze` es un analizador 0.4.0 válido, pero no es el runtime coordinador. El número de versión compartido no sustituye al commit/protocolo fijado.
+
+### Contrato mínimo del analizador 0.4.0
+
+La configuración estricta del analizador acepta únicamente estas claves en su raíz:
+
+```json
+{
+  "includePatterns": [],
+  "excludePatterns": [],
+  "directoryExceptions": [],
+  "portableBoundaries": {},
+  "rules": {}
+}
+```
+
+Las claves `schemaVersion`, `mode`, `project`, `gate`, `guard`, `runtime` y `analyzers` pertenecen al envelope v2 del release coordinado; no se deben mezclar con el release analizador.
+
+### Migración sin sorpresas
+
+1. Ejecuta `sentinel --help` y guarda la lista de comandos.
+2. Ejecuta `sentinel --version` y `sentinel doctor --json`.
+3. Si falta `task`/`check`, instala un release coordinado publicado y verifica de nuevo; no cambies el JSON del proyecto para esconder el desfase.
+4. Fija commit, hash y capacidades en el lock del consumidor.
+5. Solo entonces habilita `sentinel task` o `sentinel check`.
+
+La fuente de verdad de una capacidad es el binario/commit realmente fijado; README, skills y ramas locales no la crean.
+
+## Nota de publicación
+
+Un commit coordinador en un submódulo detached no se publica automáticamente. El mantenedor de `glory-sentinel` debe integrar los commits coordinados en `main`/release, actualizar el README/CHANGELOG/help del repositorio publicado y crear un tag o artefacto reproducible. Después, cada consumidor actualiza su gitlink/lock y regenera el runtime global. Hasta ese momento, documentar el commit como `consumer-only` y no afirmar que `0.4.0` contiene `task`.
 
 ## ¿Qué resuelve?
 
 - Detecta violaciones de seguridad y robustez antes de que lleguen a producción.
 - Señala deuda técnica estructural (archivos monolito, SRP, malas prácticas recurrentes).
 - Aporta feedback rápido mientras editas, sin depender de una revisión manual completa.
-- Es el orquestador del quality gate (`npm run task:check` en wandori.us) y, a futuro, `sentinel check/guard/doctor` como plano global (ver `plan-global-quality-guard-agnostico-2026-08-02.md`).
+- En el release coordinado 0.5.0 también proporciona `check`, `guard`, `doctor`, `status`, leases y coordinación de tareas; el consumidor mantiene la política y el lock en su propia raíz.
 
 ## Superficies
 

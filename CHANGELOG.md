@@ -3,12 +3,14 @@
 
 
 > **Deprecacion IA:** el motor de analisis IA via vscode.lm se elimino en 0.4.0; toda deteccion es estatica y determinista.
-## [Unreleased]
+## [0.5.0] - 2026-08-06
 
 ### Agregado
 - Coordinador universal `sentinel task` con claim atómico, un worktree/rama por tarea, heartbeat,
   gate delegado, integración `--ff-only`, takeover explícito de expirados y cleanup seguro.
 - Diagnóstico JSON de metadata inválida, worktrees/ramas huérfanos y locks expirados.
+- Runtime global versionado con `install`, `update`, `rollback` y `uninstall`, shims universales fuera del `cwd`, leases firmados y PATH/perfiles administrables.
+- El coordinador deriva la rama primaria y la identidad del proyecto desde el checkout consumidor; no asume `main` ni nombres de otro proyecto.
 
 ### Seguridad
 - Las operaciones concurrentes usan locks de directorio con takeover mediante `rename`; ningún
