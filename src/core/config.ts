@@ -1,5 +1,6 @@
 import { ConfigReglaUsuario, obtenerIdsReglas } from '../config/ruleRegistry';
 import { CoreAnalysisConfig } from './types';
+import { isSafeBranch } from './branchValidation';
 
 export interface SentinelConfigFile {
   includePatterns?: string[];
@@ -11,6 +12,10 @@ export interface SentinelConfigFile {
     window?: string[];
     services?: string[];
     loggerModules?: string[];
+  };
+  project?: {
+    /** Rama de integración del proyecto; no se asume que se llame `main`. */
+    primaryBranch?: string;
   };
   /* [028A-6 Fase 3] Envelope de política v2: el mismo sentinel.config.json
    * declara la política del guard (schemaVersion 2 con mode/gate/guard/
@@ -51,10 +56,15 @@ export const DEFAULT_EXCLUDE_PATTERNS = [
   '**/scripts/**',
 ];
 
-const CONFIG_KEYS = new Set(['includePatterns', 'excludePatterns', 'directoryExceptions', 'rules', 'portableBoundaries', 'schemaVersion', 'mode', 'gate', 'guard', 'runtime', 'analyzers']);
+const CONFIG_KEYS = new Set(['includePatterns', 'excludePatterns', 'directoryExceptions', 'rules', 'portableBoundaries', 'project', 'schemaVersion', 'mode', 'gate', 'guard', 'runtime', 'analyzers']);
 const PORTABLE_BOUNDARY_KEYS = new Set(['dom', 'window', 'services', 'loggerModules']);
 const RULE_KEYS = new Set(['habilitada', 'severidad']);
 const VALID_SEVERITIES = new Set(['error', 'warning', 'information', 'hint']);
+
+
+export function isSafePrimaryBranch(value: string): boolean {
+  return isSafeBranch(value);
+}
 
 function assertStringArray(value: unknown, key: string): asserts value is string[] {
   if (!Array.isArray(value) || value.some(item => typeof item !== 'string')) {
@@ -106,6 +116,21 @@ export function validateSentinelConfig(value: unknown): asserts value is Sentine
   for (const key of ['includePatterns', 'excludePatterns', 'directoryExceptions'] as const) {
     if (config[key] !== undefined) {
       assertStringArray(config[key], key);
+    }
+  }
+
+  if (config.project !== undefined) {
+    if (!config.project || typeof config.project !== 'object' || Array.isArray(config.project)) {
+      throw new Error("sentinel.config.json: 'project' debe ser un objeto");
+    }
+    const project = config.project as Record<string, unknown>;
+    for (const key of Object.keys(project)) {
+      if (key !== 'primaryBranch') {
+        throw new Error(`sentinel.config.json: clave desconocida 'project.${key}'`);
+      }
+    }
+    if (typeof project.primaryBranch !== 'string' || !isSafePrimaryBranch(project.primaryBranch)) {
+      throw new Error("sentinel.config.json: 'project.primaryBranch' debe ser un nombre de rama Git válido");
     }
   }
 

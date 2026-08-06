@@ -37,26 +37,38 @@ Glory Sentinel (Code Sentinel) es el plano de control de calidad agnóstico del 
 ## Orquestación universal de tareas
 
 Sentinel también coordina trabajo paralelo sin compartir un checkout mutable: cada tarea obtiene un
-ownership atómico y un `git worktree`/rama exclusiva. La integración nunca hace push, reset, force,
-commit implícito ni merge con conflictos; exige target limpio, base estable, worktree limpio y
-`--ff-only`. Tras integrar, `cleanup` retira el worktree, la rama y la metadata. El estado vive en
-`.git/sentinel-task-coordination/`, fuera de los archivos del proyecto.
+ownership atómico y un `git worktree`/rama exclusiva. La integración nunca hace push, reset, force ni
+commit implícito; exige target limpio, base estable, worktree limpio y `--ff-only`. Los worktrees
+temporales se crean dentro de `<repo>/.sentinel/worktrees/`; una ruta solicitada fuera de esa raíz se
+rechaza para que los agentes no tengan que salir de `glory-rust-template`. Si aparecen
+conflictos, el agente debe actualizar su rama desde la rama principal declarada en `project.primaryBranch`,
+resolver y revisar cada conflicto en su worktree, ejecutar el gate, commitear la resolución y
+reintentar. Sentinel no resuelve conflictos a ciegas, pero una tarea no se considera terminada mientras
+tenga conflictos o una rama pendiente. Toda tarea terminada se integra en la rama principal declarada
+por el proyecto; no existe un target alternativo para cerrar una tarea. En este repositorio esa rama es
+`wandorius`; `main` es solo el template vacío. Una excepción solo puede quedar como bloqueo documentado
+por una decisión explícita del usuario, nunca como tarea terminada. Después, `cleanup` retira el worktree,
+la rama y la metadata y se verifica que
+no quedan recursos de la tarea. El estado vive en `<repo>/.sentinel/coordination/` y los worktrees en `<repo>/.sentinel/worktrees/`;
+son temporales, están ignorados por Git y no se integran en la rama del proyecto.
 
 ```bash
 sentinel task claim GAME-01 --project-root . --agent agent-a
-sentinel task start GAME-01 --project-root . --agent agent-a --base main
+sentinel task start GAME-01 --project-root . --agent agent-a --primary-branch wandorius
 sentinel task heartbeat GAME-01 --project-root . --agent agent-a
-sentinel task gate GAME-01 --project-root ../.sentinel-worktrees/repo-GAME-01 --agent agent-a
-sentinel task integrate GAME-01 --project-root . --agent agent-a --target main
+sentinel task gate GAME-01 --project-root ./.sentinel/worktrees/repo-<project-identity>-GAME-01 --agent agent-a
+sentinel task integrate GAME-01 --project-root . --agent agent-a --target wandorius
 sentinel task cleanup GAME-01 --project-root . --agent agent-a
 sentinel task release GAME-01 --project-root . --agent agent-a
 ```
 
-`claim` concurrente para el mismo ID deja un único ganador. Una toma expirada requiere takeover
+`claim` concurrente para el mismo ID y proyecto deja un único ganador. Proyectos distintos se aíslan por la identidad derivada del Git common dir y `project.primaryBranch`: pueden usar el mismo ID simultáneamente, con ramas `task/<project-identity>/<id>`, worktrees y status separados. Una toma expirada requiere takeover
 explícito (`--force`) y no puede robar recursos aún registrados. `cleanup --force` solo recupera una
 tarea expirada si su proceso emisor ya no vive y el árbol está limpio; el estado reporta metadata
 inválida, ramas/worktrees huérfanos y locks expirados. El coordinador funciona con Git y Node, no
-conoce el stack del consumidor; cada proyecto fija únicamente el commit de Sentinel.
+conoce el stack del consumidor; cada proyecto fija únicamente el commit de Sentinel. La validación de
+worktrees internos requiere consumir un commit de Sentinel que ya incluya este contrato; una copia
+modificada localmente o esta documentación por sí sola no habilita la capacidad en un clon limpio.
 
 ## CLI
 

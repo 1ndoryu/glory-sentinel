@@ -101,13 +101,16 @@ suite('Sentinel CLI contract', () => {
   });
 
   test('parsea el subcomando task con ownership y aislamiento', () => {
-    const start = parseTaskCliArgs(['task', 'start', 'GAME-01', '--project-root', '/repo', '--agent', 'agent-a', '--base', 'main', '--path', '/tmp/game', '--json']);
+    const start = parseTaskCliArgs(['task', 'start', 'GAME-01', '--project-root', '/repo', '--agent', 'agent-a', '--primary-branch', 'wandorius', '--path', '/tmp/game', '--json']);
     assert.strictEqual(start.command, 'task');
     assert.strictEqual(start.taskAction, 'start');
     assert.strictEqual(start.taskId, 'GAME-01');
     assert.strictEqual(start.workspacePath, '/repo');
     assert.strictEqual(start.agent, 'agent-a');
-    assert.strictEqual(start.base, 'main');
+    assert.strictEqual(start.base, 'wandorius');
+    assert.strictEqual(start.primaryBranch, 'wandorius');
+    assert.throws(() => validateSentinelConfig({ project: { primaryBranch: 'bad branch' } }), /nombre de rama Git válido/);
+    validateSentinelConfig({ project: { primaryBranch: 'feature/site-a' } });
     assert.strictEqual(start.worktreePath, '/tmp/game');
     assert.strictEqual(start.json, true);
 

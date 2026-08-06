@@ -68,6 +68,7 @@ export interface TaskCliArgs {
   agent?: string;
   base?: string;
   target?: string;
+  primaryBranch?: string;
   worktreePath?: string;
   force?: boolean;
   full?: boolean;
@@ -90,11 +91,11 @@ function taskUsage(): string {
   return [
     'Uso de tareas:',
     '  sentinel task claim <id> --project-root <dir> --agent <id> [--force] [--json]',
-    '  sentinel task start <id> --project-root <dir> --agent <id> [--base main] [--path <dir>]',
+    '  sentinel task start <id> --project-root <dir> --agent <id> [--primary-branch <branch>] [--path <dir>]',
     '  sentinel task heartbeat <id> --project-root <dir> --agent <id>',
     '  sentinel task status --project-root <dir> [--json]',
     '  sentinel task gate <id> --project-root <worktree> --agent <id> [--full|--ci]',
-    '  sentinel task integrate <id> --project-root <dir> --agent <id> [--target main]',
+    '  sentinel task integrate <id> --project-root <dir> --agent <id> [--target <primary-branch>]',
     '  sentinel task cleanup <id> --project-root <dir> --agent <id> [--force]',
     '  sentinel task release <id> --project-root <dir> --agent <id>',
   ].join('\\n');
@@ -235,8 +236,9 @@ export function parseTaskCliArgs(args: string[]): TaskCliArgs {
     } else if (arg === '--agent') {
       parsed.agent = takeValue(args, index, arg);
       index++;
-    } else if (arg === '--base') {
-      parsed.base = takeValue(args, index, arg);
+    } else if (arg === '--base' || arg === '--primary-branch') {
+      parsed.primaryBranch = takeValue(args, index, arg);
+      parsed.base = parsed.primaryBranch;
       index++;
     } else if (arg === '--target') {
       parsed.target = takeValue(args, index, arg);
@@ -783,15 +785,22 @@ export async function taskCliTarget(args: TaskCliArgs): Promise<TaskCliExecution
   const workspace = path.resolve(args.workspacePath ?? process.cwd());
   const taskId = args.taskId ?? '';
   const agent = args.agent ?? '';
+  const configuredBranch = (await readConfig(undefined, workspace)).project?.primaryBranch;
+  const primaryBranch = args.primaryBranch ?? configuredBranch;
   let result: TaskCliResult;
   switch (args.taskAction) {
-    case 'claim': result = { ...(await claimTask({ projectRoot: workspace, taskId, agent, force: args.force })) }; break;
-    case 'start': result = { ...(await startTask({ projectRoot: workspace, taskId, agent, base: args.base, target: args.target, worktreePath: args.worktreePath })) }; break;
-    case 'heartbeat': result = { ...(await heartbeatTask({ projectRoot: workspace, taskId, agent })) }; break;
-    case 'status': result = { ...(await taskStatus(workspace)) }; break;
+    case 'claim': result = { ...(await claimTask({ projectRoot: workspace, taskId, agent, force: args.force, target: args.target, primaryBranch })) }; break;
+    case 'start': result = { ...(await startTask({ projectRoot: workspace, taskId, agent, base: args.base, target: args.target, primaryBranch, worktreePath: args.worktreePath })) }; break;
+    case 'heartbeat': result = { ...(await heartbeatTask({ projectRoot: workspace, taskId, agent, primaryBranch })) }; break;
+    case 'status': {
+      if (!primaryBranch) throw new Error('task status requiere project.primaryBranch en sentinel.config.json');
+      result = { ...(await taskStatus(workspace, primaryBranch)) };
+      break;
+    }
     case 'gate': {
-      await verifyTaskWorktree({ projectRoot: workspace, taskId, agent });
-      await heartbeatTask({ projectRoot: workspace, taskId, agent });
+      if (!primaryBranch) throw new Error('task gate requiere project.primaryBranch en sentinel.config.json');
+      await verifyTaskWorktree({ projectRoot: workspace, taskId, agent, primaryBranch });
+      await heartbeatTask({ projectRoot: workspace, taskId, agent, primaryBranch });
       const check = await checkCliTarget({
         command: 'check', format: 'markdown', workspacePath: workspace, taskId,
         full: args.full, ci: args.ci, allowHeavy: args.allowHeavy, stagesPath: args.stagesPath,
@@ -799,9 +808,9 @@ export async function taskCliTarget(args: TaskCliArgs): Promise<TaskCliExecution
       result = { taskId, gateExitCode: check.exitCode, output: check.output };
       break;
     }
-    case 'integrate': result = { ...(await integrateTask({ projectRoot: workspace, taskId, agent, target: args.target })) }; break;
-    case 'cleanup': await cleanupTask({ projectRoot: workspace, taskId, agent, force: args.force }); result = { taskId, state: 'CLEANED' }; break;
-    case 'release': await releaseTask({ projectRoot: workspace, taskId, agent }); result = { taskId, state: 'RELEASED' }; break;
+    case 'integrate': result = { ...(await integrateTask({ projectRoot: workspace, taskId, agent, target: args.target, primaryBranch })) }; break;
+    case 'cleanup': await cleanupTask({ projectRoot: workspace, taskId, agent, primaryBranch, force: args.force }); result = { taskId, state: 'CLEANED' }; break;
+    case 'release': await releaseTask({ projectRoot: workspace, taskId, agent, primaryBranch }); result = { taskId, state: 'RELEASED' }; break;
     default: throw new Error(taskUsage());
   }
   return {
@@ -828,6 +837,11 @@ export async function runCli(rawArgs: string[]): Promise<number> {
   const args = parseCliArgs(rawArgs);
   if (args.command === 'task') {
     const taskArgs = args as unknown as TaskCliArgs;
+    const config = await readConfig(undefined, taskArgs.workspacePath);
+    const configuredBranch = config.project?.primaryBranch;
+    taskArgs.primaryBranch ??= configuredBranch;
+    taskArgs.base ??= taskArgs.primaryBranch;
+    taskArgs.target ??= taskArgs.primaryBranch;
     const execution = await taskCliTarget(taskArgs);
     await writeOrPrint(execution.output, taskArgs.outputPath);
     return execution.exitCode;
