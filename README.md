@@ -4,16 +4,16 @@
 
 Glory Sentinel (Code Sentinel) es el plano de control de calidad agnóstico del ecosistema Glory: una extensión de VS Code, un CLI y un LSP con reglas estáticas que detectan problemas reales de arquitectura, seguridad y mantenimiento en Rust, PHP/WordPress, React/TypeScript y CSS.
 
-> **v0.4.0 eliminó el análisis IA.** Toda la detección es estática y determinista: no requiere red, claves, modelo externo ni backend. CLI, LSP y VS Code consumen el mismo motor (`src/core`) y el mismo registro de reglas (`src/config/ruleRegistry.ts`), de modo que producen hallazgos equivalentes. El checkout `main` publicado conserva el analizador `sentinel analyze`; el plano global (`check`, `guard`, `doctor`, `status`, `lease` y `task`) vive en el release coordinado más reciente y debe publicarse/fijarse como un commit posterior, nunca asumirse por el número `0.4.0`.
+> **v0.4.0 eliminó el análisis IA.** Toda la detección es estática y determinista: no requiere red, claves, modelo externo ni backend. CLI, LSP y VS Code consumen el mismo motor (`src/core`) y el mismo registro de reglas (`src/config/ruleRegistry.ts`), de modo que producen hallazgos equivalentes. El release coordinado **0.5.0** añade el plano global (`check`, `guard`, `doctor`, `status`, `lease` y `task`) y está publicado en `main` y en el tag `v0.5.0`.
 
 > **Regla de compatibilidad:** `sentinel --version` informa la versión del paquete, no garantiza capacidades del plano global. Para conocer lo que realmente soporta una instalación usa `sentinel --help` y `sentinel doctor --json`. Un consumidor debe fijar el commit exacto en su lock; no basta con fijar `0.4.0`.
 
-## Estado publicado y desarrollo del plano global
+## Estado publicado del plano global
 
-El `main` público de `glory-sentinel` puede estar temporalmente detrás del checkout coordinador del consumidor. Por eso este README se mantiene veraz para ambos casos:
+El repositorio público y el consumidor comparten el release coordinado **0.5.0**, publicado en `main` y en el tag `v0.5.0`.
 
 - **Release analizador 0.4.0:** `analyze`, `--files-from`, configuración estricta del analizador (`includePatterns`, `excludePatterns`, `directoryExceptions`, `portableBoundaries`, `rules`) y salida JSON v1.
-- **Release coordinado:** añade `check`, `guard`, `doctor`, `status`, `install`, `update`, `rollback`, `uninstall`, `lease` y `task`, además de `project.primaryBranch` y el envelope v2 del consumidor.
+- **Release coordinado 0.5.0:** añade `check`, `guard`, `doctor`, `status`, `install`, `update`, `rollback`, `uninstall`, `lease` y `task`, además de `project.primaryBranch` y el envelope v2 del consumidor.
 
 No copies el `sentinel.config.json` v2 de un consumidor a una instalación que solo expone el release analizador. Si `--help` no muestra `task`, esa instalación no puede coordinar worktrees; usa `analyze` o actualiza desde un artefacto/release que declare esa capacidad.
 
@@ -77,16 +77,16 @@ Las claves `schemaVersion`, `mode`, `project`, `gate`, `guard`, `runtime` y `ana
 
 La fuente de verdad de una capacidad es el binario/commit realmente fijado; README, skills y ramas locales no la crean.
 
-## Nota de publicación
+## Publicación reproducible
 
-Un commit coordinador en un submódulo detached no se publica automáticamente. El mantenedor de `glory-sentinel` debe integrar los commits coordinados en `main`/release, actualizar el README/CHANGELOG/help del repositorio publicado y crear un tag o artefacto reproducible. Después, cada consumidor actualiza su gitlink/lock y regenera el runtime global. Hasta ese momento, documentar el commit como `consumer-only` y no afirmar que `0.4.0` contiene `task`.
+El commit coordinado de 0.5.0 está integrado en `main` y etiquetado como `v0.5.0`. Los consumidores deben fijar el commit exacto, el hash del artefacto y las capacidades en su lock; el número de versión por sí solo no sustituye esa verificación. Después de actualizar un runtime global, repite `sentinel --version`, `sentinel --help` y `sentinel doctor --json` desde una carpeta externa al checkout.
 
 ## ¿Qué resuelve?
 
 - Detecta violaciones de seguridad y robustez antes de que lleguen a producción.
 - Señala deuda técnica estructural (archivos monolito, SRP, malas prácticas recurrentes).
 - Aporta feedback rápido mientras editas, sin depender de una revisión manual completa.
-- En el release coordinado 0.5.0 también proporciona `check`, `guard`, `doctor`, `status`, leases y coordinación de tareas; el consumidor mantiene la política y el lock en su propia raíz.
+- En el release coordinado 0.5.0 proporciona `check`, `guard`, `doctor`, `status`, leases y coordinación de tareas; el consumidor mantiene la política y el lock en su propia raíz.
 
 ## Superficies
 
@@ -120,8 +120,8 @@ conflictos, el agente debe actualizar su rama desde la rama principal declarada 
 resolver y revisar cada conflicto en su worktree, ejecutar el gate, commitear la resolución y
 reintentar. Sentinel no resuelve conflictos a ciegas, pero una tarea no se considera terminada mientras
 tenga conflictos o una rama pendiente. Toda tarea terminada se integra en la rama principal declarada
-por el proyecto; no existe un target alternativo para cerrar una tarea. En este repositorio esa rama es
-La rama primaria es siempre dato del consumidor; nunca se asume `main` ni el nombre de otro proyecto. Una excepción solo puede quedar como bloqueo documentado
+por el proyecto; no existe un target alternativo para cerrar una tarea. La rama primaria es siempre dato
+del consumidor; nunca se asume `main` ni el nombre de otro proyecto. Una excepción solo puede quedar como bloqueo documentado
 por una decisión explícita del usuario, nunca como tarea terminada. Después, `cleanup` retira el worktree,
 la rama y la metadata y se verifica que
 no quedan recursos de la tarea. El estado vive en `<repo>/.sentinel/coordination/` y los worktrees en `<repo>/.sentinel/worktrees/`;
