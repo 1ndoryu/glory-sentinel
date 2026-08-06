@@ -87,6 +87,19 @@ suite('Sentinel CLI contract', () => {
     assert.throws(() => parseCliArgs(['install', '--no-such-flag']), /Opcion no reconocida/);
   });
 
+  test('parsea uninstall con --keep-runtime y --dry-run', () => {
+    const full = parseCliArgs(['uninstall', '--target-root', 'rt', '--dry-run', '--json']);
+    assert.strictEqual(full.command, 'uninstall');
+    assert.strictEqual(full.targetRoot, 'rt');
+    assert.strictEqual(full.dryRun, true);
+    assert.strictEqual(full.json, true);
+    assert.strictEqual(full.keepRuntime, undefined);
+
+    const keep = parseCliArgs(['uninstall', '--target-root', 'rt', '--keep-runtime']);
+    assert.strictEqual(keep.command, 'uninstall');
+    assert.strictEqual(keep.keepRuntime, true);
+  });
+
   test('parsea el subcomando lease con sus opciones', () => {
     const issue = parseCliArgs(['lease', 'issue', '--project-root', '/p', '--task-id', 'T-1', '--command', 'cargo test', '--ttl-ms', '60000', '--json']);
     assert.strictEqual(issue.command, 'lease');

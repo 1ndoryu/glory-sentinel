@@ -31,9 +31,11 @@ import {
 import {
   installRuntime,
   rollbackRuntime,
+  uninstallRuntime,
   formatRuntimeResult,
   RuntimeInstallResult,
   RuntimeRollbackResult,
+  RuntimeUninstallResult,
 } from '../core/runtimeInstall';
 import {
   defaultProfilePaths,
@@ -54,7 +56,7 @@ export type SentinelCliConfigFile = SentinelConfigFile;
 
 
 export interface ParsedCliArgs {
-  command: 'analyze' | 'check' | 'guard' | 'doctor' | 'status' | 'install' | 'update' | 'rollback' | 'lease';
+  command: 'analyze' | 'check' | 'guard' | 'doctor' | 'status' | 'install' | 'update' | 'rollback' | 'uninstall' | 'lease';
   leaseAction?: 'issue' | 'list' | 'revoke' | 'verify';
   leasePath?: string;
   leaseCommand?: string;
@@ -84,6 +86,7 @@ export interface ParsedCliArgs {
   withProfiles?: boolean;
   withPath?: boolean;
   withoutPath?: boolean;
+  keepRuntime?: boolean;
 }
 
 export interface CliAnalysisResult {
@@ -109,6 +112,7 @@ function usage(): string {
     '  sentinel install [--target-root <dir>] [--source-root <dir>] [--version <v>] [--dry-run] [--with-shims] [--with-profiles] [--with-path] [--without-path] [--json]',
     '  sentinel update [--target-root <dir>] [--source-root <dir>] [--version <v>] [--dry-run] [--with-shims] [--with-profiles] [--with-path] [--without-path] [--json]',
     '  sentinel rollback [--target-root <dir>] [--version <v>] [--dry-run] [--json]',
+    '  sentinel uninstall [--target-root <dir>] [--dry-run] [--keep-runtime] [--json]',
     '  sentinel lease issue --project-root <dir> [--task-id <id>] [--command <cmd>] [--ttl-ms <ms>] [--json]',
     '  sentinel lease list [--json]',
     '  sentinel lease revoke --lease <path> [--json]',
@@ -136,6 +140,7 @@ function usage(): string {
     '  --with-profiles     Dot-sourcea el guard en los perfiles con backup previo (install/update)',
     '  --with-path         Añade <target>/shims al PATH de usuario (install/update; implica --with-shims)',
     '  --without-path      Retira <target>/shims del PATH de usuario (install)',
+    '  --keep-runtime      Conserva versions/current/bin al desinstalar (uninstall)',
     '  --lease <path>      Ruta del lease (revoke/verify)',
     '  --pid <n>           PID a verificar como descendiente del emisor (verify)',
     '  --command <cmd>     Comando/propósito del lease (issue/verify)',
@@ -155,7 +160,7 @@ function takeValue(args: string[], index: number, option: string): string {
 }
 
 export function parseCliArgs(args: string[]): ParsedCliArgs {
-  if (!['analyze', 'check', 'guard', 'doctor', 'status', 'install', 'update', 'rollback', 'lease'].includes(args[0] ?? '')) {
+  if (!['analyze', 'check', 'guard', 'doctor', 'status', 'install', 'update', 'rollback', 'uninstall', 'lease'].includes(args[0] ?? '')) {
     throw new Error(usage());
   }
 
@@ -232,7 +237,7 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
     return parsed;
   }
 
-  if (args[0] === 'install' || args[0] === 'update' || args[0] === 'rollback') {
+  if (args[0] === 'install' || args[0] === 'update' || args[0] === 'rollback' || args[0] === 'uninstall') {
     for (let index = 1; index < args.length; index++) {
       const arg = args[index];
       if (arg === '--target-root') {
@@ -254,6 +259,8 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
         parsed.withPath = true;
       } else if (arg === '--without-path') {
         parsed.withoutPath = true;
+      } else if (arg === '--keep-runtime') {
+        parsed.keepRuntime = true;
       } else if (arg === '--json') {
         parsed.json = true;
       } else if (arg === '--help' || arg === '-h') {
@@ -594,6 +601,14 @@ export async function rollbackCliTarget(args: ParsedCliArgs): Promise<RuntimeRol
   });
 }
 
+export async function uninstallCliTarget(args: ParsedCliArgs): Promise<RuntimeUninstallResult> {
+  return uninstallRuntime({
+    targetRoot: args.targetRoot,
+    dryRun: args.dryRun,
+    keepRuntime: args.keepRuntime,
+  });
+}
+
 export async function diagnoseCliTarget(args: ParsedCliArgs, command: 'doctor' | 'status'): Promise<string> {
   const result = await diagnoseWorkspace(path.resolve(args.workspacePath ?? process.cwd()));
   return args.json
@@ -677,6 +692,19 @@ export async function runCli(rawArgs: string[]): Promise<number> {
   }
   if (args.command === 'guard') {
     return guardCliTarget(args);
+  }
+  if (args.command === 'uninstall') {
+    /* [028A-6 Fase 5] La desinstalación solo retira entradas administradas
+     * (PATH, perfiles, shims y opcionalmente runtime). Un 'error' de PATH o
+     * perfiles propaga exit != 0 para que el wrapper del repo no declare una
+     * retirada completa sobre una integración a medio retirar. */
+    const result = await uninstallCliTarget(args);
+    const failed = result.pathEntry.action === 'error'
+      || result.profiles.some(profile => profile.action === 'error')
+      || result.errors.length > 0;
+    const output = args.json ? `${JSON.stringify(result, null, 2)}\n` : formatRuntimeResult(result);
+    await writeOrPrint(output, args.outputPath);
+    return failed ? 1 : 0;
   }
   if (args.command === 'install' || args.command === 'update' || args.command === 'rollback') {
     if (args.command === 'rollback') {
