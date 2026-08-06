@@ -17,7 +17,7 @@ El `main` público de `glory-sentinel` puede estar temporalmente detrás del che
 
 No copies el `sentinel.config.json` v2 de un consumidor a una instalación que solo expone el release analizador. Si `--help` no muestra `task`, esa instalación no puede coordinar worktrees; usa `analyze` o actualiza desde un artefacto/release que declare esa capacidad.
 
-Para que Sentinel funcione en cualquier carpeta, el consumidor debe llevar su propia política y lock en la raíz del proyecto. La rama primaria es dato del consumidor: nunca debe aparecer hardcodeada como `wandorius` en Sentinel ni en una skill global.
+Para que Sentinel funcione en cualquier carpeta, el consumidor debe llevar su propia política y lock en la raíz del proyecto. La rama primaria es dato del consumidor y no se fija en Sentinel ni en una skill global.
 
 ### Instalación reproducible del release coordinado
 
