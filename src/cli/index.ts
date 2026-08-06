@@ -47,6 +47,58 @@ import {
   writeInterceptorShims,
 } from '../core/interceptorShims';
 import { inicializarGloryAnalyzer } from '../analyzers/gloryAnalyzer';
+import {
+  claimTask,
+  cleanupTask,
+  heartbeatTask,
+  integrateTask,
+  releaseTask,
+  startTask,
+  taskStatus,
+  verifyTaskWorktree,
+} from '../core/taskCoordinator';
+
+export type TaskAction = 'claim' | 'start' | 'heartbeat' | 'status' | 'gate' | 'integrate' | 'cleanup' | 'release';
+
+export interface TaskCliArgs {
+  command: 'task';
+  taskAction: TaskAction;
+  taskId?: string;
+  workspacePath?: string;
+  agent?: string;
+  base?: string;
+  target?: string;
+  worktreePath?: string;
+  force?: boolean;
+  full?: boolean;
+  ci?: boolean;
+  allowHeavy?: boolean;
+  stagesPath?: string;
+  json?: boolean;
+  outputPath?: string;
+}
+
+export type TaskCliResult = Record<string, unknown>;
+
+export function formatTaskResult(result: TaskCliResult, json = false): string {
+  if (json) return `${JSON.stringify(result, null, 2)}\n`;
+  const lines = Object.entries(result).map(([key, value]) => `  ${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`);
+  return `${lines.join('\n')}\n`;
+}
+
+function taskUsage(): string {
+  return [
+    'Uso de tareas:',
+    '  sentinel task claim <id> --project-root <dir> --agent <id> [--force] [--json]',
+    '  sentinel task start <id> --project-root <dir> --agent <id> [--base main] [--path <dir>]',
+    '  sentinel task heartbeat <id> --project-root <dir> --agent <id>',
+    '  sentinel task status --project-root <dir> [--json]',
+    '  sentinel task gate <id> --project-root <worktree> --agent <id> [--full|--ci]',
+    '  sentinel task integrate <id> --project-root <dir> --agent <id> [--target main]',
+    '  sentinel task cleanup <id> --project-root <dir> --agent <id> [--force]',
+    '  sentinel task release <id> --project-root <dir> --agent <id>',
+  ].join('\\n');
+}
 
 export type CliFormat = 'markdown' | 'json';
 
@@ -56,7 +108,12 @@ export type SentinelCliConfigFile = SentinelConfigFile;
 
 
 export interface ParsedCliArgs {
-  command: 'analyze' | 'check' | 'guard' | 'doctor' | 'status' | 'install' | 'update' | 'rollback' | 'uninstall' | 'lease';
+  command: 'analyze' | 'check' | 'guard' | 'doctor' | 'status' | 'install' | 'update' | 'rollback' | 'uninstall' | 'lease' | 'task';
+  taskAction?: TaskAction;
+  agent?: string;
+  base?: string;
+  worktreePath?: string;
+  force?: boolean;
   leaseAction?: 'issue' | 'list' | 'revoke' | 'verify';
   leasePath?: string;
   leaseCommand?: string;
@@ -117,6 +174,7 @@ function usage(): string {
     '  sentinel lease list [--json]',
     '  sentinel lease revoke --lease <path> [--json]',
     '  sentinel lease verify --lease <path> [--project-root <dir>] [--pid <n>] [--json]',
+    '  sentinel task claim|start|heartbeat|status|gate|integrate|cleanup|release <id> [opciones]',
     '  sentinel --version',
     '',
     'Opciones:',
@@ -159,7 +217,63 @@ function takeValue(args: string[], index: number, option: string): string {
   return value;
 }
 
+export function parseTaskCliArgs(args: string[]): TaskCliArgs {
+  const action = args[1];
+  if (!['claim', 'start', 'heartbeat', 'status', 'gate', 'integrate', 'cleanup', 'release'].includes(action ?? '')) {
+    throw new Error(`${taskUsage()}`);
+  }
+  const parsed: TaskCliArgs = { command: 'task', taskAction: action as TaskAction, json: false };
+  let positionalId = false;
+  for (let index = 2; index < args.length; index++) {
+    const arg = args[index];
+    if (!arg.startsWith('--') && !positionalId) {
+      parsed.taskId = arg;
+      positionalId = true;
+    } else if (arg === '--project-root' || arg === '--workspace') {
+      parsed.workspacePath = takeValue(args, index, arg);
+      index++;
+    } else if (arg === '--agent') {
+      parsed.agent = takeValue(args, index, arg);
+      index++;
+    } else if (arg === '--base') {
+      parsed.base = takeValue(args, index, arg);
+      index++;
+    } else if (arg === '--target') {
+      parsed.target = takeValue(args, index, arg);
+      index++;
+    } else if (arg === '--path') {
+      parsed.worktreePath = takeValue(args, index, arg);
+      index++;
+    } else if (arg === '--force') {
+      parsed.force = true;
+    } else if (arg === '--full') {
+      parsed.full = true;
+    } else if (arg === '--ci') {
+      parsed.ci = true;
+    } else if (arg === '--allow-heavy') {
+      parsed.allowHeavy = true;
+    } else if (arg === '--stages') {
+      parsed.stagesPath = takeValue(args, index, arg);
+      index++;
+    } else if (arg === '--json') {
+      parsed.json = true;
+    } else if (arg === '--output') {
+      parsed.outputPath = takeValue(args, index, arg);
+      index++;
+    } else if (arg === '--help' || arg === '-h') {
+      throw new Error(taskUsage());
+    } else {
+      throw new Error(`Opcion no reconocida: ${arg}\\n${taskUsage()}`);
+    }
+  }
+  if (parsed.taskAction !== 'status' && !parsed.taskId) throw new Error(`task ${parsed.taskAction} requiere <id>`);
+  if (parsed.taskAction !== 'status' && !parsed.agent) throw new Error(`task ${parsed.taskAction} requiere --agent`);
+  parsed.workspacePath ??= process.cwd();
+  return parsed;
+}
+
 export function parseCliArgs(args: string[]): ParsedCliArgs {
+  if (args[0] === 'task') return parseTaskCliArgs(args) as unknown as ParsedCliArgs;
   if (!['analyze', 'check', 'guard', 'doctor', 'status', 'install', 'update', 'rollback', 'uninstall', 'lease'].includes(args[0] ?? '')) {
     throw new Error(usage());
   }
@@ -660,6 +774,44 @@ export async function leaseCliTarget(args: ParsedCliArgs): Promise<string> {
   }
 }
 
+export interface TaskCliExecution {
+  output: string;
+  exitCode: number;
+}
+
+export async function taskCliTarget(args: TaskCliArgs): Promise<TaskCliExecution> {
+  const workspace = path.resolve(args.workspacePath ?? process.cwd());
+  const taskId = args.taskId ?? '';
+  const agent = args.agent ?? '';
+  let result: TaskCliResult;
+  switch (args.taskAction) {
+    case 'claim': result = { ...(await claimTask({ projectRoot: workspace, taskId, agent, force: args.force })) }; break;
+    case 'start': result = { ...(await startTask({ projectRoot: workspace, taskId, agent, base: args.base, target: args.target, worktreePath: args.worktreePath })) }; break;
+    case 'heartbeat': result = { ...(await heartbeatTask({ projectRoot: workspace, taskId, agent })) }; break;
+    case 'status': result = { ...(await taskStatus(workspace)) }; break;
+    case 'gate': {
+      await verifyTaskWorktree({ projectRoot: workspace, taskId, agent });
+      await heartbeatTask({ projectRoot: workspace, taskId, agent });
+      const check = await checkCliTarget({
+        command: 'check', format: 'markdown', workspacePath: workspace, taskId,
+        full: args.full, ci: args.ci, allowHeavy: args.allowHeavy, stagesPath: args.stagesPath,
+      });
+      result = { taskId, gateExitCode: check.exitCode, output: check.output };
+      break;
+    }
+    case 'integrate': result = { ...(await integrateTask({ projectRoot: workspace, taskId, agent, target: args.target })) }; break;
+    case 'cleanup': await cleanupTask({ projectRoot: workspace, taskId, agent, force: args.force }); result = { taskId, state: 'CLEANED' }; break;
+    case 'release': await releaseTask({ projectRoot: workspace, taskId, agent }); result = { taskId, state: 'RELEASED' }; break;
+    default: throw new Error(taskUsage());
+  }
+  return {
+    output: args.taskAction === 'gate' && !args.json
+      ? String(result.output ?? '')
+      : formatTaskResult(result, args.json),
+    exitCode: args.taskAction === 'gate' ? Number(result.gateExitCode ?? 0) : 0,
+  };
+}
+
 export async function runCli(rawArgs: string[]): Promise<number> {
   /* [085A-3] CLI real de reportes sobre el core editor-agnostico.
    * Gotcha: los smoke tests deben ejecutar el JS compilado porque los mocks unitarios de VS Code pueden ocultar imports indirectos de `vscode` en Node puro.
@@ -674,6 +826,12 @@ export async function runCli(rawArgs: string[]): Promise<number> {
   }
 
   const args = parseCliArgs(rawArgs);
+  if (args.command === 'task') {
+    const taskArgs = args as unknown as TaskCliArgs;
+    const execution = await taskCliTarget(taskArgs);
+    await writeOrPrint(execution.output, taskArgs.outputPath);
+    return execution.exitCode;
+  }
   if (args.command === 'check') {
     /* [028A-6] En una ejecución real, Ctrl+C/SIGTERM debe terminar también
      * los hijos del gate (cancelAll), no dejarlos huérfanos. */

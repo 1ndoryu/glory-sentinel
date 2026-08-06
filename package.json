@@ -119,6 +119,7 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "cli": "npm run compile && node ./out/cli/index.js",
+    "test:task-coordinator": "npm run compile && mocha out/test/suite/taskCoordinator.test.js",
     "lsp": "npm run compile && node ./out/lsp/server.js --stdio",
     "watch": "tsc -watch -p ./",
     "check:core": "node scripts/check-core-no-vscode.mjs",

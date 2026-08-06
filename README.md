@@ -34,6 +34,30 @@ Glory Sentinel (Code Sentinel) es el plano de control de calidad agnóstico del 
 - Contrato API: mismatch de claves y de shape PHP↔TS que causan `h.map is not a function` en React.
 - Glory Schema: claves incorrectas en `DefaultContentManager::define()` que producen pérdida silenciosa de datos.
 
+## Orquestación universal de tareas
+
+Sentinel también coordina trabajo paralelo sin compartir un checkout mutable: cada tarea obtiene un
+ownership atómico y un `git worktree`/rama exclusiva. La integración nunca hace push, reset, force,
+commit implícito ni merge con conflictos; exige target limpio, base estable, worktree limpio y
+`--ff-only`. Tras integrar, `cleanup` retira el worktree, la rama y la metadata. El estado vive en
+`.git/sentinel-task-coordination/`, fuera de los archivos del proyecto.
+
+```bash
+sentinel task claim GAME-01 --project-root . --agent agent-a
+sentinel task start GAME-01 --project-root . --agent agent-a --base main
+sentinel task heartbeat GAME-01 --project-root . --agent agent-a
+sentinel task gate GAME-01 --project-root ../.sentinel-worktrees/repo-GAME-01 --agent agent-a
+sentinel task integrate GAME-01 --project-root . --agent agent-a --target main
+sentinel task cleanup GAME-01 --project-root . --agent agent-a
+sentinel task release GAME-01 --project-root . --agent agent-a
+```
+
+`claim` concurrente para el mismo ID deja un único ganador. Una toma expirada requiere takeover
+explícito (`--force`) y no puede robar recursos aún registrados. `cleanup --force` solo recupera una
+tarea expirada si su proceso emisor ya no vive y el árbol está limpio; el estado reporta metadata
+inválida, ramas/worktrees huérfanos y locks expirados. El coordinador funciona con Git y Node, no
+conoce el stack del consumidor; cada proyecto fija únicamente el commit de Sentinel.
+
 ## CLI
 
 ```bash

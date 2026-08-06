@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { analyzeCliTarget, parseCliArgs } from '../../cli';
+import { analyzeCliTarget, parseCliArgs, parseTaskCliArgs } from '../../cli';
 import { validateSentinelConfig } from '../../core/config';
 
 suite('Sentinel CLI contract', () => {
@@ -98,6 +98,25 @@ suite('Sentinel CLI contract', () => {
     const keep = parseCliArgs(['uninstall', '--target-root', 'rt', '--keep-runtime']);
     assert.strictEqual(keep.command, 'uninstall');
     assert.strictEqual(keep.keepRuntime, true);
+  });
+
+  test('parsea el subcomando task con ownership y aislamiento', () => {
+    const start = parseTaskCliArgs(['task', 'start', 'GAME-01', '--project-root', '/repo', '--agent', 'agent-a', '--base', 'main', '--path', '/tmp/game', '--json']);
+    assert.strictEqual(start.command, 'task');
+    assert.strictEqual(start.taskAction, 'start');
+    assert.strictEqual(start.taskId, 'GAME-01');
+    assert.strictEqual(start.workspacePath, '/repo');
+    assert.strictEqual(start.agent, 'agent-a');
+    assert.strictEqual(start.base, 'main');
+    assert.strictEqual(start.worktreePath, '/tmp/game');
+    assert.strictEqual(start.json, true);
+
+    const status = parseTaskCliArgs(['task', 'status', '--project-root', '/repo', '--json']);
+    assert.strictEqual(status.taskAction, 'status');
+    assert.strictEqual(status.taskId, undefined);
+    assert.strictEqual(status.agent, undefined);
+    assert.throws(() => parseTaskCliArgs(['task', 'claim', 'GAME-01', '--project-root', '/repo']), /requiere --agent/);
+    assert.throws(() => parseTaskCliArgs(['task', 'unknown', 'GAME-01']), /Uso de tareas/);
   });
 
   test('parsea el subcomando lease con sus opciones', () => {
