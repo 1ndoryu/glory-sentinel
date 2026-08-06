@@ -5,7 +5,8 @@
  * allowlisted) y produce un resultado de etapa con estados distinguibles
  * tool-error/timeout/cancelled/invalid-output. */
 import path from 'node:path';
-import { readFile, rename, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { physicallyContained, ensureContainedDirectory } from './pathContainment';
 import { redact, truncate } from './redaction';
 import { runProcess, ProcessResult } from './toolRunner';
 import { GateFinding } from './gateReport';
@@ -64,22 +65,18 @@ export function normalizeEntries(entries: ToolReportEntry[] = []): GateFinding[]
   return entries.flatMap(entry => (entry.findings ?? []).map(finding => {
     /* [028A-6 Fase 3] La línea llega en dos formatos según el emisor: el
      * adapter del orquestador publica `range.start.line` (0-based) y el
-     * wrapper stage-process.mjs normaliza a `line` directo (1-based). El
-     * core debe aceptar ambos para que los reportes de etapa conserven la
-     * ubicación y la paridad observe no cuente el mismo hallazgo dos veces
-     * (ruleId:file:line sin línea ≠ con línea). El número se emite SIEMPRE
-     * 1-based en el reporte combinado. */
+     * wrapper stage-process.mjs normaliza a `line` directo (1-based). */
     const rangeLine = finding.range?.start?.line;
     const directLine = finding.line;
     const line = Number.isInteger(directLine)
       ? Number(directLine)
-      : Number.isInteger(rangeLine)
-        ? Number(rangeLine) + 1
-        : undefined;
+      : Number.isInteger(rangeLine) ? Number(rangeLine) + 1 : undefined;
     return {
       ruleId: String(finding.ruleId ?? 'unknown'),
       severity: normalizeSeverity(finding.severity),
-      file: (entry.ruta ?? entry.file ?? finding.file) ? String(entry.ruta ?? entry.file ?? finding.file).replace(/\\/g, '/') : undefined,
+      file: (entry.ruta ?? entry.file ?? finding.file)
+        ? String(entry.ruta ?? entry.file ?? finding.file).replace(/\\/g, '/')
+        : undefined,
       line,
       message: redact(String(finding.message ?? 'Hallazgo sin mensaje')),
     };
@@ -122,6 +119,7 @@ export async function readToolReport(reportPath: string): Promise<ToolReport> {
 export async function writeStageLog(logsRoot: string, stage: string, content: string): Promise<string> {
   const target = path.join(logsRoot, `${stage}.log`);
   const temporary = `${target}.tmp`;
+  await mkdir(logsRoot, { recursive: true });
   await writeFile(temporary, truncate(content, MAX_LOG_BYTES), 'utf8');
   await rename(temporary, target);
   return target;
@@ -138,12 +136,7 @@ export interface ToolOutcome {
   logPath?: string;
 }
 
-export function toolFailure(
-  stage: string,
-  execution: ProcessResult,
-  state: 'timeout' | 'cancelled' | 'tool-error' | 'invalid-output',
-  logPath?: string,
-): ToolOutcome {
+export function toolFailure(stage: string, execution: ProcessResult, state: 'timeout' | 'cancelled' | 'tool-error' | 'invalid-output', logPath?: string): ToolOutcome {
   const timedOut = state === 'timeout';
   const cancelled = state === 'cancelled';
   const invalidOutput = state === 'invalid-output';
@@ -156,25 +149,14 @@ export function toolFailure(
     findings: [{
       ruleId: timedOut ? 'quality-timeout' : cancelled ? 'quality-cancelled' : invalidOutput ? 'quality-invalid-output' : 'quality-tool-error',
       severity: 'error',
-      message: timedOut
-        ? `${stage} excedió el timeout`
-        : cancelled
-          ? `${stage} fue cancelado`
-          : invalidOutput
-            ? `${stage} produjo una salida estructuralmente inválida`
-            : `${stage} terminó con código ${execution.code}`,
+      message: timedOut ? `${stage} excedió el timeout` : cancelled ? `${stage} fue cancelado` : invalidOutput ? `${stage} produjo una salida estructuralmente inválida` : `${stage} terminó con código ${execution.code}`,
     }],
     summary: timedOut ? 'timeout' : cancelled ? 'cancelled' : invalidOutput ? 'invalid-output' : `error ${execution.code}`,
     logPath,
   };
 }
 
-export function resultFromFindings(
-  stage: string,
-  findings: GateFinding[],
-  durationMs: number,
-  logPath?: string,
-): ToolOutcome {
+export function resultFromFindings(stage: string, findings: GateFinding[], durationMs: number, logPath?: string): ToolOutcome {
   const errors = findings.filter(item => item.severity === 'error').length;
   const warnings = findings.filter(item => item.severity === 'warning').length;
   const infos = findings.filter(item => item.severity === 'info').length;
@@ -190,11 +172,10 @@ export function resultFromFindings(
   };
 }
 
-export async function runStructuredTool(
-  definition: StructuredToolDefinition,
-  options: StructuredToolOptions,
-): Promise<ToolOutcome> {
+export async function runStructuredTool(definition: StructuredToolDefinition, options: StructuredToolOptions): Promise<ToolOutcome> {
   const reportPath = definition.reportPath ?? path.join(options.reportRoot, `${definition.name}.json`);
+  await ensureContainedDirectory(options.reportRoot, path.dirname(reportPath), 'reportPath');
+  await physicallyContained(options.reportRoot, reportPath, 'reportPath');
   const execution = await runProcess(definition.executable, definition.args, {
     cwd: definition.cwd ?? options.projectRoot,
     timeoutMs: definition.timeoutMs,
@@ -203,21 +184,17 @@ export async function runStructuredTool(
   const logPath = await writeStageLog(options.logsRoot, definition.name, `${execution.stdout}\n${execution.stderr}`);
   if (execution.timedOut) return toolFailure(definition.name, execution, 'timeout', logPath);
   if (execution.cancelled) return toolFailure(definition.name, execution, 'cancelled', logPath);
-  if (execution.code === 2) return toolFailure(definition.name, execution, 'tool-error', logPath);
-
+  if (execution.code !== 0) return toolFailure(definition.name, execution, 'tool-error', logPath);
   try {
+    await physicallyContained(options.reportRoot, reportPath, 'reportPath');
+    const reportStat = await lstat(reportPath);
+    if (reportStat.isSymbolicLink() || !reportStat.isFile()) throw new Error('reportPath debe ser un archivo regular no simbólico');
     const report = await readToolReport(reportPath);
     if (String(report.schemaVersion) !== String(definition.expectedSchemaVersion ?? '1')) {
       throw new Error(`schema ${String(report.schemaVersion)} incompatible (esperado ${String(definition.expectedSchemaVersion ?? '1')})`);
     }
-    const findings = normalizeEntries(report.entries);
-    return resultFromFindings(definition.name, findings, execution.durationMs, logPath);
+    return resultFromFindings(definition.name, normalizeEntries(report.entries), execution.durationMs, logPath);
   } catch (error) {
-    return toolFailure(
-      definition.name,
-      { ...execution, code: 2, stderr: error instanceof Error ? error.message : String(error) },
-      'invalid-output',
-      logPath,
-    );
+    return toolFailure(definition.name, { ...execution, code: 2, stderr: error instanceof Error ? error.message : String(error) }, 'invalid-output', logPath);
   }
 }

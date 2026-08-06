@@ -12,7 +12,9 @@ import { readV2GuardPolicy } from './guardCommand';
 import { currentBranch, policyHashFor } from './diagnose';
 import { runBoundedStages } from './stageRunner';
 import { fingerprint, readCachedPass, writeCachedPass, StageCacheContext } from './stageCache';
-import { runStructuredTool, StructuredToolDefinition, ToolOutcome } from './structuredTool';
+import { runStructuredTool, ToolOutcome } from './structuredTool';
+import { loadStageManifest } from './stageManifest';
+import { ensureContainedDirectory } from './pathContainment';
 import { createReport, compactLines, GateStage } from './gateReport';
 import { issueLease, revokeLease, LEASE_ENV_VAR } from './lease';
 import type { IssuedLease } from './lease';
@@ -76,44 +78,6 @@ async function loadScopeQualityConfig(workspace: string): Promise<{ fullPatterns
   }
 }
 
-interface StageDeclaration {
-  name: string;
-  executable: string;
-  args: string[];
-  reportPath?: string;
-  expectedSchemaVersion?: string | number;
-  timeoutMs?: number;
-  cwd?: string;
-}
-
-/* [028A-6] Contrato declarativo de etapas: executable/args/reportPath/schema/
- * timeout. El token {reportPath} en args se sustituye por la ruta real del
- * reporte. --stages es input confiable del operador (declara qué ejecutar);
- * el cwd por etapa permite herramientas que necesitan su propio directorio. */
-async function loadStages(stagesPath: string, reportRoot: string): Promise<StageDeclaration[]> {
-  const raw = JSON.parse(await fs.readFile(path.resolve(stagesPath), 'utf8')) as unknown;
-  if (!Array.isArray(raw)) throw new Error('--stages debe ser una lista JSON de etapas');
-  return raw.map((item, index) => {
-    const declaration = item as Partial<StageDeclaration>;
-    if (typeof declaration.name !== 'string' || declaration.name.length === 0) throw new Error(`etapa ${index}: falta name`);
-    if (typeof declaration.executable !== 'string' || declaration.executable.length === 0) throw new Error(`etapa ${index}: falta executable`);
-    if (!Array.isArray(declaration.args)) throw new Error(`etapa ${index}: args debe ser una lista`);
-    if (declaration.timeoutMs !== undefined && (!Number.isFinite(Number(declaration.timeoutMs)) || Number(declaration.timeoutMs) <= 0)) {
-      throw new Error(`etapa ${index}: timeoutMs inválido (${String(declaration.timeoutMs)})`);
-    }
-    const reportPath = declaration.reportPath ?? path.join(reportRoot, `${declaration.name}.json`);
-    return {
-      name: declaration.name,
-      executable: declaration.executable,
-      args: declaration.args.map(arg => String(arg).replace(/\{reportPath\}/g, reportPath)),
-      reportPath,
-      expectedSchemaVersion: declaration.expectedSchemaVersion ?? '1',
-      timeoutMs: declaration.timeoutMs === undefined ? undefined : Number(declaration.timeoutMs),
-      cwd: declaration.cwd,
-    };
-  });
-}
-
 async function reportLimits(workspace: string): Promise<{ maxFindings?: number; maxReminders?: number }> {
   const config = await readOptionalJson(path.join(workspace, 'quality.config.json')) as { maxFindings?: unknown; maxReminders?: unknown } | null;
   return {
@@ -124,8 +88,7 @@ async function reportLimits(workspace: string): Promise<{ maxFindings?: number; 
 
 export async function runCheck(args: CheckRunArgs): Promise<CheckRunResult> {
   const workspace = path.resolve(args.workspace);
-  const reportRoot = path.resolve(args.reportRoot);
-  await fs.mkdir(reportRoot, { recursive: true });
+  const reportRoot = await ensureContainedDirectory(workspace, args.reportRoot, 'reportRoot');
   /* [028A-6 Fase 2] Lease efímero firmado por ejecución: exime a las etapas
    * del guard de comandos directos sin depender del token plano (firma +
    * binding de proyecto/PID + expiración + auditoría). La emisión es
@@ -210,7 +173,7 @@ async function runCheckWithToken(
    * reporte combinado. La partición por branch-key del orquestador sigue
    * pendiente del runtime global (aquí: .quality-reports/check/<task-id>). */
   const startedAt = Date.now();
-  const declarations = await loadStages(args.stagesPath, reportRoot);
+  const declarations = (await loadStageManifest(args.stagesPath, workspace, reportRoot)).stages;
   /* [028A-6] Identidad de caché: la política se hashea del sentinel.config.json
    * del workspace; si la raíz de política real es un ancestro, la identidad
    * difiere (edge case documentado, no cruzado con el orquestador). */
