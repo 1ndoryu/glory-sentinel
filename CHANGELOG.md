@@ -1,7 +1,7 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
-## [0.6.2] - 2026-08-07
+## [0.6.3] - 2026-08-07
 
 ### Corregido
 - `sentinel --version` y `doctor` resuelven la versión activa desde `current.json` cuando el CLI se ejecuta mediante un runtime instalado.

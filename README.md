@@ -4,7 +4,7 @@
 
 Glory Sentinel (Code Sentinel) es el plano de control de calidad agnóstico del ecosistema Glory: una extensión de VS Code, un CLI y un LSP con reglas estáticas que detectan problemas reales de arquitectura, seguridad y mantenimiento en Rust, PHP/WordPress, React/TypeScript y CSS.
 
-> **v0.4.0 eliminó el análisis IA.** Toda la detección es estática y determinista: no requiere red, claves, modelo externo ni backend. CLI, LSP y VS Code consumen el mismo motor (`src/core`) y el mismo registro de reglas (`src/config/ruleRegistry.ts`), de modo que producen hallazgos equivalentes. El release coordinado **0.5.0** añadió el plano global (`check`, `guard`, `doctor`, `status`, `lease` y `task`); el release **0.6.0** añade el preflight fail-closed y la validación de release, y está publicado en `main` y en el tag `v0.6.0`.
+> **v0.4.0 eliminó el análisis IA.** Toda la detección es estática y determinista: no requiere red, claves, modelo externo ni backend. CLI, LSP y VS Code consumen el mismo motor (`src/core`) y el mismo registro de reglas (`src/config/ruleRegistry.ts`), de modo que producen hallazgos equivalentes. El release coordinado **0.5.0** añadió el plano global (`check`, `guard`, `doctor`, `status`, `lease` y `task`); el release **0.6.0** añadió el preflight fail-closed y la validación de release; el release vigente **0.6.2** está publicado en `main` y en el tag `v0.6.2`.
 
 > **Regla de compatibilidad:** `sentinel --version` informa la versión del paquete, no garantiza capacidades del plano global. Para conocer lo que realmente soporta una instalación usa `sentinel --help` y `sentinel doctor --json`. Un consumidor debe fijar el commit exacto en su lock; no basta con fijar `0.4.0`.
 
@@ -87,7 +87,7 @@ El commit coordinado de 0.6.2 está integrado en `main` y etiquetado como `v0.6.
 - Detecta violaciones de seguridad y robustez antes de que lleguen a producción.
 - Señala deuda técnica estructural (archivos monolito, SRP, malas prácticas recurrentes).
 - Aporta feedback rápido mientras editas, sin depender de una revisión manual completa.
-- En el release coordinado 0.6.0 proporciona `check`, `guard`, `doctor`, `status`, leases y coordinación de tareas; el consumidor mantiene la política y el lock en su propia raíz.
+- Desde el release coordinado 0.5.0 proporciona `check`, `guard`, `doctor`, `status`, leases y coordinación de tareas; el consumidor mantiene la política y el lock en su propia raíz.
 
 ## Superficies
 
