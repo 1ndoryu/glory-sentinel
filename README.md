@@ -10,7 +10,7 @@ Glory Sentinel (Code Sentinel) es el plano de control de calidad agnóstico del 
 
 ## Estado publicado del plano global
 
-El repositorio público y el consumidor comparten el release coordinado **0.6.0**, publicado en `main` y en el tag `v0.6.0`.
+El repositorio público y el consumidor comparten el release coordinado **0.6.2**, publicado en `main` y en el tag `v0.6.2`. El release 0.6.2 corrige la identidad de versión activa en runtimes instalados y hace explícito el estado de gitlinks staged frente a `HEAD`.
 
 - **Release analizador 0.4.0:** `analyze`, `--files-from`, configuración estricta del analizador (`includePatterns`, `excludePatterns`, `directoryExceptions`, `portableBoundaries`, `rules`) y salida JSON v1.
 - **Release coordinado 0.5.0:** añade `check`, `guard`, `doctor`, `status`, `install`, `update`, `rollback`, `uninstall`, `lease` y `task`, además de `project.primaryBranch` y el envelope v2 del consumidor.
@@ -80,7 +80,7 @@ La fuente de verdad de una capacidad es el binario/commit realmente fijado; READ
 
 ## Publicación reproducible
 
-El commit coordinado de 0.6.0 está integrado en `main` y etiquetado como `v0.6.0`. Los consumidores deben fijar el commit exacto, el hash del artefacto y las capacidades en su lock; el número de versión por sí solo no sustituye esa verificación. Después de actualizar un runtime global, repite `sentinel --version`, `sentinel --help` y `sentinel doctor --json` desde una carpeta externa al checkout.
+El commit coordinado de 0.6.2 está integrado en `main` y etiquetado como `v0.6.2`. Los consumidores deben fijar el commit exacto, el hash del artefacto y las capacidades en su lock; el número de versión por sí solo no sustituye esa verificación. Después de actualizar un runtime global, repite `sentinel --version`, `sentinel --help` y `sentinel doctor --json` desde una carpeta externa al checkout.
 
 ## ¿Qué resuelve?
 

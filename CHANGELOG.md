@@ -1,6 +1,13 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
+## [0.6.2] - 2026-08-07
+
+### Corregido
+- `sentinel --version` y `doctor` resuelven la versión activa desde `current.json` cuando el CLI se ejecuta mediante un runtime instalado.
+- `doctor` diferencia un gitlink preparado en el índice de un gitlink ausente en `HEAD` y expone ambos estados en el diagnóstico.
+
+
 
 > **Deprecacion IA:** el motor de analisis IA via vscode.lm se elimino en 0.4.0; toda deteccion es estatica y determinista.
 ## [0.6.0] - 2026-08-07
