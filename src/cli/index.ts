@@ -58,7 +58,7 @@ import {
   verifyTaskWorktree,
 } from '../core/taskCoordinator';
 
-export type TaskAction = 'claim' | 'start' | 'heartbeat' | 'status' | 'gate' | 'integrate' | 'cleanup' | 'release';
+export type TaskAction = 'claim' | 'start' | 'heartbeat' | 'status' | 'gate' | 'integrate' | 'cleanup' | 'release' | 'recover';
 
 export interface TaskCliArgs {
   command: 'task';
@@ -71,6 +71,7 @@ export interface TaskCliArgs {
   primaryBranch?: string;
   worktreePath?: string;
   force?: boolean;
+  dryRun?: boolean;
   full?: boolean;
   ci?: boolean;
   allowHeavy?: boolean;
@@ -98,6 +99,7 @@ function taskUsage(): string {
     '  sentinel task integrate <id> --project-root <dir> --agent <id> [--target <primary-branch>]',
     '  sentinel task cleanup <id> --project-root <dir> --agent <id> [--force]',
     '  sentinel task release <id> --project-root <dir> --agent <id>',
+    '  sentinel task recover <id> --project-root <dir> --agent <id> [--dry-run]',
   ].join('\\n');
 }
 
@@ -220,7 +222,7 @@ function takeValue(args: string[], index: number, option: string): string {
 
 export function parseTaskCliArgs(args: string[]): TaskCliArgs {
   const action = args[1];
-  if (!['claim', 'start', 'heartbeat', 'status', 'gate', 'integrate', 'cleanup', 'release'].includes(action ?? '')) {
+  if (!['claim', 'start', 'heartbeat', 'status', 'gate', 'integrate', 'cleanup', 'release', 'recover'].includes(action ?? '')) {
     throw new Error(`${taskUsage()}`);
   }
   const parsed: TaskCliArgs = { command: 'task', taskAction: action as TaskAction, json: false };
@@ -248,6 +250,8 @@ export function parseTaskCliArgs(args: string[]): TaskCliArgs {
       index++;
     } else if (arg === '--force') {
       parsed.force = true;
+    } else if (arg === '--dry-run') {
+      parsed.dryRun = true;
     } else if (arg === '--full') {
       parsed.full = true;
     } else if (arg === '--ci') {
@@ -811,6 +815,12 @@ export async function taskCliTarget(args: TaskCliArgs): Promise<TaskCliExecution
     case 'integrate': result = { ...(await integrateTask({ projectRoot: workspace, taskId, agent, target: args.target, primaryBranch })) }; break;
     case 'cleanup': await cleanupTask({ projectRoot: workspace, taskId, agent, primaryBranch, force: args.force }); result = { taskId, state: 'CLEANED' }; break;
     case 'release': await releaseTask({ projectRoot: workspace, taskId, agent, primaryBranch }); result = { taskId, state: 'RELEASED' }; break;
+    case 'recover': {
+      if (!primaryBranch) throw new Error('task recover requiere project.primaryBranch en sentinel.config.json');
+      const { recoverTask } = await import('../core/taskRecovery');
+      result = { ...(await recoverTask({ projectRoot: workspace, taskId, recoveredBy: agent, primaryBranch, dryRun: args.dryRun })) };
+      break;
+    }
     default: throw new Error(taskUsage());
   }
   return {

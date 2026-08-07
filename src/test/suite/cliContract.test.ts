@@ -114,6 +114,11 @@ suite('Sentinel CLI contract', () => {
     assert.strictEqual(start.worktreePath, '/tmp/game');
     assert.strictEqual(start.json, true);
 
+    const recover = parseTaskCliArgs(['task', 'recover', 'GAME-01', '--project-root', '/repo', '--agent', 'agent-b', '--dry-run', '--json']);
+    assert.strictEqual(recover.taskAction, 'recover');
+    assert.strictEqual(recover.dryRun, true);
+    assert.strictEqual(recover.force, undefined);
+
     const status = parseTaskCliArgs(['task', 'status', '--project-root', '/repo', '--json']);
     assert.strictEqual(status.taskAction, 'status');
     assert.strictEqual(status.taskId, undefined);

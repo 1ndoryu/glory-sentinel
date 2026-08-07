@@ -9,7 +9,7 @@ import { promisify } from 'node:util';
 import { detectScope } from './scope';
 import { findQualityRoot, inspectHeavyRun } from './scheduler';
 import { readV2GuardPolicy } from './guardCommand';
-import { currentBranch, policyHashFor } from './diagnose';
+import { assertWorkspaceReady, currentBranch, policyHashFor } from './diagnose';
 import { runBoundedStages } from './stageRunner';
 import { fingerprint, readCachedPass, writeCachedPass, StageCacheContext } from './stageCache';
 import { runStructuredTool, ToolOutcome } from './structuredTool';
@@ -88,6 +88,7 @@ async function reportLimits(workspace: string): Promise<{ maxFindings?: number; 
 
 export async function runCheck(args: CheckRunArgs): Promise<CheckRunResult> {
   const workspace = path.resolve(args.workspace);
+  if (!args.dryRun) await assertWorkspaceReady(workspace);
   const reportRoot = await ensureContainedDirectory(workspace, args.reportRoot, 'reportRoot');
   /* [028A-6 Fase 2] Lease efímero firmado por ejecución: exime a las etapas
    * del guard de comandos directos sin depender del token plano (firma +
