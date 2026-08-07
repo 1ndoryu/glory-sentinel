@@ -121,6 +121,48 @@ suite('Sentinel core diagnose (orquestador agnóstico)', () => {
     }
   });
 
+  test('distingue un gitlink preparado en índice pero todavía no committeado en HEAD', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-diagnose-staged-gitlink-'));
+    const source = path.join(root, 'tools', 'sentinel');
+    try {
+      fs.mkdirSync(path.join(source, 'out', 'cli'), { recursive: true });
+      fs.writeFileSync(path.join(source, 'package.json'), JSON.stringify({ version: '0.5.0', scripts: { compile: 'true' } }), 'utf8');
+      fs.writeFileSync(path.join(source, 'package-lock.json'), '{}', 'utf8');
+      fs.writeFileSync(path.join(source, 'out', 'cli', 'index.js'), '#!/usr/bin/env node\\nif (process.argv.includes(\'--version\')) console.log(\'0.5.0\'); else if (process.argv.includes(\'--help\')) console.log(\'analyze\');\\n', 'utf8');
+      fs.mkdirSync(path.join(source, 'node_modules'), { recursive: true });
+      execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: source });
+      execFileSync('git', ['config', 'user.email', 'sentinel@example.test'], { cwd: source });
+      execFileSync('git', ['config', 'user.name', 'Sentinel Test'], { cwd: source });
+      execFileSync('git', ['add', 'package.json', 'package-lock.json', 'out/cli/index.js'], { cwd: source });
+      execFileSync('git', ['commit', '-q', '-m', 'fixture tool'], { cwd: source });
+      const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: source, encoding: 'utf8' }).trim();
+
+      fs.writeFileSync(path.join(root, 'quality.config.json'), '{}', 'utf8');
+      fs.writeFileSync(path.join(root, 'sentinel.config.json'), JSON.stringify(policy()), 'utf8');
+      fs.writeFileSync(path.join(root, 'quality-tools.json'), JSON.stringify({
+        schemaVersion: 1,
+        tools: { sentinel: { sourcePath: 'tools/sentinel', commit: sourceCommit, version: '0.5.0', buildScript: 'compile', cli: 'out/cli/index.js' } },
+      }), 'utf8');
+      fs.writeFileSync(path.join(root, 'sentinel.lock.json'), JSON.stringify({ schemaVersion: 1, analyzers: { sentinel: { commit: sourceCommit, version: '0.5.0' } } }), 'utf8');
+      execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: root });
+      execFileSync('git', ['config', 'user.email', 'sentinel@example.test'], { cwd: root });
+      execFileSync('git', ['config', 'user.name', 'Sentinel Test'], { cwd: root });
+      execFileSync('git', ['add', 'quality.config.json', 'sentinel.config.json', 'quality-tools.json', 'sentinel.lock.json'], { cwd: root });
+      execFileSync('git', ['commit', '-q', '-m', 'fixture parent'], { cwd: root });
+      execFileSync('git', ['update-index', '--add', '--cacheinfo', `160000,${sourceCommit},tools/sentinel`], { cwd: root });
+
+      const result = await diagnoseWorkspace(root);
+      const tool = result.tools.sentinel;
+      assert.strictEqual(tool.gitlinkCommit, null);
+      assert.strictEqual(tool.stagedGitlinkCommit, sourceCommit);
+      assert.ok(result.issues.some(issue => issue.code === 'tool-gitlink-uncommitted'));
+      assert.ok(!result.issues.some(issue => issue.code === 'tool-gitlink-missing'));
+      assert.match(formatDiagnose(result), /gitlink HEAD missing \/ index/);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   test('bloquea readiness cuando faltan source checkout y CLI compilado', async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-diagnose-preflight-'));
     try {

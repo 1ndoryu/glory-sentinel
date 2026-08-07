@@ -650,6 +650,27 @@ function renderOutput(result: CliAnalysisResult, args: ParsedCliArgs, toolVersio
 }
 
 async function readPackageVersion(): Promise<string> {
+  /* [SNT-16g] Un CLI instalado se ejecuta bajo
+   * <runtime>/versions/<version>/out/cli. Si existe current.json en sus
+   * ancestros, esa es la identidad activa y tiene prioridad sobre un
+   * package.json antiguo que pueda quedar detrás de un shim obsoleto. En un
+   * checkout de desarrollo no hay current.json y se conserva el package.json. */
+  let directory = path.resolve(__dirname);
+  while (true) {
+    try {
+      const current = JSON.parse(await fs.readFile(path.join(directory, 'current.json'), 'utf8')) as { version?: unknown };
+      if (typeof current.version === 'string' && current.version.length > 0) {
+        const activeCli = path.join(directory, 'versions', current.version, 'out', 'cli', 'index.js');
+        await fs.access(activeCli);
+        return current.version;
+      }
+    } catch {
+      /* El directorio actual no es la raíz de un runtime instalado. */
+    }
+    const parent = path.dirname(directory);
+    if (parent === directory) break;
+    directory = parent;
+  }
   const packagePath = path.resolve(__dirname, '../../package.json');
   const packageJson = JSON.parse(await fs.readFile(packagePath, 'utf8')) as { version?: unknown };
   if (typeof packageJson.version !== 'string') {

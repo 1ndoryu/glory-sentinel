@@ -33,6 +33,7 @@ export interface DiagnoseTool {
   /** Kept for consumers of the previous `{ commit }` diagnostic shape. */
   commit: string | null;
   sourcePath: string | null;
+  provisionPath: string | null;
   sourceExternal: boolean;
   cliPath: string | null;
   cliVersion: string | null;
@@ -40,6 +41,7 @@ export interface DiagnoseTool {
   lockVersion: string | null;
   configuredCommit: string | null;
   gitlinkCommit: string | null;
+  stagedGitlinkCommit: string | null;
   checkoutCommit: string | null;
   lockCommit: string | null;
   sourcePresent: boolean;
@@ -128,8 +130,14 @@ export async function currentBranch(root: string): Promise<string | null> {
 }
 
 async function submoduleCommit(root: string, submodulePath: string): Promise<string | null> {
-  const output = await command(root, ['ls-tree', 'HEAD', submodulePath]);
+  const output = await command(root, ['ls-tree', 'HEAD', '--', submodulePath]);
   const match = output?.match(/^160000\s+commit\s+([0-9a-f]{40})/u);
+  return match?.[1] ?? null;
+}
+
+async function stagedSubmoduleCommit(root: string, submodulePath: string): Promise<string | null> {
+  const output = await command(root, ['ls-files', '--stage', '--', submodulePath]);
+  const match = output?.match(/^160000\s+([0-9a-f]{40})\s+0\s+/u);
   return match?.[1] ?? null;
 }
 
@@ -282,7 +290,10 @@ async function diagnoseConfiguredTools(root: string, lockData: Record<string, un
       && insideWorkspace(root, configuredSourcePath)
       && !insideWorkspace(root, sourceRealPath),
     );
+    const configuredProvisionPath = typeof config?.provisionPath === 'string' ? path.resolve(root, config.provisionPath) : null;
     const sourcePath = sourceEscapesWorkspace ? null : configuredSourcePath;
+    const provisionPath = sourceEscapesWorkspace ? null : configuredProvisionPath;
+    const toolRoot = provisionPath ?? sourcePath;
     const sourceExternal = sourceRealPath ? !insideWorkspace(root, sourceRealPath) : Boolean(sourcePath && !insideWorkspace(root, sourcePath));
     const lockEntry = lockAnalyzers[name] && typeof lockAnalyzers[name] === 'object' && !Array.isArray(lockAnalyzers[name])
       ? lockAnalyzers[name] as Record<string, unknown>
@@ -290,13 +301,13 @@ async function diagnoseConfiguredTools(root: string, lockData: Record<string, un
     const configuredCommit = typeof config?.commit === 'string' ? config.commit : null;
     const configuredVersion = typeof config?.version === 'string' ? config.version : null;
     const lockVersion = typeof lockEntry?.version === 'string' ? lockEntry.version : null;
-    const cli = typeof config?.cli === 'string' && sourcePath ? path.resolve(sourcePath, config.cli) : null;
+    const cli = typeof config?.cli === 'string' && toolRoot ? path.resolve(toolRoot, config.cli) : null;
     const cliRealPath = cli ? await realpath(cli).catch(() => null) : null;
     const cliInsideSource = Boolean(
       sourcePath
       && cli
       && (cliRealPath ?? cli)
-      && insideWorkspace(sourceRealPath ?? sourcePath, cliRealPath ?? cli),
+      && insideWorkspace(toolRoot ?? sourcePath ?? root, cliRealPath ?? cli),
     );
     let sourcePresent = false;
     let cliPresent = false;
@@ -316,7 +327,7 @@ async function diagnoseConfiguredTools(root: string, lockData: Record<string, un
     }
     const reportedVersion = await cliVersion(cliPresent ? cli : null);
     const capabilities = await cliCapabilities(cliPresent ? cli : null);
-    const metadata = await packageMetadata(sourcePath, config);
+    const metadata = await packageMetadata(toolRoot, config);
     const configuredReleaseRefs = Array.isArray(config?.releaseRefs)
       ? config.releaseRefs.filter((value): value is string => typeof value === 'string')
       : [];
@@ -337,11 +348,13 @@ async function diagnoseConfiguredTools(root: string, lockData: Record<string, un
       ? path.relative(root, sourcePath).replace(/\\/g, '/')
       : null;
     const gitlinkCommit = relativeSource ? await submoduleCommit(root, relativeSource) : null;
+    const stagedGitlinkCommit = relativeSource ? await stagedSubmoduleCommit(root, relativeSource) : null;
     const lockCommit = typeof lockEntry?.commit === 'string' ? lockEntry.commit : null;
     const diagnostic: DiagnoseTool = {
       name,
       commit: actualCommit,
       sourcePath,
+      provisionPath,
       sourceExternal,
       cliPath: cli,
       cliVersion: reportedVersion,
@@ -349,6 +362,7 @@ async function diagnoseConfiguredTools(root: string, lockData: Record<string, un
       lockVersion,
       configuredCommit,
       gitlinkCommit,
+      stagedGitlinkCommit,
       checkoutCommit: actualCommit,
       lockCommit,
       sourcePresent,
@@ -390,7 +404,13 @@ async function diagnoseConfiguredTools(root: string, lockData: Record<string, un
     if (sourcePresent && actualCommit && !releaseEvidencePresent) issue('tool-release-evidence-missing', `${name}: falta evidencia compile + suite desde staging limpio para ${actualCommit}; ejecuta npm run quality:setup`);
     if (!configuredCommit) issue('tool-config-commit-missing', `${name}: falta el commit fijado en quality-tools.json`);
     if (!lockEntry) issue('tool-lock-entry-missing', `${name}: falta analyzers.${name} en sentinel.lock.json`);
-    if (sourcePresent && relativeSource && !gitlinkCommit) issue('tool-gitlink-missing', `${name}: sourcePath interno no está representado por un gitlink inicializado`);
+    if (sourcePresent && relativeSource && !gitlinkCommit) {
+      if (stagedGitlinkCommit) {
+        issue('tool-gitlink-uncommitted', `${name}: el gitlink está preparado en el índice (${stagedGitlinkCommit.slice(0, 12)}), pero aún no está committeado en HEAD; committea el pin antes del lock/gate`);
+      } else {
+        issue('tool-gitlink-missing', `${name}: sourcePath interno no está representado por un gitlink en HEAD; inicializa el submódulo y committea el pin antes del lock/gate`);
+      }
+    }
     if (configuredCommit && gitlinkCommit && configuredCommit !== gitlinkCommit) issue('tool-gitlink-mismatch', `${name}: quality-tools.json no coincide con el gitlink`);
     if (configuredCommit && actualCommit && configuredCommit !== actualCommit) issue('tool-checkout-mismatch', `${name}: checkout no coincide con quality-tools.json`);
     if (configuredCommit && configuredCommit !== lockCommit) issue('tool-lock-mismatch', `${name}: sentinel.lock.json no coincide con quality-tools.json`);
@@ -458,7 +478,7 @@ export async function diagnoseWorkspace(workspace: string): Promise<DiagnoseResu
     workspace,
     root,
     branch: root ? await currentBranch(root) : null,
-    sentinelVersion: packageJson?.version ? String(packageJson.version) : 'unknown',
+    sentinelVersion: runtime.activeVersion ?? (packageJson?.version ? String(packageJson.version) : 'unknown'),
     policy,
     lock,
     scheduler,
@@ -496,7 +516,10 @@ export function formatDiagnose(result: DiagnoseResult): string {
     const capabilityText = tool.missingCapabilities.length > 0 ? ` - capabilities missing: ${tool.missingCapabilities.join(',')}` : '';
     const releaseText = tool.releaseReachable ? ` - release refs: ${tool.releaseRefs.join(',')}${tool.releaseEvidencePresent ? ' - clean evidence ok' : ' - clean evidence missing'}` : ' - release unpublished';
     const dependencyText = tool.dependenciesPresent ? '' : ' - dependencies missing';
-    lines.push(`  ${tool.name}: source ${tool.sourcePresent ? 'ok' : 'missing'} - cli ${tool.cliPresent ? 'ok' : 'missing'} - version ${tool.cliVersion ?? 'failed'} - checkout ${tool.checkoutCommit?.slice(0, 8) ?? 'n/a'}${tool.checkoutDirty ? ' - DIRTY' : ''}${dependencyText}${capabilityText}${releaseText}`);
+    const gitlinkText = tool.sourcePath && tool.sourceExternal === false
+      ? ` - gitlink HEAD ${tool.gitlinkCommit?.slice(0, 8) ?? 'missing'}${tool.stagedGitlinkCommit && tool.stagedGitlinkCommit !== tool.gitlinkCommit ? ` / index ${tool.stagedGitlinkCommit.slice(0, 8)}` : ''}`
+      : '';
+    lines.push(`  ${tool.name}: source ${tool.sourcePresent ? 'ok' : 'missing'} - cli ${tool.cliPresent ? 'ok' : 'missing'} - version ${tool.cliVersion ?? 'failed'} - checkout ${tool.checkoutCommit?.slice(0, 8) ?? 'n/a'}${tool.checkoutDirty ? ' - DIRTY' : ''}${gitlinkText}${dependencyText}${capabilityText}${releaseText}`);
   }
   for (const issue of result.issues) lines.push(`ERROR ${issue.code}: ${issue.message}`);
   return lines.join('\n');

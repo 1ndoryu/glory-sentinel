@@ -4,6 +4,7 @@
  * conservada, dry-run sin mutaciones y rollback restaurable. Todos los
  * tests usan targetRoot aislado en temp; nunca tocan el runtime real. */
 import * as assert from 'assert';
+import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -22,7 +23,7 @@ suite('Sentinel core runtimeInstall (contrato de actualización)', () => {
     const source = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-runtime-src-'));
     fs.mkdirSync(path.join(source, 'out', 'cli'), { recursive: true });
     fs.writeFileSync(path.join(source, 'package.json'), `${JSON.stringify({ name: 'glory-sentinel', version }, null, 2)}\n`, 'utf8');
-    fs.writeFileSync(path.join(source, 'out', 'cli', 'index.js'), 'console.log("sentinel");\n', 'utf8');
+    fs.writeFileSync(path.join(source, 'out', 'cli', 'index.js'), `if (process.argv.includes('--version')) console.log('${version}');\n`, 'utf8');
     return source;
   }
 
@@ -45,6 +46,8 @@ suite('Sentinel core runtimeInstall (contrato de actualización)', () => {
       assert.ok(fs.existsSync(path.join(target, 'versions', '1.2.3', 'out', 'cli', 'index.js')));
       assert.ok(fs.existsSync(path.join(target, 'current.js')), 'shim CLI resuelto por current.json');
       assert.ok(fs.existsSync(path.join(target, 'bin', 'sentinel.cmd')) || fs.existsSync(path.join(target, 'bin', 'sentinel')));
+      const activeCliVersion = execFileSync(process.execPath, [path.join(target, 'current.js'), '--version'], { encoding: 'utf8' }).trim();
+      assert.strictEqual(activeCliVersion, '1.2.3', 'el shim debe resolver la versión declarada por current.json');
 
       const status = await runtimeStatus({ targetRoot: target });
       assert.strictEqual(status.activeVersion, '1.2.3');
