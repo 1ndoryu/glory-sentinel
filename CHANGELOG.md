@@ -1,6 +1,16 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
+## [Unreleased] - 2026-08-07 (extensión local, sin publicar)
+
+### Agregado
+- `task start --worktrees-root <dir>`: raíz externa autorizada para worktrees temporalmente visibles
+  al workspace del agente (por ejemplo `area-trabajo/task-worktrees`). Debe existir, quedar fuera del
+  repositorio y resolverse a un path físico real; el resto de rutas arbitrarias siguen bloqueadas. La
+  metadata conserva la raíz usada para que cleanup/recover validen contención contra ella. `task gate`
+  acepta worktrees vinculados externos (su top level es hermano de la raíz Git; la identidad sigue
+  anclada al common dir del repositorio).
+
 ## [0.6.4] - 2026-08-07
 
 ### Corregido

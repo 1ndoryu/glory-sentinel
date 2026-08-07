@@ -25,6 +25,8 @@ export interface TaskRecoveryOptions {
   recoveredBy: string;
   dryRun?: boolean;
   now?: number;
+  /** Raíz autorizada de worktrees (igual que la declarada en start). */
+  worktreesRoot?: string;
 }
 
 export interface TaskRecoveryResult {
@@ -48,8 +50,10 @@ function processAlive(record: TaskRecord): boolean {
   }
 }
 
-function insideWorktreeRoot(projectRoot: string, candidate: string): boolean {
-  const root = path.resolve(projectRoot, '.sentinel', 'worktrees');
+function insideWorktreeRoot(projectRoot: string, candidate: string, worktreesRoot?: string): boolean {
+  const root = worktreesRoot
+    ? path.resolve(worktreesRoot)
+    : path.resolve(projectRoot, '.sentinel', 'worktrees');
   const relative = path.relative(root, path.resolve(candidate));
   return relative !== '' && relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
 }
@@ -68,15 +72,15 @@ async function gitRevision(cwd: string, ref: string): Promise<string | null> {
   }
 }
 
-async function inspectWorktree(projectRoot: string, worktree: string | null): Promise<boolean | null> {
+async function inspectWorktree(projectRoot: string, worktree: string | null, worktreesRoot?: string): Promise<boolean | null> {
   if (!worktree) return null;
-  if (!insideWorktreeRoot(projectRoot, worktree)) {
-    throw new Error(`recover bloqueado: worktree fuera de .sentinel/worktrees (${worktree})`);
+  if (!insideWorktreeRoot(projectRoot, worktree, worktreesRoot)) {
+    throw new Error(`recover bloqueado: worktree fuera de la raíz autorizada (${worktree})`);
   }
   try {
     const canonical = await fs.realpath(worktree);
-    if (!insideWorktreeRoot(projectRoot, canonical)) {
-      throw new Error(`recover bloqueado: worktree físico fuera de .sentinel/worktrees (${worktree})`);
+    if (!insideWorktreeRoot(projectRoot, canonical, worktreesRoot)) {
+      throw new Error(`recover bloqueado: worktree físico fuera de la raíz autorizada (${worktree})`);
     }
     const { stdout } = await execFileAsync('git', ['status', '--porcelain=v1', '--untracked-files=all'], {
       cwd: canonical,
@@ -148,7 +152,7 @@ export async function recoverTask(options: TaskRecoveryOptions): Promise<TaskRec
     throw new Error(`recover bloqueado: el proceso ${record.pid} de ${options.taskId} sigue vivo`);
   }
   await verifyRecordedHeads(options.projectRoot, record);
-  const worktreeClean = await inspectWorktree(options.projectRoot, record.worktree);
+  const worktreeClean = await inspectWorktree(options.projectRoot, record.worktree, options.worktreesRoot);
   if (worktreeClean === false) {
     throw new Error(`recover bloqueado: worktree sucio ${record.worktree}`);
   }

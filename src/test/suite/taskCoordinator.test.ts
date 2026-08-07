@@ -104,6 +104,47 @@ suite('task coordinator', () => {
     }
   });
 
+  test('worktreesRoot externo autorizado crea el worktree visible dentro de esa raíz', async () => {
+    const { parent, root } = fixture();
+    try {
+      const externalRoot = path.join(parent, 'visible-worktrees');
+      fs.mkdirSync(externalRoot);
+      await claimTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'VISIBLE', agent: 'agent-a' });
+      const task = await startTask({
+        projectRoot: root,
+        primaryBranch: PRIMARY_BRANCH,
+        taskId: 'VISIBLE',
+        agent: 'agent-a',
+        worktreesRoot: externalRoot,
+      });
+      assert.ok(path.resolve(task.worktree!).startsWith(path.resolve(externalRoot) + path.sep));
+      assert.strictEqual(path.resolve(task.worktreesRoot!), path.resolve(externalRoot));
+      assert.strictEqual(fs.existsSync(task.worktree!), true);
+      assert.strictEqual(git(root, ['status', '--porcelain']).replace(/^\?\? \.sentinel\/?$/mu, ''), '');
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true });
+    }
+  });
+
+  test('worktreesRoot dentro del repositorio se rechaza (no es una raíz externa)', async () => {
+    const { parent, root } = fixture();
+    try {
+      await claimTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'INNER', agent: 'agent-a' });
+      await assert.rejects(
+        startTask({
+          projectRoot: root,
+          primaryBranch: PRIMARY_BRANCH,
+          taskId: 'INNER',
+          agent: 'agent-a',
+          worktreesRoot: path.join(root, 'inner-worktrees'),
+        }),
+        /no puede ser el repositorio ni una subcarpeta/,
+      );
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true });
+    }
+  });
+
   test('cleanup valida el path registrado antes de eliminar cualquier worktree', async () => {
     const { parent, root } = fixture();
     try {

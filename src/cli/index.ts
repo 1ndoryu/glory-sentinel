@@ -70,6 +70,7 @@ export interface TaskCliArgs {
   target?: string;
   primaryBranch?: string;
   worktreePath?: string;
+  worktreesRoot?: string;
   force?: boolean;
   dryRun?: boolean;
   full?: boolean;
@@ -92,7 +93,7 @@ function taskUsage(): string {
   return [
     'Uso de tareas:',
     '  sentinel task claim <id> --project-root <dir> --agent <id> [--force] [--json]',
-    '  sentinel task start <id> --project-root <dir> --agent <id> [--primary-branch <branch>] [--path <dir>]',
+    '  sentinel task start <id> --project-root <dir> --agent <id> [--primary-branch <branch>] [--path <dir>] [--worktrees-root <dir>]',
     '  sentinel task heartbeat <id> --project-root <dir> --agent <id>',
     '  sentinel task status --project-root <dir> [--json]',
     '  sentinel task gate <id> --project-root <worktree> --agent <id> [--full|--ci]',
@@ -247,6 +248,9 @@ export function parseTaskCliArgs(args: string[]): TaskCliArgs {
       index++;
     } else if (arg === '--path') {
       parsed.worktreePath = takeValue(args, index, arg);
+      index++;
+    } else if (arg === '--worktrees-root') {
+      parsed.worktreesRoot = takeValue(args, index, arg);
       index++;
     } else if (arg === '--force') {
       parsed.force = true;
@@ -815,7 +819,7 @@ export async function taskCliTarget(args: TaskCliArgs): Promise<TaskCliExecution
   let result: TaskCliResult;
   switch (args.taskAction) {
     case 'claim': result = { ...(await claimTask({ projectRoot: workspace, taskId, agent, force: args.force, target: args.target, primaryBranch })) }; break;
-    case 'start': result = { ...(await startTask({ projectRoot: workspace, taskId, agent, base: args.base, target: args.target, primaryBranch, worktreePath: args.worktreePath })) }; break;
+    case 'start': result = { ...(await startTask({ projectRoot: workspace, taskId, agent, base: args.base, target: args.target, primaryBranch, worktreePath: args.worktreePath, worktreesRoot: args.worktreesRoot })) }; break;
     case 'heartbeat': result = { ...(await heartbeatTask({ projectRoot: workspace, taskId, agent, primaryBranch })) }; break;
     case 'status': {
       if (!primaryBranch) throw new Error('task status requiere project.primaryBranch en sentinel.config.json');
@@ -839,7 +843,7 @@ export async function taskCliTarget(args: TaskCliArgs): Promise<TaskCliExecution
     case 'recover': {
       if (!primaryBranch) throw new Error('task recover requiere project.primaryBranch en sentinel.config.json');
       const { recoverTask } = await import('../core/taskRecovery');
-      result = { ...(await recoverTask({ projectRoot: workspace, taskId, recoveredBy: agent, primaryBranch, dryRun: args.dryRun })) };
+      result = { ...(await recoverTask({ projectRoot: workspace, taskId, recoveredBy: agent, primaryBranch, dryRun: args.dryRun, worktreesRoot: args.worktreesRoot })) };
       break;
     }
     default: throw new Error(taskUsage());

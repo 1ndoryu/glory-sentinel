@@ -12,7 +12,7 @@ import { writeAtomic } from './atomicFile';
 import { assertSafeBranch, isSafeBranch } from './branchValidation';
 
 const execFileAsync = promisify(execFile);
-export const TASK_COORDINATOR_SCHEMA_VERSION = 1;
+export const TASK_COORDINATOR_SCHEMA_VERSION = 2;
 export const TASK_TTL_MS = 6 * 60 * 60 * 1000;
 const OPERATION_LOCK_TTL_MS = 30 * 60 * 1000;
 const LOCK_REFRESH_MS = 60 * 1000;
@@ -20,12 +20,13 @@ const LOCK_REFRESH_MS = 60 * 1000;
 export type TaskState = 'CLAIMED' | 'ACTIVE' | 'INTEGRATING' | 'INTEGRATED';
 
 export interface TaskRecord {
-  schemaVersion: 1;
+  schemaVersion: 2;
   taskId: string;
   agent: string;
   state: TaskState;
   branch: string | null;
   worktree: string | null;
+  worktreesRoot: string | null;
   base: string | null;
   baseHead: string | null;
   target: string;
@@ -43,6 +44,9 @@ export interface TaskCoordinatorOptions {
   taskId: string;
   now?: number;
   worktreePath?: string;
+  /** Raíz autorizada para worktrees temporales. Por defecto: <repo>/.sentinel/worktrees.
+   *  Solo se admite una raíz externa declarada por el consumidor; nunca una ruta arbitraria. */
+  worktreesRoot?: string;
   base?: string;
   target?: string;
   /** Rama principal declarada por el consumidor; nunca se infiere como `main`. */
@@ -154,16 +158,17 @@ function isStrictlyInside(candidate: string, boundary: string): boolean {
 async function repositoryRoot(root: string, commonDir: string): Promise<string> {
   /* A linked worktree reports its own top level, while --git-common-dir still
    * points at the main repository's .git. Prefer that common root when it is
-   * available; submodules keep their own top-level fallback. */
+   * available; submodules keep their own top-level fallback. Un worktree
+   * externo autorizado (raíz visible del workspace) vive como hermano de la
+   * raíz Git, así que su top level NO está dentro de ella: se acepta porque
+   * la identidad y la metadata siguen ancladas al common dir del repositorio. */
   const topLevel = await gitTopLevel(root);
   const commonRoot = path.basename(commonDir).toLowerCase() === '.git'
     ? path.dirname(commonDir)
     : topLevel;
   const canonicalRoot = await canonicalPath(commonRoot);
-  const canonicalTopLevel = await canonicalPath(topLevel);
-  if (!isStrictlyInside(canonicalTopLevel, canonicalRoot) && canonicalTopLevel !== canonicalRoot) {
-    throw new Error(`el checkout ${topLevel} está fuera de la raíz del repositorio ${canonicalRoot}`);
-  }
+  /* Worktree vinculado (interno o externo): su top level puede estar fuera de
+   * la raíz común; la autoridad del proyecto sigue siendo la raíz común. */
   return canonicalRoot;
 }
 
@@ -290,6 +295,7 @@ function validTaskRecord(value: unknown): value is TaskRecord {
     || !['CLAIMED', 'ACTIVE', 'INTEGRATING', 'INTEGRATED'].includes(record.state ?? '')
     || (record.branch !== null && (typeof record.branch !== 'string' || !isSafeBranch(record.branch)))
     || (record.worktree !== null && typeof record.worktree !== 'string')
+    || (record.worktreesRoot !== null && typeof record.worktreesRoot !== 'string')
     || (record.base !== null && (typeof record.base !== 'string' || !isSafeBranch(record.base)))
     || (record.baseHead !== null && (typeof record.baseHead !== 'string' || !/^[a-f0-9]{40}$/u.test(record.baseHead)))
     || typeof record.target !== 'string' || !isSafeBranch(record.target)
@@ -304,12 +310,13 @@ function createRecord(options: TaskCoordinatorOptions): TaskRecord {
   const now = options.now ?? Date.now();
   const target = requiredPrimaryBranch(options);
   return {
-    schemaVersion: 1,
+    schemaVersion: TASK_COORDINATOR_SCHEMA_VERSION,
     taskId: sanitizeTaskId(options.taskId),
     agent: sanitizeAgent(options.agent),
     state: 'CLAIMED',
     branch: null,
     worktree: null,
+    worktreesRoot: null,
     base: null,
     baseHead: null,
     target: sanitizeBranch(target),
@@ -346,21 +353,41 @@ async function resolveWorktreePath(
   commonDir: string,
   taskId: string,
   identity: string,
-): Promise<string> {
+  worktreesRoot?: string,
+): Promise<{ worktree: string; worktreesRoot: string }> {
   const repositoryRootPath = await repositoryRoot(root, commonDir);
   const internalRoot = path.join(repositoryRootPath, INTERNAL_WORKTREE_ROOT);
-  const requested = requestedPath
-    ? path.resolve(root, requestedPath)
-    : defaultWorktree(repositoryRootPath, taskId, identity);
-  const canonicalInternalRoot = await canonicalPath(internalRoot);
-  if (!isStrictlyInside(canonicalInternalRoot, repositoryRootPath)) {
+  const defaultWorktreePath = defaultWorktree(repositoryRootPath, taskId, identity);
+
+  /* [VISIBLE-WORKTREE] Raíz autorizada por el consumidor (por ejemplo una
+   * carpeta visible del workspace del agente). Solo se acepta una raíz externa
+   * declarada explícitamente; una ruta arbitraria sigue bloqueada. La raíz
+   * externa debe existir (canonicalPath la resuelve) y quedar fuera del
+   * repositorio; el path real se rechaza si es symlink/junction de escape. */
+  let authorizedRoot = internalRoot;
+  if (worktreesRoot) {
+    const canonicalExternal = await canonicalPath(path.resolve(worktreesRoot));
+    if (canonicalExternal === repositoryRootPath || isStrictlyInside(canonicalExternal, repositoryRootPath)) {
+      throw new Error(`la raíz de worktrees ${worktreesRoot} no puede ser el repositorio ni una subcarpeta de él`);
+    }
+    authorizedRoot = canonicalExternal;
+  }
+
+  const canonicalAuthorizedRoot = await canonicalPath(authorizedRoot);
+  if (!worktreesRoot && !isStrictlyInside(canonicalAuthorizedRoot, repositoryRootPath)) {
     throw new Error(`la raíz de worktrees ${internalRoot} debe permanecer dentro del repositorio`);
   }
+
+  const requested = requestedPath
+    ? path.resolve(root, requestedPath)
+    : worktreesRoot
+      ? path.join(authorizedRoot, `${path.basename(repositoryRootPath)}-${identity}-${sanitizeTaskId(taskId)}`)
+      : defaultWorktreePath;
   const canonicalRequested = await canonicalPath(requested);
-  if (!isStrictlyInside(canonicalRequested, canonicalInternalRoot)) {
-    throw new Error(`el worktree debe estar dentro de ${internalRoot}; no se permiten rutas externas`);
+  if (!isStrictlyInside(canonicalRequested, canonicalAuthorizedRoot)) {
+    throw new Error(`el worktree debe estar dentro de ${authorizedRoot}; no se permiten rutas externas`);
   }
-  return requested;
+  return { worktree: requested, worktreesRoot: authorizedRoot };
 }
 
 async function exists(target: string): Promise<boolean> {
@@ -471,13 +498,15 @@ export async function startTask(options: TaskCoordinatorOptions): Promise<TaskRe
     const commonDir = await gitCommonDir(root);
     const identity = projectIdentity(commonDir, primaryBranch);
     const branch = branchFor(options.taskId, identity);
-    const worktree = await resolveWorktreePath(
+    const resolved = await resolveWorktreePath(
       root,
       options.worktreePath,
       commonDir,
       options.taskId,
       identity,
+      options.worktreesRoot,
     );
+    const worktree = resolved.worktree;
     const requestedTarget = options.target ?? options.primaryBranch;
     if (requestedTarget && sanitizeBranch(requestedTarget) !== record.target) {
       throw new Error(`la rama principal ${requestedTarget} no coincide con la declarada ${record.target}`);
@@ -496,6 +525,7 @@ export async function startTask(options: TaskCoordinatorOptions): Promise<TaskRe
       record.state = 'ACTIVE';
       record.branch = branch;
       record.worktree = worktree;
+      record.worktreesRoot = options.worktreesRoot ? resolved.worktreesRoot : null;
       record.base = base;
       record.baseHead = baseHead;
       record.head = await git(worktree, ['rev-parse', 'HEAD']);
@@ -624,7 +654,7 @@ export async function cleanupTask(options: TaskCoordinatorOptions): Promise<void
     }
     let recordedWorktree: string | null = null;
     if (record.worktree) {
-      recordedWorktree = await resolveWorktreePath(root, record.worktree, commonDir, record.taskId, identity);
+      recordedWorktree = (await resolveWorktreePath(root, record.worktree, commonDir, record.taskId, identity, record.worktreesRoot ?? undefined)).worktree;
       if (await exists(recordedWorktree)) {
         const canonicalWorktree = await fs.realpath(recordedWorktree);
         const registeredBranch = await registeredWorktreeFor(root, canonicalWorktree);

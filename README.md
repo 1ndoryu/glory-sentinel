@@ -116,7 +116,11 @@ Sentinel también coordina trabajo paralelo sin compartir un checkout mutable: c
 ownership atómico y un `git worktree`/rama exclusiva. La integración nunca hace push, reset, force ni
 commit implícito; exige target limpio, base estable, worktree limpio y `--ff-only`. Los worktrees
 temporales se crean dentro de `<repo>/.sentinel/worktrees/`; una ruta solicitada fuera de esa raíz se
-rechaza para que los agentes no tengan que salir de `la raíz del proyecto consumidor`. Si aparecen
+rechaza para que los agentes no tengan que salir de la raíz del proyecto consumidor. Cuando el
+consumidor necesite que los worktrees sean físicamente visibles para el workspace del agente (por
+ejemplo una carpeta hermana compartida), `task start --worktrees-root <dir>` declara una **raíz externa
+autorizada**: debe existir, quedar fuera del repositorio (no puede ser el repo ni una subcarpeta) y
+resolverse a un path físico real. El resto de rutas arbitrarias siguen bloqueadas. Si aparecen
 conflictos, el agente debe actualizar su rama desde la rama principal declarada en `project.primaryBranch`,
 resolver y revisar cada conflicto en su worktree, ejecutar el gate, commitear la resolución y
 reintentar. Sentinel no resuelve conflictos a ciegas, pero una tarea no se considera terminada mientras
@@ -130,7 +134,7 @@ son temporales, están ignorados por Git y no se integran en la rama del proyect
 
 ```bash
 sentinel task claim GAME-01 --project-root . --agent agent-a
-sentinel task start <TASK-ID> --project-root . --agent agent-a --primary-branch <primary-branch>
+sentinel task start <TASK-ID> --project-root . --agent agent-a --primary-branch <primary-branch> [--worktrees-root <dir>]
 sentinel task heartbeat <TASK-ID> --project-root . --agent agent-a
 sentinel task gate <TASK-ID> --project-root ./.sentinel/worktrees/repo-<project-identity>-GAME-01 --agent agent-a
 sentinel task integrate <TASK-ID> --project-root . --agent agent-a --target <primary-branch>
@@ -140,7 +144,9 @@ sentinel task release <TASK-ID> --project-root . --agent agent-a
 
 `claim` concurrente para el mismo ID y proyecto deja un único ganador. Proyectos distintos se aíslan por la identidad derivada del Git common dir y `project.primaryBranch`: pueden usar el mismo ID simultáneamente, con ramas `task/<project-identity>/<id>`, worktrees y status separados. Una toma expirada requiere takeover
 explícito (`--force`) y no puede robar recursos aún registrados. `cleanup --force` solo recupera una
-tarea expirada si su proceso emisor ya no vive y el árbol está limpio; el estado reporta metadata
+tarea expirada si su proceso emisor ya no vive y el árbol está limpio. La metadata de la tarea conserva
+la raíz autorizada usada en `start` para que `cleanup`/`recover` validen la contención contra esa misma
+raíz; el estado reporta metadata
 inválida, ramas/worktrees huérfanos y locks expirados. El coordinador funciona con Git y Node, no
 conoce el stack del consumidor; cada proyecto fija únicamente el commit de Sentinel. La validación de
 worktrees internos requiere consumir un commit de Sentinel que ya incluya este contrato; una copia
