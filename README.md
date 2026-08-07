@@ -4,16 +4,17 @@
 
 Glory Sentinel (Code Sentinel) es el plano de control de calidad agnóstico del ecosistema Glory: una extensión de VS Code, un CLI y un LSP con reglas estáticas que detectan problemas reales de arquitectura, seguridad y mantenimiento en Rust, PHP/WordPress, React/TypeScript y CSS.
 
-> **v0.4.0 eliminó el análisis IA.** Toda la detección es estática y determinista: no requiere red, claves, modelo externo ni backend. CLI, LSP y VS Code consumen el mismo motor (`src/core`) y el mismo registro de reglas (`src/config/ruleRegistry.ts`), de modo que producen hallazgos equivalentes. El release coordinado **0.5.0** añade el plano global (`check`, `guard`, `doctor`, `status`, `lease` y `task`) y está publicado en `main` y en el tag `v0.5.0`.
+> **v0.4.0 eliminó el análisis IA.** Toda la detección es estática y determinista: no requiere red, claves, modelo externo ni backend. CLI, LSP y VS Code consumen el mismo motor (`src/core`) y el mismo registro de reglas (`src/config/ruleRegistry.ts`), de modo que producen hallazgos equivalentes. El release coordinado **0.5.0** añadió el plano global (`check`, `guard`, `doctor`, `status`, `lease` y `task`); el release **0.6.0** añade el preflight fail-closed y la validación de release, y está publicado en `main` y en el tag `v0.6.0`.
 
 > **Regla de compatibilidad:** `sentinel --version` informa la versión del paquete, no garantiza capacidades del plano global. Para conocer lo que realmente soporta una instalación usa `sentinel --help` y `sentinel doctor --json`. Un consumidor debe fijar el commit exacto en su lock; no basta con fijar `0.4.0`.
 
 ## Estado publicado del plano global
 
-El repositorio público y el consumidor comparten el release coordinado **0.5.0**, publicado en `main` y en el tag `v0.5.0`.
+El repositorio público y el consumidor comparten el release coordinado **0.6.0**, publicado en `main` y en el tag `v0.6.0`.
 
 - **Release analizador 0.4.0:** `analyze`, `--files-from`, configuración estricta del analizador (`includePatterns`, `excludePatterns`, `directoryExceptions`, `portableBoundaries`, `rules`) y salida JSON v1.
 - **Release coordinado 0.5.0:** añade `check`, `guard`, `doctor`, `status`, `install`, `update`, `rollback`, `uninstall`, `lease` y `task`, además de `project.primaryBranch` y el envelope v2 del consumidor.
+- **Release coordinado 0.6.0:** añade el preflight fail-closed (`doctor` estricto con capacidades, submódulos, package-lock, symlink escapes, release refs y evidencia de staging), la validación de release publicada y la recuperación segura de tareas con snapshots.
 
 No copies el `sentinel.config.json` v2 de un consumidor a una instalación que solo expone el release analizador. Si `--help` no muestra `task`, esa instalación no puede coordinar worktrees; usa `analyze` o actualiza desde un artefacto/release que declare esa capacidad.
 
@@ -79,14 +80,14 @@ La fuente de verdad de una capacidad es el binario/commit realmente fijado; READ
 
 ## Publicación reproducible
 
-El commit coordinado de 0.5.0 está integrado en `main` y etiquetado como `v0.5.0`. Los consumidores deben fijar el commit exacto, el hash del artefacto y las capacidades en su lock; el número de versión por sí solo no sustituye esa verificación. Después de actualizar un runtime global, repite `sentinel --version`, `sentinel --help` y `sentinel doctor --json` desde una carpeta externa al checkout.
+El commit coordinado de 0.6.0 está integrado en `main` y etiquetado como `v0.6.0`. Los consumidores deben fijar el commit exacto, el hash del artefacto y las capacidades en su lock; el número de versión por sí solo no sustituye esa verificación. Después de actualizar un runtime global, repite `sentinel --version`, `sentinel --help` y `sentinel doctor --json` desde una carpeta externa al checkout.
 
 ## ¿Qué resuelve?
 
 - Detecta violaciones de seguridad y robustez antes de que lleguen a producción.
 - Señala deuda técnica estructural (archivos monolito, SRP, malas prácticas recurrentes).
 - Aporta feedback rápido mientras editas, sin depender de una revisión manual completa.
-- En el release coordinado 0.5.0 proporciona `check`, `guard`, `doctor`, `status`, leases y coordinación de tareas; el consumidor mantiene la política y el lock en su propia raíz.
+- En el release coordinado 0.6.0 proporciona `check`, `guard`, `doctor`, `status`, leases y coordinación de tareas; el consumidor mantiene la política y el lock en su propia raíz.
 
 ## Superficies
 

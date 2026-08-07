@@ -3,6 +3,19 @@
 
 
 > **Deprecacion IA:** el motor de analisis IA via vscode.lm se elimino en 0.4.0; toda deteccion es estatica y determinista.
+## [0.6.0] - 2026-08-07
+
+### Agregado
+- `sentinel doctor` fail-closed: diagnostica submódulo/gitlink, CLI y `--version`, package metadata/dependencias/scripts, capacidades CLI, symlink escapes, checkout/package-lock dirty, commits/versiones y coherencia de lock; el gate real falla cerrado antes de las etapas.
+- Validación de release: el commit fijado debe ser alcanzable desde una ref de release permitida (`origin/main` o tag `v*`) y debe existir evidencia de compile + suite desde staging limpio (`.sentinel/release-evidence/`).
+- Provisionamiento aislado: el CLI faltante se compila en staging temporal con entorno npm limpio; solo se materializan artefactos generados/ignorados y la evidencia queda ligada al commit.
+- `task status` expone estado derivado `expired`/`processAlive`/`worktreeClean`; `task recover --dry-run/real` valida snapshots de metadata (`updatedAtMs`, PID, HEAD) antes del cleanup y escribe auditoría JSON.
+- Capacidades declaradas: la ausencia de una capacidad se reporta como `tool-capability-missing` antes de ejecutar, no a mitad del proceso.
+
+### Seguridad
+- Detección de checkout/package-lock modificado (incluida instalación interrumpida) con rechazo salvo patch declarado; detección de symlink/junction que escapa del workspace.
+- La recuperación de tareas exige tarea expirada, PID muerto, namespace, heads consistentes y worktree limpio; nunca borra recursos ajenos ni cambios no commiteados.
+
 ## [0.5.0] - 2026-08-06
 
 ### Agregado
