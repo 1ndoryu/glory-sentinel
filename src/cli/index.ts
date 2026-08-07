@@ -94,7 +94,7 @@ function taskUsage(): string {
   return [
     'Uso de tareas:',
     '  sentinel task claim <id> --project-root <dir> --agent <id> [--force] [--json]',
-    '  sentinel task start <id> --project-root <dir> --agent <id> [--primary-branch <branch>] [--path <dir>] [--worktrees-root <dir>]',
+    '  sentinel task start <id> --project-root <dir> --agent <id> [--primary-branch <branch>] [--path <dir>] [--worktrees-root <dir>] [--env-manifest <path>]',
     '  sentinel task heartbeat <id> --project-root <dir> --agent <id>',
     '  sentinel task status --project-root <dir> [--json]',
     '  sentinel task gate <id> --project-root <worktree> --agent <id> [--full|--ci]',
