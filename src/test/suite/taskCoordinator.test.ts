@@ -197,6 +197,11 @@ suite('task coordinator', () => {
       );
       const heartbeat = await heartbeatTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'T-6', agent: 'agent-a' });
       assert.strictEqual(heartbeat.state, 'ACTIVE');
+      const status = await taskStatus(root, PRIMARY_BRANCH);
+      assert.strictEqual(status.tasks.length, 1);
+      assert.strictEqual(status.tasks[0].expired, false);
+      assert.strictEqual(status.tasks[0].processAlive, true);
+      assert.strictEqual(status.tasks[0].worktreeClean, true);
       assert.ok(task.worktree);
     } finally {
       fs.rmSync(parent, { recursive: true, force: true });

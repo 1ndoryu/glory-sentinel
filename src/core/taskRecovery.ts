@@ -170,6 +170,9 @@ export async function recoverTask(options: TaskRecoveryOptions): Promise<TaskRec
     agent: record.agent,
     force: true,
     now,
+    expectedUpdatedAtMs: record.updatedAtMs,
+    expectedPid: record.pid,
+    expectedHead: record.head,
   });
   await writeRecoveryAudit(options.projectRoot, result, now);
   return result;

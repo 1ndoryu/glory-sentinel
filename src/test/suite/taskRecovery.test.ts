@@ -57,6 +57,23 @@ suite('task recovery', () => {
     } finally { fs.rmSync(parent, { recursive: true, force: true }); }
   });
 
+  test('recupera una toma expirada, limpia metadata y escribe auditoría', async () => {
+    const { parent, root } = fixture();
+    try {
+      const now = Date.now();
+      await claimTask({ projectRoot: root, primaryBranch: 'wandorius', taskId: 'RECOVER-REAL', agent: 'old-agent', now: now - TASK_TTL_MS - 1 });
+      await setStoppedProcessPid(root, 'RECOVER-REAL');
+      const result = await recoverTask({ projectRoot: root, primaryBranch: 'wandorius', taskId: 'RECOVER-REAL', recoveredBy: 'new-agent', now, dryRun: false });
+      assert.strictEqual(result.state, 'RECOVERED');
+      assert.strictEqual((await taskStatus(root, 'wandorius')).tasks.length, 0);
+      const audits = fs.readdirSync(path.join(root, '.sentinel', 'recovery'));
+      assert.strictEqual(audits.length, 1);
+      const audit = JSON.parse(fs.readFileSync(path.join(root, '.sentinel', 'recovery', audits[0]), 'utf8')) as Record<string, unknown>;
+      assert.strictEqual(audit.recoveredBy, 'new-agent');
+      assert.strictEqual(audit.taskId, 'RECOVER-REAL');
+    } finally { fs.rmSync(parent, { recursive: true, force: true }); }
+  });
+
   test('permite dry-run solo con toma expirada sin recursos creados', async () => {
     const { parent, root } = fixture();
     try {

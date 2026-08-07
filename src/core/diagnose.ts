@@ -2,7 +2,7 @@
  * `sentinel doctor`/`status`: política, lock, versiones, herramientas,
  * scheduler y raíz canónica. Solo lectura; nunca muta estado. */
 import { createHash } from 'node:crypto';
-import { access, readFile } from 'node:fs/promises';
+import { access, readFile, realpath } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import path from 'node:path';
@@ -45,7 +45,19 @@ export interface DiagnoseTool {
   sourcePresent: boolean;
   cliPresent: boolean;
   cliResponds: boolean;
+  cliCapabilities: string[];
+  missingCapabilities: string[];
+  packagePresent: boolean;
+  packageLockPresent: boolean;
+  dependenciesPresent: boolean;
+  requiredScripts: string[];
+  missingScripts: string[];
+  releaseRefs: string[];
+  releaseReachable: boolean;
+  releaseEvidencePresent: boolean;
   checkoutDirty: boolean;
+  checkoutChanges: string[];
+  unexpectedChanges: string[];
 }
 
 export interface DiagnoseIssue {
@@ -125,7 +137,7 @@ async function checkoutCommit(sourcePath: string): Promise<string | null> {
   return command(sourcePath, ['rev-parse', 'HEAD']);
 }
 
-async function checkoutDirty(sourcePath: string): Promise<boolean> {
+async function checkoutChanges(sourcePath: string): Promise<string[]> {
   try {
     const output = await execFileAsync('git', ['status', '--porcelain=v1', '--untracked-files=all'], {
       cwd: sourcePath,
@@ -133,9 +145,12 @@ async function checkoutDirty(sourcePath: string): Promise<boolean> {
       windowsHide: true,
       maxBuffer: 2 * 1024 * 1024,
     });
-    return output.stdout.trim().length > 0;
+    return output.stdout.split(/\r?\n/u)
+      .map(line => line.trimEnd())
+      .filter(Boolean)
+      .map(line => line.slice(3).replace(/^"|"$/gu, '').replace(/\\/g, '/'));
   } catch {
-    return true;
+    return ['<git-status-unavailable>'];
   }
 }
 
@@ -153,6 +168,76 @@ async function cliVersion(cliPath: string | null): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+async function cliCapabilities(cliPath: string | null): Promise<string[]> {
+  if (!cliPath) return [];
+  try {
+    const result = await execFileAsync(process.execPath, [cliPath, '--help'], {
+      cwd: path.dirname(cliPath),
+      timeout: 10_000,
+      windowsHide: true,
+      maxBuffer: 256 * 1024,
+    });
+    const text = `${result.stdout}\n${result.stderr}`;
+    return ['analyze', 'check', 'guard', 'doctor', 'status', 'task', 'recover']
+      .filter(capability => new RegExp(`(?:^|[\\s|])${capability}(?:\\s|$|[<|])`, 'mu').test(text));
+  } catch {
+    return [];
+  }
+}
+
+async function packageMetadata(sourcePath: string | null, config: Record<string, unknown> | null): Promise<{
+  packagePresent: boolean;
+  packageLockPresent: boolean;
+  dependenciesPresent: boolean;
+  requiredScripts: string[];
+  missingScripts: string[];
+}> {
+  if (!sourcePath) return { packagePresent: false, packageLockPresent: false, dependenciesPresent: false, requiredScripts: [], missingScripts: [] };
+  let packageJson: { scripts?: Record<string, unknown>; dependencies?: Record<string, unknown>; devDependencies?: Record<string, unknown> } | null = null;
+  try {
+    packageJson = JSON.parse(await readFile(path.join(sourcePath, 'package.json'), 'utf8')) as { scripts?: Record<string, unknown>; dependencies?: Record<string, unknown>; devDependencies?: Record<string, unknown> };
+  } catch {
+    return { packagePresent: false, packageLockPresent: false, dependenciesPresent: false, requiredScripts: [], missingScripts: [] };
+  }
+  const packageLockPresent = await access(path.join(sourcePath, 'package-lock.json')).then(() => true).catch(() => false);
+  const declaredDependencies = Object.keys({ ...packageJson.dependencies, ...packageJson.devDependencies });
+  const dependenciesPresent = await access(path.join(sourcePath, 'node_modules')).then(async () =>
+    Promise.all(declaredDependencies.map(async dependency => {
+      try { await access(path.join(sourcePath, 'node_modules', dependency)); return true; } catch { return false; }
+    })).then(results => results.every(Boolean))
+  ).catch(() => false);
+  const requiredScripts = [config?.buildScript, config?.testScript]
+    .filter((value): value is string => typeof value === 'string' && value.length > 0);
+  const missingScripts = requiredScripts.filter(script => typeof packageJson?.scripts?.[script] !== 'string');
+  return { packagePresent: true, packageLockPresent, dependenciesPresent, requiredScripts, missingScripts };
+}
+
+function refPatternMatches(ref: string, pattern: string): boolean {
+  if (pattern.endsWith('*')) return ref.startsWith(pattern.slice(0, -1));
+  return ref === pattern;
+}
+
+async function releaseRefs(sourcePath: string, commit: string | null, configuredRefs: string[]): Promise<string[]> {
+  if (!sourcePath || !commit) return [];
+  const output = await command(sourcePath, ['for-each-ref', '--contains', commit, '--format=%(refname)', 'refs/remotes', 'refs/tags']);
+  const allowedRefs = configuredRefs.length > 0 ? configuredRefs : ['refs/remotes/origin/main', 'refs/tags/v*'];
+  return output
+    ? output.split(/\r?\n/u)
+      .filter(Boolean)
+      .filter(ref => allowedRefs.some(pattern => refPatternMatches(ref, pattern)))
+    : [];
+}
+
+async function releaseEvidence(root: string, name: string, commit: string | null, configuredTestScript: string | null): Promise<boolean> {
+  if (!commit) return false;
+  const evidence = await readJsonFile(path.join(root, '.sentinel', 'release-evidence', `${name}.json`));
+  return Boolean(evidence && typeof evidence === 'object' && !Array.isArray(evidence)
+    && (evidence as Record<string, unknown>).commit === commit
+    && (evidence as Record<string, unknown>).compile === 'passed'
+    && (evidence as Record<string, unknown>).suite === (configuredTestScript ? 'passed' : 'not-configured')
+    && (evidence as Record<string, unknown>).cleanStaging === true);
 }
 
 function toolConfig(manifest: Record<string, unknown>, name: string): Record<string, unknown> | null {
@@ -189,8 +274,16 @@ async function diagnoseConfiguredTools(root: string, lockData: Record<string, un
   const issues: DiagnoseIssue[] = [];
   for (const name of Object.keys(configuredTools)) {
     const config = toolConfig(configuredTools, name);
-    const sourcePath = resolveSourcePath(root, config);
-    const sourceExternal = sourcePath ? !insideWorkspace(root, sourcePath) : false;
+    const configuredSourcePath = resolveSourcePath(root, config);
+    const sourceRealPath = configuredSourcePath ? await realpath(configuredSourcePath).catch(() => null) : null;
+    const sourceEscapesWorkspace = Boolean(
+      configuredSourcePath
+      && sourceRealPath
+      && insideWorkspace(root, configuredSourcePath)
+      && !insideWorkspace(root, sourceRealPath),
+    );
+    const sourcePath = sourceEscapesWorkspace ? null : configuredSourcePath;
+    const sourceExternal = sourceRealPath ? !insideWorkspace(root, sourceRealPath) : Boolean(sourcePath && !insideWorkspace(root, sourcePath));
     const lockEntry = lockAnalyzers[name] && typeof lockAnalyzers[name] === 'object' && !Array.isArray(lockAnalyzers[name])
       ? lockAnalyzers[name] as Record<string, unknown>
       : null;
@@ -198,22 +291,48 @@ async function diagnoseConfiguredTools(root: string, lockData: Record<string, un
     const configuredVersion = typeof config?.version === 'string' ? config.version : null;
     const lockVersion = typeof lockEntry?.version === 'string' ? lockEntry.version : null;
     const cli = typeof config?.cli === 'string' && sourcePath ? path.resolve(sourcePath, config.cli) : null;
-    const cliInsideSource = Boolean(sourcePath && cli && insideWorkspace(sourcePath, cli));
+    const cliRealPath = cli ? await realpath(cli).catch(() => null) : null;
+    const cliInsideSource = Boolean(
+      sourcePath
+      && cli
+      && (cliRealPath ?? cli)
+      && insideWorkspace(sourceRealPath ?? sourcePath, cliRealPath ?? cli),
+    );
     let sourcePresent = false;
     let cliPresent = false;
     let actualCommit: string | null = null;
     let dirty = false;
+    let changes: string[] = [];
     if (sourcePath) {
       try { await access(sourcePath); sourcePresent = true; } catch { sourcePresent = false; }
       if (sourcePresent) {
         actualCommit = await checkoutCommit(sourcePath);
-        dirty = actualCommit ? await checkoutDirty(sourcePath) : false;
+        changes = actualCommit ? await checkoutChanges(sourcePath) : ['<git-checkout-unavailable>'];
+        dirty = changes.length > 0;
       }
       if (cli) {
         try { await access(cli); cliPresent = true; } catch { cliPresent = false; }
       }
     }
     const reportedVersion = await cliVersion(cliPresent ? cli : null);
+    const capabilities = await cliCapabilities(cliPresent ? cli : null);
+    const metadata = await packageMetadata(sourcePath, config);
+    const configuredReleaseRefs = Array.isArray(config?.releaseRefs)
+      ? config.releaseRefs.filter((value): value is string => typeof value === 'string')
+      : [];
+    const publishedRefs = sourcePath && actualCommit ? await releaseRefs(sourcePath, actualCommit, configuredReleaseRefs) : [];
+    const releaseEvidencePresent = await releaseEvidence(
+      root,
+      name,
+      actualCommit,
+      typeof config?.testScript === 'string' ? config.testScript : null,
+    );
+    const requiredCapabilities = Array.isArray(config?.requiredCapabilities)
+      ? config.requiredCapabilities.filter((value): value is string => typeof value === 'string')
+      : (name === 'sentinel' ? ['guard', 'doctor', 'task', 'recover'] : []);
+    /* sourcePath interno no admite patch local (setup lo rechaza); cualquier
+     * cambio distinto de la metadata administrativa es inesperado. */
+    const unexpectedChanges = changes.filter(change => change !== '.quality-install.json');
     const relativeSource = sourcePath && insideWorkspace(root, sourcePath)
       ? path.relative(root, sourcePath).replace(/\\/g, '/')
       : null;
@@ -235,19 +354,43 @@ async function diagnoseConfiguredTools(root: string, lockData: Record<string, un
       sourcePresent,
       cliPresent,
       cliResponds: Boolean(reportedVersion),
+      cliCapabilities: capabilities,
+      missingCapabilities: requiredCapabilities.filter(capability => !capabilities.includes(capability)),
+      packagePresent: metadata.packagePresent,
+      packageLockPresent: metadata.packageLockPresent,
+      dependenciesPresent: metadata.dependenciesPresent,
+      requiredScripts: metadata.requiredScripts,
+      missingScripts: metadata.missingScripts,
+      releaseRefs: publishedRefs,
+      releaseReachable: publishedRefs.length > 0,
+      releaseEvidencePresent,
       checkoutDirty: dirty,
+      checkoutChanges: changes,
+      unexpectedChanges,
     };
     tools[name] = diagnostic;
     const issue = (code: string, message: string) => issues.push({ code, message, tool: name });
     if (!config) issue('tool-config-invalid', `${name}: configuración ausente o inválida`);
+    if (sourceEscapesWorkspace) issue('tool-source-escape', `${name}: sourcePath resuelve mediante symlink/junction fuera del workspace`);
     if (!sourcePath || !sourcePresent) issue('tool-source-missing', `${name}: sourcePath no está inicializado o no existe`);
     if (sourcePresent && !actualCommit) issue('tool-checkout-invalid', `${name}: no es un checkout Git resoluble`);
     if (!cliPresent) issue('tool-cli-missing', `${name}: falta el CLI compilado (${config?.cli ?? 'cli no declarado'})`);
     else if (!reportedVersion) issue('tool-cli-unresponsive', `${name}: el CLI no responde a --version`);
-    if (cli && !cliInsideSource) issue('tool-cli-escape', `${name}: el CLI queda fuera de sourcePath`);
-    if (sourcePresent && actualCommit && dirty) issue('tool-checkout-dirty', `${name}: checkout modificado; no se puede confiar en el lock`);
+    if (cli && !cliInsideSource) issue('tool-cli-escape', `${name}: el CLI queda fuera del checkout físico de sourcePath`);
+    if (sourcePresent && !metadata.packagePresent) issue('tool-package-missing', `${name}: falta package.json`);
+    if (sourcePresent && !metadata.packageLockPresent) issue('tool-package-lock-missing', `${name}: falta package-lock.json reproducible`);
+    if (sourcePresent && !metadata.dependenciesPresent) issue('tool-dependencies-missing', `${name}: node_modules no está provisionado`);
+    for (const script of metadata.missingScripts) issue('tool-script-missing', `${name}: falta el script requerido '${script}' en package.json`);
+    for (const capability of diagnostic.missingCapabilities) issue('tool-capability-missing', `${name}: capacidad no instalada: ${capability}`);
+    if (sourcePresent && actualCommit && unexpectedChanges.some(change => /(^|\/)package-lock\.json$/u.test(change))) {
+      issue('tool-package-lock-dirty', `${name}: package-lock.json modificado; instalación interrumpida o lock no reproducible`);
+    }
+    if (sourcePresent && actualCommit && dirty && unexpectedChanges.length > 0) issue('tool-checkout-dirty', `${name}: checkout modificado; cambios no declarados: ${unexpectedChanges.join(', ')}`);
+    if (sourcePresent && actualCommit && !diagnostic.releaseReachable) issue('tool-release-unpublished', `${name}: commit ${actualCommit} no es alcanzable desde una ref de release permitida`);
+    if (sourcePresent && actualCommit && !releaseEvidencePresent) issue('tool-release-evidence-missing', `${name}: falta evidencia compile + suite desde staging limpio para ${actualCommit}; ejecuta npm run quality:setup`);
     if (!configuredCommit) issue('tool-config-commit-missing', `${name}: falta el commit fijado en quality-tools.json`);
     if (!lockEntry) issue('tool-lock-entry-missing', `${name}: falta analyzers.${name} en sentinel.lock.json`);
+    if (sourcePresent && relativeSource && !gitlinkCommit) issue('tool-gitlink-missing', `${name}: sourcePath interno no está representado por un gitlink inicializado`);
     if (configuredCommit && gitlinkCommit && configuredCommit !== gitlinkCommit) issue('tool-gitlink-mismatch', `${name}: quality-tools.json no coincide con el gitlink`);
     if (configuredCommit && actualCommit && configuredCommit !== actualCommit) issue('tool-checkout-mismatch', `${name}: checkout no coincide con quality-tools.json`);
     if (configuredCommit && configuredCommit !== lockCommit) issue('tool-lock-mismatch', `${name}: sentinel.lock.json no coincide con quality-tools.json`);
@@ -350,7 +493,10 @@ export function formatDiagnose(result: DiagnoseResult): string {
     `Runtime: ${result.runtime.activeVersion ? `activa v${result.runtime.activeVersion} (${result.runtime.activeVerified ? 'hash verificado' : 'hash pendiente'})` : 'no instalado'} · ${result.runtime.versions.length} versiones en ${result.runtime.targetRoot}`,
   ];
   for (const tool of Object.values(result.tools)) {
-    lines.push(`  ${tool.name}: source ${tool.sourcePresent ? 'ok' : 'missing'} - cli ${tool.cliPresent ? 'ok' : 'missing'} - version ${tool.cliVersion ?? 'failed'} - checkout ${tool.checkoutCommit?.slice(0, 8) ?? 'n/a'}${tool.checkoutDirty ? ' - DIRTY' : ''}`);
+    const capabilityText = tool.missingCapabilities.length > 0 ? ` - capabilities missing: ${tool.missingCapabilities.join(',')}` : '';
+    const releaseText = tool.releaseReachable ? ` - release refs: ${tool.releaseRefs.join(',')}${tool.releaseEvidencePresent ? ' - clean evidence ok' : ' - clean evidence missing'}` : ' - release unpublished';
+    const dependencyText = tool.dependenciesPresent ? '' : ' - dependencies missing';
+    lines.push(`  ${tool.name}: source ${tool.sourcePresent ? 'ok' : 'missing'} - cli ${tool.cliPresent ? 'ok' : 'missing'} - version ${tool.cliVersion ?? 'failed'} - checkout ${tool.checkoutCommit?.slice(0, 8) ?? 'n/a'}${tool.checkoutDirty ? ' - DIRTY' : ''}${dependencyText}${capabilityText}${releaseText}`);
   }
   for (const issue of result.issues) lines.push(`ERROR ${issue.code}: ${issue.message}`);
   return lines.join('\n');

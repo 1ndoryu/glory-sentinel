@@ -9,7 +9,7 @@ import * as path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { writeAtomic } from './atomicFile';
-import { assertSafeBranch } from './branchValidation';
+import { assertSafeBranch, isSafeBranch } from './branchValidation';
 
 const execFileAsync = promisify(execFile);
 export const TASK_COORDINATOR_SCHEMA_VERSION = 1;
@@ -48,10 +48,20 @@ export interface TaskCoordinatorOptions {
   /** Rama principal declarada por el consumidor; nunca se infiere como `main`. */
   primaryBranch?: string;
   force?: boolean;
+  /** Snapshot de recuperación: impide limpiar metadata que cambió durante el diagnóstico. */
+  expectedUpdatedAtMs?: number;
+  expectedPid?: number;
+  expectedHead?: string | null;
+}
+
+export interface TaskStatusRecord extends TaskRecord {
+  expired: boolean;
+  processAlive: boolean;
+  worktreeClean: boolean | null;
 }
 
 export interface TaskStatusResult {
-  tasks: TaskRecord[];
+  tasks: TaskStatusRecord[];
   invalidMetadata: string[];
   orphanWorktrees: string[];
   orphanBranches: string[];
@@ -256,11 +266,11 @@ async function hasCaseInsensitiveTaskConflict(root: string, taskId: string, prim
 
 async function readTask(root: string, taskId: string, primaryBranch: string): Promise<TaskRecord | null> {
   try {
-    const record = JSON.parse(await fs.readFile(await taskFilePath(root, taskId, primaryBranch), 'utf8')) as TaskRecord;
-    if (record.schemaVersion !== TASK_COORDINATOR_SCHEMA_VERSION || record.taskId !== taskId) {
+    const value: unknown = JSON.parse(await fs.readFile(await taskFilePath(root, taskId, primaryBranch), 'utf8'));
+    if (!validTaskRecord(value) || value.taskId !== taskId || value.target !== primaryBranch) {
       throw new Error(`metadata inválida para ${taskId}`);
     }
-    return record;
+    return value;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
     throw error;
@@ -269,6 +279,25 @@ async function readTask(root: string, taskId: string, primaryBranch: string): Pr
 
 function stale(record: TaskRecord, now: number): boolean {
   return now - record.updatedAtMs > TASK_TTL_MS;
+}
+
+function validTaskRecord(value: unknown): value is TaskRecord {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const record = value as Partial<TaskRecord>;
+  if (record.schemaVersion !== TASK_COORDINATOR_SCHEMA_VERSION
+    || typeof record.taskId !== 'string' || !SAFE_TASK_ID.test(record.taskId)
+    || typeof record.agent !== 'string' || !SAFE_AGENT.test(record.agent)
+    || !['CLAIMED', 'ACTIVE', 'INTEGRATING', 'INTEGRATED'].includes(record.state ?? '')
+    || (record.branch !== null && (typeof record.branch !== 'string' || !isSafeBranch(record.branch)))
+    || (record.worktree !== null && typeof record.worktree !== 'string')
+    || (record.base !== null && (typeof record.base !== 'string' || !isSafeBranch(record.base)))
+    || (record.baseHead !== null && (typeof record.baseHead !== 'string' || !/^[a-f0-9]{40}$/u.test(record.baseHead)))
+    || typeof record.target !== 'string' || !isSafeBranch(record.target)
+    || (record.head !== null && (typeof record.head !== 'string' || !/^[a-f0-9]{40}$/u.test(record.head)))
+    || typeof record.createdAt !== 'string' || typeof record.updatedAt !== 'string'
+    || !Number.isFinite(record.updatedAtMs) || typeof record.pid !== 'number' || !Number.isFinite(record.pid) || record.pid <= 0
+    || typeof record.host !== 'string' || record.host.length === 0) return false;
+  return true;
 }
 
 function createRecord(options: TaskCoordinatorOptions): TaskRecord {
@@ -422,6 +451,8 @@ export async function heartbeatTask(options: TaskCoordinatorOptions): Promise<Ta
     if (stale(record, now)) throw new Error(`toma expirada para ${options.taskId}; requiere takeover explícito`);
     record.updatedAt = new Date(now).toISOString();
     record.updatedAtMs = now;
+    record.pid = process.pid;
+    record.host = os.hostname();
     await writeTask(root, record);
     return record;
   });
@@ -553,6 +584,15 @@ async function processAlive(record: TaskRecord): Promise<boolean> {
   }
 }
 
+async function worktreeClean(worktree: string | null): Promise<boolean | null> {
+  if (!worktree) return null;
+  try {
+    return (await gitStatus(worktree)).length === 0;
+  } catch {
+    return false;
+  }
+}
+
 export async function cleanupTask(options: TaskCoordinatorOptions): Promise<void> {
   const root = rootOf(options.projectRoot);
   const primaryBranch = requiredPrimaryBranch(options);
@@ -560,6 +600,15 @@ export async function cleanupTask(options: TaskCoordinatorOptions): Promise<void
     const record = await readTask(root, options.taskId, primaryBranch);
     if (!record) return;
     if (record.agent !== options.agent) throw new Error(`tarea ${options.taskId} pertenece a ${record.agent}`);
+    if (options.expectedUpdatedAtMs !== undefined && record.updatedAtMs !== options.expectedUpdatedAtMs) {
+      throw new Error(`cleanup bloqueado: metadata de ${options.taskId} cambió durante la recuperación`);
+    }
+    if (options.expectedPid !== undefined && record.pid !== options.expectedPid) {
+      throw new Error(`cleanup bloqueado: PID de ${options.taskId} cambió durante la recuperación`);
+    }
+    if (options.expectedHead !== undefined && record.head !== options.expectedHead) {
+      throw new Error(`cleanup bloqueado: HEAD de ${options.taskId} cambió durante la recuperación`);
+    }
     const forcedExpired = Boolean(options.force) && stale(record, options.now ?? Date.now());
     if (record.state !== 'INTEGRATED' && !forcedExpired) throw new Error(`cleanup bloqueado: ${options.taskId} está en ${record.state}`);
     if (forcedExpired && await processAlive(record)) throw new Error(`cleanup bloqueado: el proceso ${record.pid} de ${options.taskId} sigue vivo`);
@@ -648,13 +697,19 @@ export async function taskStatus(projectRoot: string, primaryBranch: string): Pr
   let names: string[] = [];
   try { names = (await fs.readdir(directory)).filter(name => name.endsWith('.json')); }
   catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
-  const tasks: TaskRecord[] = [];
+  const tasks: TaskStatusRecord[] = [];
   const invalidMetadata: string[] = [];
   for (const name of names) {
     try {
-      const value = JSON.parse(await fs.readFile(path.join(directory, name), 'utf8')) as TaskRecord;
-      if (value.schemaVersion !== TASK_COORDINATOR_SCHEMA_VERSION || !value.taskId) throw new Error('schema inválido');
-      tasks.push(value);
+      const value: unknown = JSON.parse(await fs.readFile(path.join(directory, name), 'utf8'));
+      if (!validTaskRecord(value)) throw new Error('schema inválido');
+      const [alive, clean] = await Promise.all([processAlive(value), worktreeClean(value.worktree)]);
+      tasks.push({
+        ...value,
+        expired: stale(value, Date.now()),
+        processAlive: alive,
+        worktreeClean: clean,
+      });
     } catch { invalidMetadata.push(name); }
   }
   const knownPaths = new Set(tasks.map(task => task.worktree).filter((value): value is string => Boolean(value)).map(value => path.resolve(value)));

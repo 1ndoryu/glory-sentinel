@@ -177,7 +177,7 @@ function usage(): string {
     '  sentinel lease list [--json]',
     '  sentinel lease revoke --lease <path> [--json]',
     '  sentinel lease verify --lease <path> [--project-root <dir>] [--pid <n>] [--json]',
-    '  sentinel task claim|start|heartbeat|status|gate|integrate|cleanup|release <id> [opciones]',
+    '  sentinel task claim|start|heartbeat|status|gate|integrate|cleanup|release|recover <id> [opciones]',
     '  sentinel --version',
     '',
     'Opciones:',
@@ -944,9 +944,17 @@ export async function runCli(rawArgs: string[]): Promise<number> {
     return installFailed ? 1 : 0;
   }
   if (args.command === 'doctor' || args.command === 'status') {
-    const output = await diagnoseCliTarget(args, args.command);
+    const workspace = path.resolve(args.workspacePath ?? process.cwd());
+    const diagnosis = await diagnoseWorkspace(workspace);
+    const output = args.json
+      ? `${JSON.stringify(diagnosis, null, 2)}\n`
+      : `${(args.command === 'doctor' ? formatDiagnose(diagnosis) : formatStatus(diagnosis))}\n`;
     await writeOrPrint(output, args.outputPath);
-    return 0;
+    /* Doctor es preflight fail-closed: una capacidad ausente, checkout dirty,
+     * lock divergente o release no publicada debe producir exit != 0 antes de
+     * que un gate/instalador intente ejecutar etapas. `status` sigue siendo
+     * observabilidad read-only y conserva exit 0. */
+    return args.command === 'doctor' && !diagnosis.ready ? 1 : 0;
   }
   if (args.command === 'lease') {
     const output = await leaseCliTarget(args);

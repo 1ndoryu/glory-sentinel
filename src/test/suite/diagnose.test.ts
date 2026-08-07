@@ -5,7 +5,9 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { execFileSync } from 'child_process';
 import { diagnoseWorkspace, formatDiagnose, formatStatus } from '../../core/diagnose';
+import { runCli } from '../../cli/index';
 
 function policy(): object {
   return {
@@ -55,6 +57,67 @@ suite('Sentinel core diagnose (orquestador agnóstico)', () => {
       assert.match(formatStatus(result), /no-policy/);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('declara capacidad ausente, dependencias no provisionadas y package-lock sucio antes del gate', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-diagnose-capabilities-'));
+    const source = path.join(root, 'tools', 'sentinel');
+    try {
+      fs.mkdirSync(source, { recursive: true });
+      fs.writeFileSync(path.join(root, 'quality.config.json'), '{}', 'utf8');
+      fs.writeFileSync(path.join(root, 'sentinel.config.json'), JSON.stringify(policy()), 'utf8');
+      fs.writeFileSync(path.join(root, 'quality-tools.json'), JSON.stringify({
+        schemaVersion: 1,
+        tools: { sentinel: { sourcePath: 'tools/sentinel', commit: 'a'.repeat(40), version: '0.5.0', buildScript: 'compile', cli: 'out/cli/index.js' } },
+      }), 'utf8');
+      fs.writeFileSync(path.join(root, 'sentinel.lock.json'), JSON.stringify({ schemaVersion: 1, analyzers: { sentinel: { commit: 'a'.repeat(40) } } }), 'utf8');
+      fs.writeFileSync(path.join(source, 'package.json'), JSON.stringify({ scripts: { compile: 'tsc' } }), 'utf8');
+      fs.writeFileSync(path.join(source, 'package-lock.json'), '{}', 'utf8');
+      fs.mkdirSync(path.join(source, 'out', 'cli'), { recursive: true });
+      fs.writeFileSync(path.join(source, 'out', 'cli', 'index.js'), '#!/usr/bin/env node\nif (process.argv.includes(\'--version\')) console.log(\'0.5.0\'); else if (process.argv.includes(\'--help\')) console.log(\'analyze\');\n', 'utf8');
+      fs.mkdirSync(path.join(source, 'node_modules'), { recursive: true });
+      execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: root });
+      execFileSync('git', ['config', 'user.email', 'sentinel@example.test'], { cwd: root });
+      execFileSync('git', ['config', 'user.name', 'Sentinel Test'], { cwd: root });
+      execFileSync('git', ['add', '.'], { cwd: root });
+      execFileSync('git', ['commit', '-q', '-m', 'fixture'], { cwd: root });
+      fs.appendFileSync(path.join(source, 'package-lock.json'), '\n{"interrupted":true}\n', 'utf8');
+      const result = await diagnoseWorkspace(root);
+      assert.strictEqual(result.ready, false);
+      const tool = result.tools.sentinel;
+      assert.ok(tool);
+      assert.deepStrictEqual(tool.missingCapabilities, ['guard', 'doctor', 'task', 'recover']);
+      assert.ok(result.issues.some(issue => issue.code === 'tool-capability-missing'));
+      assert.ok(result.issues.some(issue => issue.code === 'tool-release-unpublished'));
+      assert.ok(result.issues.some(issue => issue.code === 'tool-release-evidence-missing'));
+      assert.ok(result.issues.some(issue => issue.code === 'tool-package-lock-dirty'));
+      assert.strictEqual(tool.packageLockPresent, true);
+      assert.strictEqual(await runCli(['doctor', '--workspace', root, '--json']), 1);
+      assert.strictEqual(tool.dependenciesPresent, true);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('rechaza sourcePath que escapa por junction aunque la ruta léxica esté dentro', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-diagnose-escape-'));
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-diagnose-outside-'));
+    try {
+      fs.writeFileSync(path.join(root, 'sentinel.config.json'), JSON.stringify(policy()), 'utf8');
+      fs.mkdirSync(path.join(root, 'tools'), { recursive: true });
+      fs.symlinkSync(outside, path.join(root, 'tools', 'sentinel'), 'junction');
+      fs.writeFileSync(path.join(root, 'quality-tools.json'), JSON.stringify({
+        schemaVersion: 1,
+        tools: { sentinel: { sourcePath: 'tools/sentinel', commit: 'a'.repeat(40), cli: 'out/cli/index.js' } },
+      }), 'utf8');
+      fs.writeFileSync(path.join(root, 'sentinel.lock.json'), JSON.stringify({ schemaVersion: 1, analyzers: { sentinel: { commit: 'a'.repeat(40) } } }), 'utf8');
+      const result = await diagnoseWorkspace(root);
+      assert.strictEqual(result.ready, false);
+      assert.ok(result.issues.some(issue => issue.code === 'tool-source-escape'));
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+      fs.rmSync(outside, { recursive: true, force: true });
     }
   });
 
