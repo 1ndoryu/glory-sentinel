@@ -1,6 +1,11 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
+## [0.6.4] - 2026-08-07
+
+### Corregido
+- Alinea la documentación pública con el paquete y el commit coordinado publicado.
+
 ## [0.6.3] - 2026-08-07
 
 ### Corregido

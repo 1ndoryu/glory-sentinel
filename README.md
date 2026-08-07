@@ -4,13 +4,13 @@
 
 Glory Sentinel (Code Sentinel) es el plano de control de calidad agnóstico del ecosistema Glory: una extensión de VS Code, un CLI y un LSP con reglas estáticas que detectan problemas reales de arquitectura, seguridad y mantenimiento en Rust, PHP/WordPress, React/TypeScript y CSS.
 
-> **v0.4.0 eliminó el análisis IA.** Toda la detección es estática y determinista: no requiere red, claves, modelo externo ni backend. CLI, LSP y VS Code consumen el mismo motor (`src/core`) y el mismo registro de reglas (`src/config/ruleRegistry.ts`), de modo que producen hallazgos equivalentes. El release coordinado **0.5.0** añadió el plano global (`check`, `guard`, `doctor`, `status`, `lease` y `task`); el release **0.6.0** añadió el preflight fail-closed y la validación de release; el release vigente **0.6.2** está publicado en `main` y en el tag `v0.6.2`.
+> **v0.4.0 eliminó el análisis IA.** Toda la detección es estática y determinista: no requiere red, claves, modelo externo ni backend. CLI, LSP y VS Code consumen el mismo motor (`src/core`) y el mismo registro de reglas (`src/config/ruleRegistry.ts`), de modo que producen hallazgos equivalentes. El release coordinado **0.5.0** añadió el plano global (`check`, `guard`, `doctor`, `status`, `lease` y `task`); el release **0.6.0** añadió el preflight fail-closed y la validación de release; el release vigente **0.6.4** está publicado en `main` y en el tag `v0.6.4`.
 
 > **Regla de compatibilidad:** `sentinel --version` informa la versión del paquete, no garantiza capacidades del plano global. Para conocer lo que realmente soporta una instalación usa `sentinel --help` y `sentinel doctor --json`. Un consumidor debe fijar el commit exacto en su lock; no basta con fijar `0.4.0`.
 
 ## Estado publicado del plano global
 
-El repositorio público y el consumidor comparten el release coordinado **0.6.2**, publicado en `main` y en el tag `v0.6.2`. El release 0.6.2 corrige la identidad de versión activa en runtimes instalados y hace explícito el estado de gitlinks staged frente a `HEAD`.
+El repositorio público y el consumidor comparten el release coordinado **0.6.4**, publicado en `main` y en el tag `v0.6.4`. El release 0.6.2 corrigió la identidad de versión activa en runtimes instalados y explicitó el estado de gitlinks staged frente a `HEAD`; el release 0.6.4 alinea la documentación pública con el paquete y el commit publicado.
 
 - **Release analizador 0.4.0:** `analyze`, `--files-from`, configuración estricta del analizador (`includePatterns`, `excludePatterns`, `directoryExceptions`, `portableBoundaries`, `rules`) y salida JSON v1.
 - **Release coordinado 0.5.0:** añade `check`, `guard`, `doctor`, `status`, `install`, `update`, `rollback`, `uninstall`, `lease` y `task`, además de `project.primaryBranch` y el envelope v2 del consumidor.
@@ -80,7 +80,7 @@ La fuente de verdad de una capacidad es el binario/commit realmente fijado; READ
 
 ## Publicación reproducible
 
-El commit coordinado de 0.6.2 está integrado en `main` y etiquetado como `v0.6.2`. Los consumidores deben fijar el commit exacto, el hash del artefacto y las capacidades en su lock; el número de versión por sí solo no sustituye esa verificación. Después de actualizar un runtime global, repite `sentinel --version`, `sentinel --help` y `sentinel doctor --json` desde una carpeta externa al checkout.
+El commit coordinado de 0.6.4 está integrado en `main` y etiquetado como `v0.6.4`. Los consumidores deben fijar el commit exacto, el hash del artefacto y las capacidades en su lock; el número de versión por sí solo no sustituye esa verificación. Después de actualizar un runtime global, repite `sentinel --version`, `sentinel --help` y `sentinel doctor --json` desde una carpeta externa al checkout.
 
 ## ¿Qué resuelve?
 
