@@ -286,3 +286,123 @@ suite('task coordinator', () => {
     }
   });
 });
+
+
+suite('env manifest provisioning ([VISIBLE-WORKTREE])', () => {
+  function writeManifest(root: string, inputs: unknown[]): void {
+    fs.writeFileSync(
+      path.join(root, 'sentinel.env-manifest.json'),
+      JSON.stringify({ schemaVersion: 1, inputs }),
+      'utf8',
+    );
+    git(root, ['add', 'sentinel.env-manifest.json']);
+    git(root, ['commit', '-q', '-m', 'env manifest']);
+  }
+
+  test('provisiona ignored-local desde su fuente declarada y deja el worktree limpio para el gate', async () => {
+    const { parent, root } = fixture();
+    try {
+      fs.writeFileSync(path.join(root, '.gitignore'), '.env\n', 'utf8');
+      fs.writeFileSync(path.join(root, '.env.example'), 'TOKEN=base\n', 'utf8');
+      git(root, ['add', '.gitignore', '.env.example']);
+      git(root, ['commit', '-q', '-m', 'env template']);
+      writeManifest(root, [{ path: '.env', category: 'ignored-local', source: '.env.example' }]);
+      await claimTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'M-1', agent: 'agent-a' });
+      const started = await startTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'M-1', agent: 'agent-a' });
+      assert.strictEqual(fs.readFileSync(path.join(started.worktree!, '.env'), 'utf8'), 'TOKEN=base\n');
+      /* Los provisionados son ignorados: el worktree sigue limpio para gate/integrate. */
+      assert.strictEqual(git(started.worktree!, ['status', '--porcelain']), '');
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true });
+    }
+  });
+
+  test('fuente faltante produce missing-task-input y no deja worktree ni rama huerfanos', async () => {
+    const { parent, root } = fixture();
+    try {
+      writeManifest(root, [{ path: '.env', category: 'ignored-local', source: 'no-existe.txt' }]);
+      await claimTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'M-2', agent: 'agent-a' });
+      await assert.rejects(
+        startTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'M-2', agent: 'agent-a' }),
+        /missing-task-input: \.env \(categoría ignored-local; origen esperado: no-existe\.txt; acción requerida: crear\/declarar/,
+      );
+      const worktrees = git(root, ['worktree', 'list', '--porcelain']);
+      assert.ok(!worktrees.includes('M-2'), 'no debe quedar worktree de la tarea');
+      assert.strictEqual(git(root, ['for-each-ref', '--format=%(refname:short)', 'refs/heads/task/']).includes('/M-2'), false);
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true });
+    }
+  });
+
+  test('la fuente no puede ser el projectRoot ni una ruta que lo escape', async () => {
+    const { parent, root } = fixture();
+    try {
+      writeManifest(root, [{ path: '.env', category: 'ignored-local', source: '.' }]);
+      await claimTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'M-3', agent: 'agent-a' });
+      await assert.rejects(
+        startTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'M-3', agent: 'agent-a' }),
+        /no puede ser el projectRoot/,
+      );
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true });
+    }
+  });
+
+  test('el manifiesto no puede pisar contenido tracked del worktree', async () => {
+    const { parent, root } = fixture();
+    try {
+      writeManifest(root, [{ path: 'base.txt', category: 'ignored-local', source: 'base.txt' }]);
+      await claimTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'M-4', agent: 'agent-a' });
+      await assert.rejects(
+        startTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'M-4', agent: 'agent-a' }),
+        /no puede pisar contenido tracked/,
+      );
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true });
+    }
+  });
+
+  test('una entrada tracked ausente en el worktree se reporta como missing-task-input', async () => {
+    const { parent, root } = fixture();
+    try {
+      writeManifest(root, [{ path: 'ausente.txt', category: 'tracked' }]);
+      await claimTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'M-5', agent: 'agent-a' });
+      await assert.rejects(
+        startTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'M-5', agent: 'agent-a' }),
+        /missing-task-input: ausente\.txt \(categoría tracked/,
+      );
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true });
+    }
+  });
+
+  test('secret no puede declarar source y external/generated no copian nada', async () => {
+    const { parent, root } = fixture();
+    try {
+      writeManifest(root, [
+        { path: 'creds.json', category: 'secret', source: 'creds.example' },
+      ]);
+      await claimTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'M-6', agent: 'agent-a' });
+      await assert.rejects(
+        startTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'M-6', agent: 'agent-a' }),
+        /secret no puede venir de un source/,
+      );
+
+      const second = fixture();
+      try {
+        writeManifest(second.root, [
+          { path: 'gen.txt', category: 'generated' },
+          { path: 'ext.txt', category: 'external' },
+        ]);
+        await claimTask({ projectRoot: second.root, primaryBranch: PRIMARY_BRANCH, taskId: 'M-7', agent: 'agent-a' });
+        const started = await startTask({ projectRoot: second.root, primaryBranch: PRIMARY_BRANCH, taskId: 'M-7', agent: 'agent-a' });
+        assert.strictEqual(fs.existsSync(path.join(started.worktree!, 'gen.txt')), false);
+        assert.strictEqual(fs.existsSync(path.join(started.worktree!, 'ext.txt')), false);
+      } finally {
+        fs.rmSync(second.parent, { recursive: true, force: true });
+      }
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true });
+    }
+  });
+});

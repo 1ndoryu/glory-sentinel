@@ -9,6 +9,7 @@ import * as path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { writeAtomic } from './atomicFile';
+import { MissingTaskInputError, provisionTaskInputs, resolveEnvManifestPath } from './envManifest';
 import { assertSafeBranch, isSafeBranch } from './branchValidation';
 
 const execFileAsync = promisify(execFile);
@@ -47,6 +48,9 @@ export interface TaskCoordinatorOptions {
   /** Raíz autorizada para worktrees temporales. Por defecto: <repo>/.sentinel/worktrees.
    *  Solo se admite una raíz externa declarada por el consumidor; nunca una ruta arbitraria. */
   worktreesRoot?: string;
+  /** Manifiesto de entorno para provisionar entradas dentro del worktree
+   *  (contrato [VISIBLE-WORKTREE]). Por defecto: <projectRoot>/sentinel.env-manifest.json si existe. */
+  envManifestPath?: string;
   base?: string;
   target?: string;
   /** Rama principal declarada por el consumidor; nunca se infiere como `main`. */
@@ -130,7 +134,7 @@ async function gitTopLevel(root: string): Promise<string> {
   return path.resolve(root, await git(root, ['rev-parse', '--show-toplevel']));
 }
 
-async function canonicalPath(target: string): Promise<string> {
+export async function canonicalPath(target: string): Promise<string> {
   let candidate = path.resolve(target);
   const missing: string[] = [];
   while (true) {
@@ -147,7 +151,7 @@ async function canonicalPath(target: string): Promise<string> {
   }
 }
 
-function isStrictlyInside(candidate: string, boundary: string): boolean {
+export function isStrictlyInside(candidate: string, boundary: string): boolean {
   const relative = path.relative(boundary, candidate);
   return relative !== ''
     && relative !== '..'
@@ -522,6 +526,11 @@ export async function startTask(options: TaskCoordinatorOptions): Promise<TaskRe
     try {
       await git(root, ['worktree', 'add', '-b', branch, worktree, base]);
       created = true;
+      const envManifestPath = await resolveEnvManifestPath(root, options.envManifestPath);
+      if (envManifestPath) {
+        const { missing } = await provisionTaskInputs(root, worktree, envManifestPath);
+        if (missing.length > 0) throw new MissingTaskInputError(missing);
+      }
       record.state = 'ACTIVE';
       record.branch = branch;
       record.worktree = worktree;
@@ -535,7 +544,7 @@ export async function startTask(options: TaskCoordinatorOptions): Promise<TaskRe
       return record;
     } catch (error) {
       if (created) {
-        await git(root, ['worktree', 'remove', worktree]).catch(() => undefined);
+        await git(root, ['worktree', 'remove', '--force', worktree]).catch(() => undefined);
         await git(root, ['branch', '-D', branch]).catch(() => undefined);
       }
       throw error;
@@ -666,7 +675,7 @@ export async function cleanupTask(options: TaskCoordinatorOptions): Promise<void
       }
     }
     if (recordedWorktree && await exists(recordedWorktree)) {
-      await git(root, ['worktree', 'remove', recordedWorktree]);
+      await git(root, ['worktree', 'remove', '--force', recordedWorktree]);
     }
     if (record.branch && await branchExists(root, record.branch)) {
       if (record.state === 'INTEGRATED' && record.head) {

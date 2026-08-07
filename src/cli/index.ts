@@ -71,6 +71,7 @@ export interface TaskCliArgs {
   primaryBranch?: string;
   worktreePath?: string;
   worktreesRoot?: string;
+  envManifestPath?: string;
   force?: boolean;
   dryRun?: boolean;
   full?: boolean;
@@ -251,6 +252,9 @@ export function parseTaskCliArgs(args: string[]): TaskCliArgs {
       index++;
     } else if (arg === '--worktrees-root') {
       parsed.worktreesRoot = takeValue(args, index, arg);
+      index++;
+    } else if (arg === '--env-manifest') {
+      parsed.envManifestPath = takeValue(args, index, arg);
       index++;
     } else if (arg === '--force') {
       parsed.force = true;
@@ -819,7 +823,7 @@ export async function taskCliTarget(args: TaskCliArgs): Promise<TaskCliExecution
   let result: TaskCliResult;
   switch (args.taskAction) {
     case 'claim': result = { ...(await claimTask({ projectRoot: workspace, taskId, agent, force: args.force, target: args.target, primaryBranch })) }; break;
-    case 'start': result = { ...(await startTask({ projectRoot: workspace, taskId, agent, base: args.base, target: args.target, primaryBranch, worktreePath: args.worktreePath, worktreesRoot: args.worktreesRoot })) }; break;
+    case 'start': result = { ...(await startTask({ projectRoot: workspace, taskId, agent, base: args.base, target: args.target, primaryBranch, worktreePath: args.worktreePath, worktreesRoot: args.worktreesRoot, envManifestPath: args.envManifestPath })) }; break;
     case 'heartbeat': result = { ...(await heartbeatTask({ projectRoot: workspace, taskId, agent, primaryBranch })) }; break;
     case 'status': {
       if (!primaryBranch) throw new Error('task status requiere project.primaryBranch en sentinel.config.json');

@@ -10,6 +10,14 @@
   metadata conserva la raíz usada para que cleanup/recover validen contención contra ella. `task gate`
   acepta worktrees vinculados externos (su top level es hermano de la raíz Git; la identidad sigue
   anclada al common dir del repositorio).
+- Manifiesto de entorno (`sentinel.env-manifest.json` o `task start --env-manifest <path>`): la tarea
+  declara qué necesita además del contenido versionado (`tracked`, `generated`, `ignored-local`,
+  `external`, `secret`) y Sentinel provisiona las entradas `ignored-local` desde su fuente declarada
+  (copia explícita aprobada) dentro del worktree antes de marcarlo ACTIVE. Si falta una fuente, la
+  tarea falla con `missing-task-input` (ruta, categoría, origen esperado y acción requerida) y se
+  revierte el worktree creado (sin huérfanos). Los secretos no pueden venir de un source del checkout;
+  external/generated no se copian. Los provisionados son ignorados por Git, así que el worktree sigue
+  limpio para gate/integrate; el manifiesto no puede pisar contenido tracked del worktree.
 
 ## [0.6.4] - 2026-08-07
 

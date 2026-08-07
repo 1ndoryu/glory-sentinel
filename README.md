@@ -120,7 +120,19 @@ rechaza para que los agentes no tengan que salir de la raíz del proyecto consum
 consumidor necesite que los worktrees sean físicamente visibles para el workspace del agente (por
 ejemplo una carpeta hermana compartida), `task start --worktrees-root <dir>` declara una **raíz externa
 autorizada**: debe existir, quedar fuera del repositorio (no puede ser el repo ni una subcarpeta) y
-resolverse a un path físico real. El resto de rutas arbitrarias siguen bloqueadas. Si aparecen
+resolverse a un path físico real. El resto de rutas arbitrarias siguen bloqueadas.
+
+Para que la tarea disponga de sus dependencias locales (configuración, fixtures, archivos ignorados),
+`task start` acepta un **manifiesto de entorno** (`sentinel.env-manifest.json` en el projectRoot, o
+`--env-manifest <path>`): cada entrada declara `path`, `category` (`tracked`, `generated`,
+`ignored-local`, `external`, `secret`) y opcionalmente `source`. Las entradas `ignored-local` se
+provisionan en el worktree desde su fuente declarada (copia explícita aprobada, contenida en el
+projectRoot) antes de marcar la tarea ACTIVE; si una fuente falta, la tarea falla con
+`missing-task-input` (ruta, categoría, origen esperado y acción requerida) y se revierte el worktree
+sin dejar huérfanos. Los `secret` no pueden declarar `source` (entran por secret store/env);
+`external` y `generated` no se copian. Los provisionados son ignorados por Git, de modo que el
+worktree sigue limpio para gate/integrate, y el manifiesto no puede pisar contenido tracked del
+worktree. Si aparecen
 conflictos, el agente debe actualizar su rama desde la rama principal declarada en `project.primaryBranch`,
 resolver y revisar cada conflicto en su worktree, ejecutar el gate, commitear la resolución y
 reintentar. Sentinel no resuelve conflictos a ciegas, pero una tarea no se considera terminada mientras
@@ -134,7 +146,7 @@ son temporales, están ignorados por Git y no se integran en la rama del proyect
 
 ```bash
 sentinel task claim GAME-01 --project-root . --agent agent-a
-sentinel task start <TASK-ID> --project-root . --agent agent-a --primary-branch <primary-branch> [--worktrees-root <dir>]
+sentinel task start <TASK-ID> --project-root . --agent agent-a --primary-branch <primary-branch> [--worktrees-root <dir>] [--env-manifest <path>] [--env-manifest <path>]
 sentinel task heartbeat <TASK-ID> --project-root . --agent agent-a
 sentinel task gate <TASK-ID> --project-root ./.sentinel/worktrees/repo-<project-identity>-GAME-01 --agent agent-a
 sentinel task integrate <TASK-ID> --project-root . --agent agent-a --target <primary-branch>
