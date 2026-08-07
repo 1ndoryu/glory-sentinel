@@ -9,11 +9,12 @@ import * as path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { writeAtomic } from './atomicFile';
-import { MissingTaskInputError, provisionTaskInputs, resolveEnvManifestPath } from './envManifest';
+import { IgnoredBaselineSnapshot, IgnoredInputSnapshot, MissingTaskInputError, provisionTaskInputs, resolveEnvManifestPath, validateIgnoredInputs } from './envManifest';
+import { canonicalPath, isStrictlyInside } from './pathSafety';
 import { assertSafeBranch, isSafeBranch } from './branchValidation';
 
 const execFileAsync = promisify(execFile);
-export const TASK_COORDINATOR_SCHEMA_VERSION = 2;
+export const TASK_COORDINATOR_SCHEMA_VERSION = 3;
 export const TASK_TTL_MS = 6 * 60 * 60 * 1000;
 const OPERATION_LOCK_TTL_MS = 30 * 60 * 1000;
 const LOCK_REFRESH_MS = 60 * 1000;
@@ -21,13 +22,17 @@ const LOCK_REFRESH_MS = 60 * 1000;
 export type TaskState = 'CLAIMED' | 'ACTIVE' | 'INTEGRATING' | 'INTEGRATED';
 
 export interface TaskRecord {
-  schemaVersion: 2;
+  schemaVersion: 3;
   taskId: string;
   agent: string;
   state: TaskState;
   branch: string | null;
   worktree: string | null;
   worktreesRoot: string | null;
+  /** Entradas ignored-local declaradas por la tarea y su permiso de edición. */
+  ignoredInputs: IgnoredInputSnapshot[];
+  /** null conserva el comportamiento previo cuando no hay manifiesto. */
+  ignoredBaseline: IgnoredBaselineSnapshot[] | null;
   base: string | null;
   baseHead: string | null;
   target: string;
@@ -132,31 +137,6 @@ async function gitCommonDir(root: string): Promise<string> {
 
 async function gitTopLevel(root: string): Promise<string> {
   return path.resolve(root, await git(root, ['rev-parse', '--show-toplevel']));
-}
-
-export async function canonicalPath(target: string): Promise<string> {
-  let candidate = path.resolve(target);
-  const missing: string[] = [];
-  while (true) {
-    try {
-      const existing = await fs.realpath(candidate);
-      return path.resolve(existing, ...missing);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-      const parent = path.dirname(candidate);
-      if (parent === candidate) throw error;
-      missing.unshift(path.basename(candidate));
-      candidate = parent;
-    }
-  }
-}
-
-export function isStrictlyInside(candidate: string, boundary: string): boolean {
-  const relative = path.relative(boundary, candidate);
-  return relative !== ''
-    && relative !== '..'
-    && !relative.startsWith(`..${path.sep}`)
-    && !path.isAbsolute(relative);
 }
 
 async function repositoryRoot(root: string, commonDir: string): Promise<string> {
@@ -276,10 +256,12 @@ async function hasCaseInsensitiveTaskConflict(root: string, taskId: string, prim
 async function readTask(root: string, taskId: string, primaryBranch: string): Promise<TaskRecord | null> {
   try {
     const value: unknown = JSON.parse(await fs.readFile(await taskFilePath(root, taskId, primaryBranch), 'utf8'));
-    if (!validTaskRecord(value) || value.taskId !== taskId || value.target !== primaryBranch) {
+    const normalized = normalizeTaskRecord(value);
+    if (!normalized || normalized.record.taskId !== taskId || normalized.record.target !== primaryBranch) {
       throw new Error(`metadata inválida para ${taskId}`);
     }
-    return value;
+    if (normalized.migrated) await writeTask(root, normalized.record);
+    return normalized.record;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
     throw error;
@@ -300,6 +282,9 @@ function validTaskRecord(value: unknown): value is TaskRecord {
     || (record.branch !== null && (typeof record.branch !== 'string' || !isSafeBranch(record.branch)))
     || (record.worktree !== null && typeof record.worktree !== 'string')
     || (record.worktreesRoot !== null && typeof record.worktreesRoot !== 'string')
+    || !Array.isArray(record.ignoredInputs)
+    || record.ignoredInputs.some(item => !item || typeof item !== 'object' || typeof item.path !== 'string' || path.isAbsolute(item.path) || item.path.replace(/\\/gu, '/').split('/').includes('..') || !/^[a-f0-9]{64}$/u.test(item.sha256) || typeof item.editable !== 'boolean')
+    || (record.ignoredBaseline !== null && (!Array.isArray(record.ignoredBaseline) || record.ignoredBaseline.some(item => !item || typeof item !== 'object' || typeof item.path !== 'string' || path.isAbsolute(item.path) || item.path.replace(/\\/gu, '/').split('/').includes('..') || !/^[a-f0-9]{64}$/u.test(item.sha256))))
     || (record.base !== null && (typeof record.base !== 'string' || !isSafeBranch(record.base)))
     || (record.baseHead !== null && (typeof record.baseHead !== 'string' || !/^[a-f0-9]{40}$/u.test(record.baseHead)))
     || typeof record.target !== 'string' || !isSafeBranch(record.target)
@@ -308,6 +293,19 @@ function validTaskRecord(value: unknown): value is TaskRecord {
     || !Number.isFinite(record.updatedAtMs) || typeof record.pid !== 'number' || !Number.isFinite(record.pid) || record.pid <= 0
     || typeof record.host !== 'string' || record.host.length === 0) return false;
   return true;
+}
+
+function normalizeTaskRecord(value: unknown): { record: TaskRecord; migrated: boolean } | null {
+  if (validTaskRecord(value)) return { record: value, migrated: false };
+  if (!value || typeof value !== 'object' || Array.isArray(value) || (value as { schemaVersion?: unknown }).schemaVersion !== 2) return null;
+  const legacy = value as Record<string, unknown>;
+  const migrated = {
+    ...legacy,
+    schemaVersion: TASK_COORDINATOR_SCHEMA_VERSION,
+    ignoredInputs: [],
+    ignoredBaseline: null,
+  };
+  return validTaskRecord(migrated) ? { record: migrated, migrated: true } : null;
 }
 
 function createRecord(options: TaskCoordinatorOptions): TaskRecord {
@@ -321,6 +319,8 @@ function createRecord(options: TaskCoordinatorOptions): TaskRecord {
     branch: null,
     worktree: null,
     worktreesRoot: null,
+    ignoredInputs: [],
+    ignoredBaseline: null,
     base: null,
     baseHead: null,
     target: sanitizeBranch(target),
@@ -467,6 +467,7 @@ export async function verifyTaskWorktree(options: TaskCoordinatorOptions): Promi
   if (actualPath !== expectedPath) throw new Error(`el workspace no coincide con el worktree de ${options.taskId}`);
   const registeredBranch = await registeredWorktreeFor(worktree, actualPath);
   if (registeredBranch !== record.branch) throw new Error(`el worktree no está registrado para la rama de ${options.taskId}`);
+  if (record.ignoredBaseline !== null) await validateIgnoredInputs(actualPath, record.ignoredInputs, record.ignoredBaseline);
   return record;
 }
 
@@ -528,8 +529,10 @@ export async function startTask(options: TaskCoordinatorOptions): Promise<TaskRe
       created = true;
       const envManifestPath = await resolveEnvManifestPath(root, options.envManifestPath);
       if (envManifestPath) {
-        const { missing } = await provisionTaskInputs(root, worktree, envManifestPath);
+        const { missing, ignoredInputs, ignoredBaseline } = await provisionTaskInputs(root, worktree, envManifestPath);
         if (missing.length > 0) throw new MissingTaskInputError(missing);
+        record.ignoredInputs = ignoredInputs;
+        record.ignoredBaseline = ignoredBaseline;
       }
       record.state = 'ACTIVE';
       record.branch = branch;
@@ -572,8 +575,19 @@ export async function integrateTask(options: TaskCoordinatorOptions): Promise<Ta
       withLock(root, `target-${targetIdentity}`, target, async () => {
       if (await gitStatus(root)) throw new Error(`target sucio; no se integra ${options.taskId}`);
       if (await git(root, ['symbolic-ref', '--short', 'HEAD']) !== target) throw new Error(`checkout actual no es ${target}`);
-      const worktree = record.worktree as string;
       const branch = record.branch as string;
+      const resolvedWorktree = await resolveWorktreePath(
+        root,
+        record.worktree as string,
+        commonDir,
+        record.taskId,
+        targetIdentity,
+        record.worktreesRoot ?? undefined,
+      );
+      const worktree = await fs.realpath(resolvedWorktree.worktree);
+      const registeredBranch = await registeredWorktreeFor(root, worktree);
+      if (registeredBranch !== branch) throw new Error(`el worktree no está registrado para la rama de ${options.taskId}`);
+      if (record.ignoredBaseline !== null) await validateIgnoredInputs(worktree, record.ignoredInputs, record.ignoredBaseline);
       if (await gitStatus(worktree)) throw new Error(`worktree sucio; no se integra ${options.taskId}`);
       const head = await git(worktree, ['rev-parse', 'HEAD']);
       if (await git(root, ['rev-parse', branch]) !== head) throw new Error(`la rama ${branch} no coincide con el HEAD del worktree`);
@@ -667,7 +681,7 @@ export async function cleanupTask(options: TaskCoordinatorOptions): Promise<void
       if (await exists(recordedWorktree)) {
         const canonicalWorktree = await fs.realpath(recordedWorktree);
         const registeredBranch = await registeredWorktreeFor(root, canonicalWorktree);
-        if (registeredBranch !== record.branch && record.state !== 'INTEGRATED') {
+        if (registeredBranch !== record.branch) {
           throw new Error(`cleanup bloqueado: el worktree no pertenece a la rama de ${options.taskId}`);
         }
         if (await gitStatus(canonicalWorktree)) throw new Error(`cleanup bloqueado: worktree sucio ${canonicalWorktree}`);
@@ -675,6 +689,7 @@ export async function cleanupTask(options: TaskCoordinatorOptions): Promise<void
       }
     }
     if (recordedWorktree && await exists(recordedWorktree)) {
+      if (record.ignoredBaseline !== null) await validateIgnoredInputs(recordedWorktree, record.ignoredInputs, record.ignoredBaseline);
       await git(root, ['worktree', 'remove', '--force', recordedWorktree]);
     }
     if (record.branch && await branchExists(root, record.branch)) {
@@ -741,11 +756,13 @@ export async function taskStatus(projectRoot: string, primaryBranch: string): Pr
   for (const name of names) {
     try {
       const value: unknown = JSON.parse(await fs.readFile(path.join(directory, name), 'utf8'));
-      if (!validTaskRecord(value)) throw new Error('schema inválido');
-      const [alive, clean] = await Promise.all([processAlive(value), worktreeClean(value.worktree)]);
+      const normalized = normalizeTaskRecord(value);
+      if (!normalized) throw new Error('schema inválido');
+      if (normalized.migrated) await writeTask(root, normalized.record);
+      const [alive, clean] = await Promise.all([processAlive(normalized.record), worktreeClean(normalized.record.worktree)]);
       tasks.push({
-        ...value,
-        expired: stale(value, Date.now()),
+        ...normalized.record,
+        expired: stale(normalized.record, Date.now()),
         processAlive: alive,
         worktreeClean: clean,
       });

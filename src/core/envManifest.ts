@@ -3,9 +3,10 @@
  * del worktree y fallo claro (missing-task-input) cuando falta una dependencia.
  * Las categorias siguen el contrato documentado: tracked, generated,
  * ignored-local, external y secret. */
-import { cp, mkdir, readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { cp, mkdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { canonicalPath, isStrictlyInside } from './taskCoordinator';
+import { canonicalPath, isStrictlyInside } from './pathSafety';
 
 export const ENV_MANIFEST_SCHEMA_VERSION = 1;
 export const DEFAULT_ENV_MANIFEST = 'sentinel.env-manifest.json';
@@ -19,6 +20,8 @@ export interface EnvInput {
   category: EnvInputCategory;
   /** Fuente declarada para ignored-local (relativa al projectRoot). */
   source?: string;
+  /** Solo ignored-local puede autorizar edición parcial de esta ruta. */
+  editable?: boolean;
 }
 
 export interface EnvManifest {
@@ -87,6 +90,13 @@ export function parseEnvManifest(text: string): EnvManifest {
     if (category === 'ignored-local' && input.source === undefined) {
       throw new Error(`inputs[${index}]: ignored-local requiere source declarado`);
     }
+    if (entry.editable !== undefined && typeof entry.editable !== 'boolean') {
+      throw new Error(`inputs[${index}].editable debe ser booleano`);
+    }
+    input.editable = entry.editable === true;
+    if (input.editable && category !== 'ignored-local') {
+      throw new Error(`inputs[${index}]: editable solo se permite para ignored-local`);
+    }
     if (category === 'secret' && input.source !== undefined) {
       throw new Error(`inputs[${index}]: secret no puede venir de un source del checkout; debe entrar por secret store/env`);
     }
@@ -98,24 +108,24 @@ export function parseEnvManifest(text: string): EnvManifest {
 /** Resuelve la ruta del manifiesto: la explícita (debe existir) o el default.
  * Devuelve null si no hay manifiesto (comportamiento previo intacto). */
 export async function resolveEnvManifestPath(projectRoot: string, explicit?: string): Promise<string | null> {
-  if (explicit !== undefined && explicit !== '') {
-    const absolute = path.resolve(projectRoot, explicit);
-    try {
-      await readFile(absolute, 'utf8');
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        throw new Error(`manifiesto de entorno no encontrado: ${absolute}`);
-      }
-      throw error;
-    }
-    return absolute;
+  const canonicalProject = await canonicalPath(projectRoot);
+  const candidate = explicit !== undefined && explicit !== ''
+    ? path.resolve(projectRoot, explicit)
+    : path.join(projectRoot, DEFAULT_ENV_MANIFEST);
+  const canonicalCandidate = await canonicalPath(candidate);
+  if (!isStrictlyInside(canonicalCandidate, canonicalProject)) {
+    throw new Error(`el manifiesto de entorno debe permanecer dentro del projectRoot: ${candidate}`);
   }
-  const defaultPath = path.join(projectRoot, DEFAULT_ENV_MANIFEST);
   try {
-    await readFile(defaultPath, 'utf8');
-    return defaultPath;
+    await readFile(candidate, 'utf8');
+    return candidate;
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      if (explicit !== undefined && explicit !== '') {
+        throw new Error(`manifiesto de entorno no encontrado: ${candidate}`);
+      }
+      return null;
+    }
     throw error;
   }
 }
@@ -126,6 +136,31 @@ async function exists(target: string): Promise<boolean> {
     return true;
   } catch (error) {
     return (error as NodeJS.ErrnoException).code === 'ENOENT' ? false : true;
+  }
+}
+
+/** Comprueba si una ruta dentro del worktree está versionada (tracked). */
+async function runGit(worktree: string, args: string[]): Promise<string> {
+  const { execFile } = await import('node:child_process');
+  const { promisify } = await import('node:util');
+  const execFileAsync = promisify(execFile);
+  const result = await execFileAsync('git', args, { cwd: worktree, windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
+  return result.stdout;
+}
+
+async function ignoredPaths(worktree: string): Promise<string[]> {
+  const output = await runGit(worktree, ['ls-files', '--others', '--ignored', '--exclude-standard', '-z']);
+  return output
+    .split('\0')
+    .map(item => item.replace(/\\/gu, '/'))
+    .filter(Boolean);
+}
+
+async function assertPhysicalPathInside(target: string, worktree: string, label: string): Promise<void> {
+  const canonicalTarget = await canonicalPath(target);
+  const canonicalWorktree = await canonicalPath(worktree);
+  if (!isStrictlyInside(canonicalTarget, canonicalWorktree)) {
+    throw new Error(`${label} fuera del worktree: ${target}`);
   }
 }
 
@@ -142,9 +177,22 @@ async function isTracked(worktree: string, relative: string): Promise<boolean> {
   }
 }
 
+export interface IgnoredInputSnapshot {
+  path: string;
+  sha256: string;
+  editable: boolean;
+}
+
+export interface IgnoredBaselineSnapshot {
+  path: string;
+  sha256: string;
+}
+
 export interface ProvisionResult {
   provisioned: string[];
   missing: MissingTaskInput[];
+  ignoredInputs: IgnoredInputSnapshot[];
+  ignoredBaseline: IgnoredBaselineSnapshot[];
 }
 
 /** Provisiona las entradas declaradas dentro del worktree. Solo copia
@@ -160,6 +208,22 @@ export async function provisionTaskInputs(
   const canonicalWorktree = await canonicalPath(worktree);
   const provisioned: string[] = [];
   const missing: MissingTaskInput[] = [];
+
+  const ignoredInputs: IgnoredInputSnapshot[] = [];
+  const ignoredBaseline: IgnoredBaselineSnapshot[] = [];
+  for (const ignoredPath of await ignoredPaths(worktree)) {
+    const ignoredFile = path.resolve(worktree, ignoredPath);
+    try {
+      await assertPhysicalPathInside(ignoredFile, worktree, 'ignored-input preexistente');
+      ignoredBaseline.push({
+        path: ignoredPath,
+        sha256: createHash('sha256').update(await readFile(ignoredFile)).digest('hex'),
+      });
+    } catch {
+      /* Git can report an ignored directory in some versions/configurations;
+       * only file snapshots participate in mutation validation. */
+    }
+  }
 
   for (const input of manifest.inputs) {
     const dest = path.resolve(worktree, input.path);
@@ -217,8 +281,14 @@ export async function provisionTaskInputs(
           }
           throw error;
         }
+        const sourceStat = await stat(sourcePath);
+        if (!sourceStat.isFile()) {
+          throw new Error(`entrada ${input.path}: solo se admiten fuentes de archivo para ignored-local`);
+        }
         await mkdir(path.dirname(dest), { recursive: true });
-        await cp(sourcePath, dest, { recursive: true });
+        await cp(sourcePath, dest);
+        const sha256 = createHash('sha256').update(await readFile(dest)).digest('hex');
+        ignoredInputs.push({ path: input.path, sha256, editable: input.editable === true });
         provisioned.push(input.path);
         break;
       }
@@ -229,5 +299,48 @@ export async function provisionTaskInputs(
     }
   }
 
-  return { provisioned, missing };
+  return { provisioned, missing, ignoredInputs, ignoredBaseline };
+}
+
+export async function validateIgnoredInputs(
+  worktree: string,
+  ignoredInputs: IgnoredInputSnapshot[],
+  ignoredBaseline: IgnoredBaselineSnapshot[] = [],
+): Promise<void> {
+  const authorized = new Set(ignoredInputs.map(item => item.path.replace(/\\/gu, '/')));
+  const baseline = new Set(ignoredBaseline.map(item => item.path.replace(/\\/gu, '/')));
+  const current = await ignoredPaths(worktree);
+  const unauthorized = current.filter(item => !baseline.has(item) && !authorized.has(item));
+  if (unauthorized.length > 0) {
+    throw new Error(`ignored-input no autorizado para la tarea: ${unauthorized.join(', ')}`);
+  }
+
+  for (const baselineInput of ignoredBaseline) {
+    if (authorized.has(baselineInput.path.replace(/\\/gu, '/'))) continue;
+    const baselinePath = path.resolve(worktree, baselineInput.path);
+    await assertPhysicalPathInside(baselinePath, worktree, 'ignored-input preexistente');
+    let currentHash: string;
+    try {
+      currentHash = createHash('sha256').update(await readFile(baselinePath)).digest('hex');
+    } catch {
+      throw new Error(`ignored-input preexistente eliminado sin autorización: ${baselineInput.path}`);
+    }
+    if (currentHash !== baselineInput.sha256) {
+      throw new Error(`ignored-input preexistente modificado sin autorización: ${baselineInput.path}`);
+    }
+  }
+
+  for (const input of ignoredInputs) {
+    const dest = path.resolve(worktree, input.path);
+    await assertPhysicalPathInside(dest, worktree, 'ignored-input');
+    let current: string;
+    try {
+      current = createHash('sha256').update(await readFile(dest)).digest('hex');
+    } catch {
+      throw new Error(`ignored-input faltante durante validación: ${input.path}`);
+    }
+    if (current !== input.sha256 && !input.editable) {
+      throw new Error(`ignored-input no autorizado para edición: ${input.path}`);
+    }
+  }
 }

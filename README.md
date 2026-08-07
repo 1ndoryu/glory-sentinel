@@ -127,12 +127,15 @@ Para que la tarea disponga de sus dependencias locales (configuración, fixtures
 `--env-manifest <path>`): cada entrada declara `path`, `category` (`tracked`, `generated`,
 `ignored-local`, `external`, `secret`) y opcionalmente `source`. Las entradas `ignored-local` se
 provisionan en el worktree desde su fuente declarada (copia explícita aprobada, contenida en el
-projectRoot) antes de marcar la tarea ACTIVE; si una fuente falta, la tarea falla con
-`missing-task-input` (ruta, categoría, origen esperado y acción requerida) y se revierte el worktree
-sin dejar huérfanos. Los `secret` no pueden declarar `source` (entran por secret store/env);
-`external` y `generated` no se copian. Los provisionados son ignorados por Git, de modo que el
-worktree sigue limpio para gate/integrate, y el manifiesto no puede pisar contenido tracked del
-worktree. Si aparecen
+projectRoot) antes de marcar la tarea ACTIVE; solo se aceptan fuentes de archivo. La entrada puede
+marcar `editable: true` para autorizar su edición durante la tarea; por defecto queda protegida por
+hash. Sentinel captura además una línea base hash de los archivos ignorados preexistentes y bloquea
+modificaciones/eliminaciones no autorizadas o nuevos paths ignorados fuera del manifiesto en
+`gate`, `integrate` y `cleanup`. Si una fuente falta, la tarea falla con `missing-task-input` (ruta,
+categoría, origen esperado y acción requerida) y se revierte el worktree sin dejar huérfanos. Los
+`secret` no pueden declarar `source` (entran por secret store/env); `external` y `generated` no se
+copian. Los provisionados son ignorados por Git, de modo que el worktree sigue limpio para
+gate/integrate, y el manifiesto no puede pisar contenido tracked del worktree. Si aparecen
 conflictos, el agente debe actualizar su rama desde la rama principal declarada en `project.primaryBranch`,
 resolver y revisar cada conflicto en su worktree, ejecutar el gate, commitear la resolución y
 reintentar. Sentinel no resuelve conflictos a ciegas, pero una tarea no se considera terminada mientras
@@ -141,12 +144,14 @@ por el proyecto; no existe un target alternativo para cerrar una tarea. La rama 
 del consumidor; nunca se asume `main` ni el nombre de otro proyecto. Una excepción solo puede quedar como bloqueo documentado
 por una decisión explícita del usuario, nunca como tarea terminada. Después, `cleanup` retira el worktree,
 la rama y la metadata y se verifica que
-no quedan recursos de la tarea. El estado vive en `<repo>/.sentinel/coordination/` y los worktrees en `<repo>/.sentinel/worktrees/`;
-son temporales, están ignorados por Git y no se integran en la rama del proyecto.
+no quedan recursos de la tarea. El estado vive en `<repo>/.sentinel/coordination/`. Sin raíz externa,
+el worktree vive en `<repo>/.sentinel/worktrees/`; con `--worktrees-root`, vive bajo la raíz externa
+visible registrada en la tarea. En ambos casos es temporal, está aislado de la rama del proyecto y la
+metadata conserva la raíz usada para que cleanup/recover vuelvan a validar la contención.
 
 ```bash
 sentinel task claim GAME-01 --project-root . --agent agent-a
-sentinel task start <TASK-ID> --project-root . --agent agent-a --primary-branch <primary-branch> [--worktrees-root <dir>] [--env-manifest <path>] [--env-manifest <path>]
+sentinel task start <TASK-ID> --project-root . --agent agent-a --primary-branch <primary-branch> [--worktrees-root <dir>] [--env-manifest <path>]
 sentinel task heartbeat <TASK-ID> --project-root . --agent agent-a
 sentinel task gate <TASK-ID> --project-root ./.sentinel/worktrees/repo-<project-identity>-GAME-01 --agent agent-a
 sentinel task integrate <TASK-ID> --project-root . --agent agent-a --target <primary-branch>

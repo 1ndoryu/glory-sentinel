@@ -17,7 +17,12 @@
   tarea falla con `missing-task-input` (ruta, categoría, origen esperado y acción requerida) y se
   revierte el worktree creado (sin huérfanos). Los secretos no pueden venir de un source del checkout;
   external/generated no se copian. Los provisionados son ignorados por Git, así que el worktree sigue
-  limpio para gate/integrate; el manifiesto no puede pisar contenido tracked del worktree.
+  limpio para gate/integrate; el manifiesto no puede pisar contenido tracked del worktree. `editable: true`
+  autoriza cambios solo en esa entrada `ignored-local`; las demás quedan protegidas por hash. Sentinel
+  captura una línea base hash de ignorados preexistentes y bloquea modificaciones/eliminaciones no
+  autorizadas o nuevos paths ignorados en gate/integrate/cleanup. Rechaza manifiestos fuera del
+  `projectRoot`, symlinks de escape y fuentes de directorio; `TaskRecord` v2 se migra a schema v3
+  conservando la tarea.
 
 ## [0.6.4] - 2026-08-07
 

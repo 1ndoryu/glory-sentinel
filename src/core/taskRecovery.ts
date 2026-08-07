@@ -152,7 +152,11 @@ export async function recoverTask(options: TaskRecoveryOptions): Promise<TaskRec
     throw new Error(`recover bloqueado: el proceso ${record.pid} de ${options.taskId} sigue vivo`);
   }
   await verifyRecordedHeads(options.projectRoot, record);
-  const worktreeClean = await inspectWorktree(options.projectRoot, record.worktree, options.worktreesRoot);
+  const registeredRoot = record.worktreesRoot ?? options.worktreesRoot;
+  if (record.worktreesRoot && options.worktreesRoot && path.resolve(record.worktreesRoot) !== path.resolve(options.worktreesRoot)) {
+    throw new Error(`recover bloqueado: worktreesRoot no coincide con la metadata de ${options.taskId}`);
+  }
+  const worktreeClean = await inspectWorktree(options.projectRoot, record.worktree, registeredRoot);
   if (worktreeClean === false) {
     throw new Error(`recover bloqueado: worktree sucio ${record.worktree}`);
   }
@@ -177,6 +181,7 @@ export async function recoverTask(options: TaskRecoveryOptions): Promise<TaskRec
     expectedUpdatedAtMs: record.updatedAtMs,
     expectedPid: record.pid,
     expectedHead: record.head,
+    worktreesRoot: registeredRoot,
   });
   await writeRecoveryAudit(options.projectRoot, result, now);
   return result;
