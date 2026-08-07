@@ -35,6 +35,9 @@ export interface DiagnoseTool {
   sourcePath: string | null;
   sourceExternal: boolean;
   cliPath: string | null;
+  cliVersion: string | null;
+  configuredVersion: string | null;
+  lockVersion: string | null;
   configuredCommit: string | null;
   gitlinkCommit: string | null;
   checkoutCommit: string | null;
@@ -136,8 +139,8 @@ async function checkoutDirty(sourcePath: string): Promise<boolean> {
   }
 }
 
-async function cliResponds(cliPath: string | null): Promise<boolean> {
-  if (!cliPath) return false;
+async function cliVersion(cliPath: string | null): Promise<string | null> {
+  if (!cliPath) return null;
   try {
     const result = await execFileAsync(process.execPath, [cliPath, '--version'], {
       cwd: path.dirname(cliPath),
@@ -145,9 +148,10 @@ async function cliResponds(cliPath: string | null): Promise<boolean> {
       windowsHide: true,
       maxBuffer: 64 * 1024,
     });
-    return result.stdout.trim().length > 0;
+    const value = result.stdout.trim();
+    return value.length > 0 ? value : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -157,9 +161,14 @@ function toolConfig(manifest: Record<string, unknown>, name: string): Record<str
 }
 
 function resolveSourcePath(root: string, config: Record<string, unknown> | null): string | null {
-  const value = config?.sourcePath;
-  if (typeof value !== 'string' || value.length === 0) return null;
-  return path.resolve(root, value);
+  const sourcePath = config?.sourcePath;
+  if (typeof sourcePath === 'string' && sourcePath.length > 0) return path.resolve(root, sourcePath);
+  const sourcePathEnv = config?.sourcePathEnv;
+  if (typeof sourcePathEnv === 'string' && /^GLORY_[A-Z0-9_]+$/u.test(sourcePathEnv)) {
+    const value = process.env[sourcePathEnv];
+    return typeof value === 'string' && value.length > 0 ? path.resolve(value) : null;
+  }
+  return null;
 }
 
 function insideWorkspace(root: string, candidate: string): boolean {
@@ -186,7 +195,10 @@ async function diagnoseConfiguredTools(root: string, lockData: Record<string, un
       ? lockAnalyzers[name] as Record<string, unknown>
       : null;
     const configuredCommit = typeof config?.commit === 'string' ? config.commit : null;
+    const configuredVersion = typeof config?.version === 'string' ? config.version : null;
+    const lockVersion = typeof lockEntry?.version === 'string' ? lockEntry.version : null;
     const cli = typeof config?.cli === 'string' && sourcePath ? path.resolve(sourcePath, config.cli) : null;
+    const cliInsideSource = Boolean(sourcePath && cli && insideWorkspace(sourcePath, cli));
     let sourcePresent = false;
     let cliPresent = false;
     let actualCommit: string | null = null;
@@ -201,7 +213,7 @@ async function diagnoseConfiguredTools(root: string, lockData: Record<string, un
         try { await access(cli); cliPresent = true; } catch { cliPresent = false; }
       }
     }
-    const responds = await cliResponds(cliPresent ? cli : null);
+    const reportedVersion = await cliVersion(cliPresent ? cli : null);
     const relativeSource = sourcePath && insideWorkspace(root, sourcePath)
       ? path.relative(root, sourcePath).replace(/\\/g, '/')
       : null;
@@ -213,13 +225,16 @@ async function diagnoseConfiguredTools(root: string, lockData: Record<string, un
       sourcePath,
       sourceExternal,
       cliPath: cli,
+      cliVersion: reportedVersion,
+      configuredVersion,
+      lockVersion,
       configuredCommit,
       gitlinkCommit,
       checkoutCommit: actualCommit,
       lockCommit,
       sourcePresent,
       cliPresent,
-      cliResponds: responds,
+      cliResponds: Boolean(reportedVersion),
       checkoutDirty: dirty,
     };
     tools[name] = diagnostic;
@@ -228,13 +243,16 @@ async function diagnoseConfiguredTools(root: string, lockData: Record<string, un
     if (!sourcePath || !sourcePresent) issue('tool-source-missing', `${name}: sourcePath no está inicializado o no existe`);
     if (sourcePresent && !actualCommit) issue('tool-checkout-invalid', `${name}: no es un checkout Git resoluble`);
     if (!cliPresent) issue('tool-cli-missing', `${name}: falta el CLI compilado (${config?.cli ?? 'cli no declarado'})`);
-    else if (!responds) issue('tool-cli-unresponsive', `${name}: el CLI no responde a --version`);
+    else if (!reportedVersion) issue('tool-cli-unresponsive', `${name}: el CLI no responde a --version`);
+    if (cli && !cliInsideSource) issue('tool-cli-escape', `${name}: el CLI queda fuera de sourcePath`);
     if (sourcePresent && actualCommit && dirty) issue('tool-checkout-dirty', `${name}: checkout modificado; no se puede confiar en el lock`);
     if (!configuredCommit) issue('tool-config-commit-missing', `${name}: falta el commit fijado en quality-tools.json`);
     if (!lockEntry) issue('tool-lock-entry-missing', `${name}: falta analyzers.${name} en sentinel.lock.json`);
     if (configuredCommit && gitlinkCommit && configuredCommit !== gitlinkCommit) issue('tool-gitlink-mismatch', `${name}: quality-tools.json no coincide con el gitlink`);
     if (configuredCommit && actualCommit && configuredCommit !== actualCommit) issue('tool-checkout-mismatch', `${name}: checkout no coincide con quality-tools.json`);
     if (configuredCommit && configuredCommit !== lockCommit) issue('tool-lock-mismatch', `${name}: sentinel.lock.json no coincide con quality-tools.json`);
+    if (configuredVersion && configuredVersion !== lockVersion) issue('tool-lock-version-mismatch', `${name}: sentinel.lock.json version does not match quality-tools.json`);
+    if (configuredVersion && reportedVersion && configuredVersion !== reportedVersion) issue('tool-version-mismatch', `${name}: CLI reporta ${reportedVersion}, se esperaba ${configuredVersion}`);
     if (actualCommit && actualCommit !== lockCommit) issue('tool-installed-mismatch', `${name}: checkout instalado no coincide con sentinel.lock.json`);
   }
   return { tools, issues };
@@ -332,7 +350,7 @@ export function formatDiagnose(result: DiagnoseResult): string {
     `Runtime: ${result.runtime.activeVersion ? `activa v${result.runtime.activeVersion} (${result.runtime.activeVerified ? 'hash verificado' : 'hash pendiente'})` : 'no instalado'} · ${result.runtime.versions.length} versiones en ${result.runtime.targetRoot}`,
   ];
   for (const tool of Object.values(result.tools)) {
-    lines.push(`  ${tool.name}: source ${tool.sourcePresent ? 'ok' : 'falta'} · cli ${tool.cliPresent ? 'ok' : 'falta'} · respuesta ${tool.cliResponds ? 'ok' : 'falla'} · checkout ${tool.checkoutCommit?.slice(0, 8) ?? 'n/a'}${tool.checkoutDirty ? ' · SUCIO' : ''}`);
+    lines.push(`  ${tool.name}: source ${tool.sourcePresent ? 'ok' : 'missing'} - cli ${tool.cliPresent ? 'ok' : 'missing'} - version ${tool.cliVersion ?? 'failed'} - checkout ${tool.checkoutCommit?.slice(0, 8) ?? 'n/a'}${tool.checkoutDirty ? ' - DIRTY' : ''}`);
   }
   for (const issue of result.issues) lines.push(`ERROR ${issue.code}: ${issue.message}`);
   return lines.join('\n');
