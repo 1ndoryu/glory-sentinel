@@ -35,7 +35,12 @@ function fixture(): { parent: string; root: string } {
   return { parent, root };
 }
 
-const taskCoordinatorSuite = suite('task coordinator', () => {
+suite('task coordinator', function () {
+  /* La suite crea y elimina worktrees Git reales. En Windows sobre carpetas
+   * sincronizadas, una corrida válida puede superar el timeout unitario de
+   * 10 s. Debe fijarse antes de registrar los tests para que lo hereden. */
+  this.timeout(30_000);
+
   test('solo un agente gana dos claims concurrentes para la misma tarea', async () => {
     const { parent, root } = fixture();
     try {
@@ -320,11 +325,6 @@ const taskCoordinatorSuite = suite('task coordinator', () => {
     }
   });
 });
-
-/* La suite crea y elimina worktrees Git reales. En Windows sobre carpetas
- * sincronizadas, una corrida válida puede superar el timeout unitario de 10 s. */
-taskCoordinatorSuite.timeout(30_000);
-
 
 suite('env manifest provisioning ([VISIBLE-WORKTREE])', () => {
   function writeManifest(root: string, inputs: unknown[]): void {
