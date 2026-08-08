@@ -140,9 +140,25 @@ export async function recoverTask(options: TaskRecoveryOptions): Promise<TaskRec
     throw new Error(`recoveredBy inválido: ${options.recoveredBy}`);
   }
   const now = options.now ?? Date.now();
-  const status = await taskStatus(options.projectRoot, options.primaryBranch);
-  const record = status.tasks.find(item => item.taskId === options.taskId);
-  if (!record) throw new Error(`recover: no existe la tarea ${options.taskId}`);
+  const status = await taskStatus(options.projectRoot, options.primaryBranch, true);
+  /* status --all incluye todos los namespaces. Nunca se debe recuperar por
+   * taskId solamente: dos proyectos/ramas pueden reutilizar el mismo ID. */
+  const record = status.tasks.find(item => item.taskId === options.taskId && item.target === options.primaryBranch);
+  if (!record) {
+    const foreignTask = status.tasks.find(item => item.taskId === options.taskId);
+    if (foreignTask) {
+      throw new Error(`recover bloqueado: ${options.taskId} pertenece a la rama principal ${foreignTask.target}, no a ${options.primaryBranch}`);
+    }
+    const legacyMatches = status.legacyOrphans.filter(item => item.taskId === options.taskId);
+    if (legacyMatches.length > 1) {
+      throw new Error(`recover bloqueado: ${options.taskId} coincide con varias metadata legacy; requiere selección explícita de rama/namespace`);
+    }
+    const legacy = legacyMatches[0];
+    if (legacy) {
+      throw new Error(`recover bloqueado: ${options.taskId} es metadata legacy huérfana (${legacy.reason}); requiere adopción explícita de rama/namespace antes de limpiar`);
+    }
+    throw new Error(`recover: no existe la tarea ${options.taskId}`);
+  }
   if (record.state === 'INTEGRATED') throw new Error(`recover bloqueado: ${options.taskId} ya está integrada; usa cleanup`);
   const staleForMs = now - record.updatedAtMs;
   if (staleForMs <= TASK_TTL_MS) {
@@ -182,6 +198,9 @@ export async function recoverTask(options: TaskRecoveryOptions): Promise<TaskRec
     expectedPid: record.pid,
     expectedHead: record.head,
     worktreesRoot: registeredRoot,
+    cleanupTerminalState: 'RECOVERED',
+    cleanupActor: options.recoveredBy,
+    cleanupReason: 'recuperación de tarea expirada',
   });
   await writeRecoveryAudit(options.projectRoot, result, now);
   return result;

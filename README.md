@@ -147,7 +147,7 @@ la rama y la metadata y se verifica que
 no quedan recursos de la tarea. El estado vive en `<repo>/.sentinel/coordination/`. Sin raíz externa,
 el worktree vive en `<repo>/.sentinel/worktrees/`; con `--worktrees-root`, vive bajo la raíz externa
 visible registrada en la tarea. En ambos casos es temporal, está aislado de la rama del proyecto y la
-metadata conserva la raíz usada para que cleanup/recover vuelvan a validar la contención.
+metadata conserva la raíz usada para que cleanup/recover vuelvan a validar la contención. `task status --all --json` ofrece la vista global de namespaces, tareas activas, historial archivado, eventos, gates, commits, archivos cambiados, ramas/worktrees huérfanos, locks expirados y carpetas físicas pendientes de revisión. `claim` admite `--summary`, `--plan` y `--related-task`; las referencias son relativas y seguras. `cleanup` y `release` archivan el registro terminal, y una limpieza fallida conserva la metadata activa para no declarar un cierre falso.
 
 ```bash
 sentinel task claim GAME-01 --project-root . --agent agent-a

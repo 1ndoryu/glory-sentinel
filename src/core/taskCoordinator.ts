@@ -20,9 +20,43 @@ const OPERATION_LOCK_TTL_MS = 30 * 60 * 1000;
 const LOCK_REFRESH_MS = 60 * 1000;
 
 export type TaskState = 'CLAIMED' | 'ACTIVE' | 'INTEGRATING' | 'INTEGRATED';
+export type TaskTerminalState = 'CLEANED' | 'RELEASED' | 'RECOVERED';
+
+export interface TaskEvent {
+  eventId: string;
+  at: string;
+  actor: string;
+  action: string;
+  fromState: TaskState | null;
+  toState: TaskState | TaskTerminalState;
+  reason?: string;
+  exitCode?: number;
+  result?: string;
+}
+
+export interface TaskGateRun {
+  at: string;
+  actor: string;
+  mode: 'local' | 'full' | 'ci';
+  status: 'PASS' | 'FAIL' | 'ERROR';
+  exitCode: number;
+  reportPath?: string;
+}
 
 export interface TaskRecord {
   schemaVersion: 3;
+  /** Optional fields are additive so records written by 0.6.4 remain readable. */
+  summary?: string;
+  planReference?: string | null;
+  relatedTaskIds?: string[];
+  history?: TaskEvent[];
+  gateRuns?: TaskGateRun[];
+  commits?: string[];
+  changedFiles?: string[];
+  terminalState?: TaskTerminalState;
+  archivedAt?: string;
+  archivedBy?: string;
+  archivedReason?: string;
   taskId: string;
   agent: string;
   state: TaskState;
@@ -65,6 +99,12 @@ export interface TaskCoordinatorOptions {
   expectedUpdatedAtMs?: number;
   expectedPid?: number;
   expectedHead?: string | null;
+  summary?: string;
+  planReference?: string | null;
+  relatedTaskIds?: string[];
+  cleanupTerminalState?: TaskTerminalState;
+  cleanupActor?: string;
+  cleanupReason?: string;
 }
 
 export interface TaskStatusRecord extends TaskRecord {
@@ -73,17 +113,71 @@ export interface TaskStatusRecord extends TaskRecord {
   worktreeClean: boolean | null;
 }
 
+export interface TaskLegacyOrphan {
+  metadataPath: string;
+  taskId: string;
+  target: string | null;
+  branch: string | null;
+  worktree: string | null;
+  reason: string;
+}
+
 export interface TaskStatusResult {
   tasks: TaskStatusRecord[];
   invalidMetadata: string[];
+  legacyOrphans: TaskLegacyOrphan[];
   orphanWorktrees: string[];
   orphanBranches: string[];
   expiredLocks: string[];
+  history: TaskHistoryRecord[];
+  physicalOrphanWorktrees: string[];
+}
+
+export interface TaskHistoryRecord {
+  archiveSchemaVersion: 1;
+  taskId: string;
+  projectIdentity: string;
+  terminalState: TaskTerminalState;
+  archivedAt: string;
+  archivedBy: string;
+  archivedReason?: string;
+  record: TaskRecord;
 }
 
 const SAFE_TASK_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/u;
 const SAFE_AGENT = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/u;
 const SAFE_LOCK_KEY = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
+const SAFE_PROJECT_IDENTITY = /^[a-f0-9]{16}$/u;
+const MAX_HISTORY_EVENTS = 200;
+const MAX_HISTORY_FILES = 2000;
+const MAX_TEXT = 500;
+
+function boundedText(value: string | undefined, label: string): string | undefined {
+  if (value === undefined) return undefined;
+  const normalized = value.trim();
+  if (normalized.length > MAX_TEXT) throw new Error(`${label} supera ${MAX_TEXT} caracteres`);
+  return normalized || undefined;
+}
+
+function safeRelativeReference(value: string | null | undefined, label: string): string | null | undefined {
+  if (value === undefined || value === null) return value;
+  const normalized = value.replace(/\\/gu, '/');
+  if (!normalized || path.isAbsolute(value) || normalized.split('/').includes('..')) {
+    throw new Error(`${label} debe ser una ruta relativa dentro del proyecto`);
+  }
+  return boundedText(normalized, label);
+}
+
+function eventId(now: number): string {
+  return `${now}-${crypto.randomBytes(6).toString('hex')}`;
+}
+
+function appendTaskEvent(record: TaskRecord, event: Omit<TaskEvent, 'eventId' | 'at'> & { now: number }): void {
+  const events = record.history ?? [];
+  events.push({ eventId: eventId(event.now), at: new Date(event.now).toISOString(), ...event });
+  record.history = events.slice(-MAX_HISTORY_EVENTS);
+}
+
 export function sanitizeBranch(value: string): string {
   return assertSafeBranch(value);
 }
@@ -224,17 +318,25 @@ async function withLock<T>(root: string, key: string, primaryBranch: string, act
     void fs.utimes(lock, new Date(), new Date()).catch(() => undefined);
   }, LOCK_REFRESH_MS);
   refresh.unref?.();
+  let result: T;
+  let actionError: unknown;
   try {
-    return await action();
+    result = await action();
+  } catch (error) {
+    actionError = error;
   } finally {
     clearInterval(refresh);
-    try {
-      const owner = JSON.parse(await fs.readFile(path.join(lock, 'owner.json'), 'utf8')) as { token?: unknown };
-      if (owner.token === token) await fs.rm(lock, { recursive: true, force: true });
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-    }
   }
+  let cleanupError: unknown;
+  try {
+    const owner = JSON.parse(await fs.readFile(path.join(lock, 'owner.json'), 'utf8')) as { token?: unknown };
+    if (owner.token === token) await fs.rm(lock, { recursive: true, force: true });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') cleanupError = error;
+  }
+  if (actionError !== undefined) throw actionError;
+  if (cleanupError !== undefined) throw cleanupError;
+  return result!;
 }
 
 async function withTaskLock<T>(root: string, taskId: string, primaryBranch: string, action: () => Promise<T>): Promise<T> {
@@ -272,6 +374,37 @@ function stale(record: TaskRecord, now: number): boolean {
   return now - record.updatedAtMs > TASK_TTL_MS;
 }
 
+function validTaskEvent(value: unknown): value is TaskEvent {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const event = value as Partial<TaskEvent>;
+  const validFromState = (state: unknown): state is TaskState | null =>
+    state === null || ['CLAIMED', 'ACTIVE', 'INTEGRATING', 'INTEGRATED'].includes(state as string);
+  const validToState = (state: unknown): state is TaskState | TaskTerminalState =>
+    ['CLAIMED', 'ACTIVE', 'INTEGRATING', 'INTEGRATED', 'CLEANED', 'RELEASED', 'RECOVERED'].includes(state as string);
+  return typeof event.eventId === 'string' && event.eventId.length > 0 && event.eventId.length <= 128
+    && typeof event.at === 'string' && Number.isFinite(Date.parse(event.at))
+    && typeof event.actor === 'string' && SAFE_AGENT.test(event.actor)
+    && typeof event.action === 'string' && event.action.length > 0 && event.action.length <= 64
+    && validFromState(event.fromState) && validToState(event.toState)
+    && (event.reason === undefined || (typeof event.reason === 'string' && event.reason.length <= MAX_TEXT))
+    && (event.exitCode === undefined || (Number.isInteger(event.exitCode) && event.exitCode >= 0 && event.exitCode <= 255))
+    && (event.result === undefined || (typeof event.result === 'string' && event.result.length <= MAX_TEXT));
+}
+
+function validTaskGateRun(value: unknown): value is TaskGateRun {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const gate = value as Partial<TaskGateRun>;
+  const reportPath = gate.reportPath;
+  const exitCode = gate.exitCode;
+  return typeof gate.at === 'string' && Number.isFinite(Date.parse(gate.at))
+    && typeof gate.actor === 'string' && SAFE_AGENT.test(gate.actor)
+    && ['local', 'full', 'ci'].includes(gate.mode ?? '')
+    && ['PASS', 'FAIL', 'ERROR'].includes(gate.status ?? '')
+    && typeof exitCode === 'number' && Number.isInteger(exitCode) && exitCode >= 0 && exitCode <= 255
+    && (reportPath === undefined || (typeof reportPath === 'string' && !path.isAbsolute(reportPath)
+      && !reportPath.replace(/\\/gu, '/').split('/').includes('..') && reportPath.length <= MAX_TEXT));
+}
+
 function validTaskRecord(value: unknown): value is TaskRecord {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const record = value as Partial<TaskRecord>;
@@ -291,19 +424,37 @@ function validTaskRecord(value: unknown): value is TaskRecord {
     || (record.head !== null && (typeof record.head !== 'string' || !/^[a-f0-9]{40}$/u.test(record.head)))
     || typeof record.createdAt !== 'string' || typeof record.updatedAt !== 'string'
     || !Number.isFinite(record.updatedAtMs) || typeof record.pid !== 'number' || !Number.isFinite(record.pid) || record.pid <= 0
-    || typeof record.host !== 'string' || record.host.length === 0) return false;
+    || typeof record.host !== 'string' || record.host.length === 0
+    || (record.summary !== undefined && (typeof record.summary !== 'string' || record.summary.length > MAX_TEXT))
+    || (record.planReference !== undefined && record.planReference !== null && (typeof record.planReference !== 'string' || path.isAbsolute(record.planReference) || record.planReference.replace(/\\/gu, '/').split('/').includes('..')))
+    || (record.relatedTaskIds !== undefined && (!Array.isArray(record.relatedTaskIds) || record.relatedTaskIds.some(item => typeof item !== 'string' || !SAFE_TASK_ID.test(item))))
+    || (record.history !== undefined && (!Array.isArray(record.history) || record.history.length > MAX_HISTORY_EVENTS || record.history.some(event => !validTaskEvent(event))))
+    || (record.gateRuns !== undefined && (!Array.isArray(record.gateRuns) || record.gateRuns.length > 50 || record.gateRuns.some(run => !validTaskGateRun(run))))
+    || (record.commits !== undefined && (!Array.isArray(record.commits) || record.commits.some(item => typeof item !== 'string' || !/^[a-f0-9]{40}$/u.test(item))))
+    || (record.changedFiles !== undefined && (!Array.isArray(record.changedFiles) || record.changedFiles.some(item => typeof item !== 'string' || path.isAbsolute(item) || item.replace(/\\/gu, '/').split('/').includes('..'))))) return false;
   return true;
 }
 
 function normalizeTaskRecord(value: unknown): { record: TaskRecord; migrated: boolean } | null {
   if (validTaskRecord(value)) return { record: value, migrated: false };
-  if (!value || typeof value !== 'object' || Array.isArray(value) || (value as { schemaVersion?: unknown }).schemaVersion !== 2) return null;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const legacy = value as Record<string, unknown>;
+  if (legacy.schemaVersion !== 1 && legacy.schemaVersion !== 2) return null;
   const migrated = {
     ...legacy,
     schemaVersion: TASK_COORDINATOR_SCHEMA_VERSION,
-    ignoredInputs: [],
-    ignoredBaseline: null,
+    branch: legacy.branch ?? null,
+    worktree: legacy.worktree ?? null,
+    worktreesRoot: legacy.worktreesRoot ?? null,
+    ignoredInputs: Array.isArray(legacy.ignoredInputs) ? legacy.ignoredInputs : [],
+    ignoredBaseline: legacy.ignoredBaseline === undefined ? null : legacy.ignoredBaseline,
+    base: legacy.base ?? null,
+    baseHead: legacy.baseHead ?? null,
+    head: legacy.head ?? null,
+    history: Array.isArray(legacy.history) ? legacy.history : [],
+    gateRuns: Array.isArray(legacy.gateRuns) ? legacy.gateRuns : [],
+    commits: Array.isArray(legacy.commits) ? legacy.commits : [],
+    changedFiles: Array.isArray(legacy.changedFiles) ? legacy.changedFiles : [],
   };
   return validTaskRecord(migrated) ? { record: migrated, migrated: true } : null;
 }
@@ -311,7 +462,10 @@ function normalizeTaskRecord(value: unknown): { record: TaskRecord; migrated: bo
 function createRecord(options: TaskCoordinatorOptions): TaskRecord {
   const now = options.now ?? Date.now();
   const target = requiredPrimaryBranch(options);
-  return {
+  const summary = boundedText(options.summary, 'summary');
+  const planReference = safeRelativeReference(options.planReference, 'planReference');
+  const relatedTaskIds = (options.relatedTaskIds ?? []).map(sanitizeTaskId);
+  const record: TaskRecord = {
     schemaVersion: TASK_COORDINATOR_SCHEMA_VERSION,
     taskId: sanitizeTaskId(options.taskId),
     agent: sanitizeAgent(options.agent),
@@ -330,7 +484,55 @@ function createRecord(options: TaskCoordinatorOptions): TaskRecord {
     updatedAtMs: now,
     pid: process.pid,
     host: os.hostname(),
+    ...(summary ? { summary } : {}),
+    ...(planReference !== undefined ? { planReference } : {}),
+    ...(relatedTaskIds.length > 0 ? { relatedTaskIds } : {}),
+    history: [],
+    gateRuns: [],
+    commits: [],
+    changedFiles: [],
   };
+  appendTaskEvent(record, {
+    now,
+    actor: record.agent,
+    action: 'CLAIM',
+    fromState: null,
+    toState: 'CLAIMED',
+    reason: summary,
+  });
+  return record;
+}
+
+async function archiveTask(root: string, record: TaskRecord, terminalState: TaskTerminalState, actor: string, reason?: string, now = Date.now()): Promise<void> {
+  const commonDir = await gitCommonDir(root);
+  const identity = projectIdentity(commonDir, record.target);
+  const directory = path.join(await coordinatorDir(root, record.target), '..', '..', 'history', identity);
+  await fs.mkdir(directory, { recursive: true });
+  const archived: TaskHistoryRecord = {
+    archiveSchemaVersion: 1,
+    taskId: record.taskId,
+    projectIdentity: identity,
+    terminalState,
+    archivedAt: new Date(now).toISOString(),
+    archivedBy: actor,
+    ...(reason ? { archivedReason: boundedText(reason, 'cleanupReason') } : {}),
+    record: {
+      ...record,
+      terminalState,
+      archivedAt: new Date(now).toISOString(),
+      archivedBy: actor,
+      ...(reason ? { archivedReason: boundedText(reason, 'cleanupReason') } : {}),
+    },
+  };
+  const archivePath = path.join(directory, `${sanitizeTaskId(record.taskId)}-${now}-${eventId(now)}.json`);
+  await writeAtomic(archivePath, `${JSON.stringify(archived, null, 2)}\n`);
+}
+
+async function collectTaskEvidence(worktree: string, baseHead: string | null, head: string): Promise<{ commits: string[]; changedFiles: string[] }> {
+  if (!baseHead) return { commits: [head], changedFiles: [] };
+  const commits = (await git(worktree, ['log', '--format=%H', `${baseHead}..${head}`])).split(/\\r?\\n/u).filter(Boolean);
+  const changedFiles = (await git(worktree, ['diff', '--name-only', `${baseHead}..${head}`])).split(/\\r?\\n/u).filter(Boolean).map(value => value.replace(/\\/gu, '/'));
+  return { commits, changedFiles };
 }
 
 async function writeTask(root: string, record: TaskRecord): Promise<void> {
@@ -423,8 +625,10 @@ export async function claimTask(options: TaskCoordinatorOptions): Promise<TaskRe
       if (requestedBranch && sanitizeBranch(requestedBranch) !== current.target) {
         throw new Error(`la tarea ${options.taskId} ya está fijada a la rama principal ${current.target}`);
       }
+      const previousState = current.state;
       current.updatedAt = new Date(now).toISOString();
       current.updatedAtMs = now;
+      appendTaskEvent(current, { now, actor: current.agent, action: 'CLAIM_REFRESH', fromState: previousState, toState: previousState });
       await writeTask(root, current);
       return current;
     }
@@ -481,9 +685,11 @@ export async function heartbeatTask(options: TaskCoordinatorOptions): Promise<Ta
     if (record.state !== 'CLAIMED' && record.state !== 'ACTIVE') throw new Error(`heartbeat inválido en estado ${record.state}`);
     const now = options.now ?? Date.now();
     if (stale(record, now)) throw new Error(`toma expirada para ${options.taskId}; requiere takeover explícito`);
+    const previousState = record.state;
     record.updatedAt = new Date(now).toISOString();
     record.updatedAtMs = now;
     record.pid = process.pid;
+    appendTaskEvent(record, { now, actor: record.agent, action: 'HEARTBEAT', fromState: previousState, toState: previousState });
     record.host = os.hostname();
     await writeTask(root, record);
     return record;
@@ -535,6 +741,7 @@ export async function startTask(options: TaskCoordinatorOptions): Promise<TaskRe
         record.ignoredBaseline = ignoredBaseline;
       }
       record.state = 'ACTIVE';
+      appendTaskEvent(record, { now, actor: record.agent, action: 'START', fromState: 'CLAIMED', toState: 'ACTIVE' });
       record.branch = branch;
       record.worktree = worktree;
       record.worktreesRoot = options.worktreesRoot ? resolved.worktreesRoot : null;
@@ -591,6 +798,9 @@ export async function integrateTask(options: TaskCoordinatorOptions): Promise<Ta
       if (await gitStatus(worktree)) throw new Error(`worktree sucio; no se integra ${options.taskId}`);
       const head = await git(worktree, ['rev-parse', 'HEAD']);
       if (await git(root, ['rev-parse', branch]) !== head) throw new Error(`la rama ${branch} no coincide con el HEAD del worktree`);
+      const evidence = await collectTaskEvidence(worktree, record.baseHead, head);
+      record.commits = evidence.commits;
+      record.changedFiles = evidence.changedFiles;
 
       const targetHead = await git(root, ['rev-parse', target]);
       if (record.state === 'ACTIVE' && stale(record, options.now ?? Date.now()) && !options.force) {
@@ -601,6 +811,7 @@ export async function integrateTask(options: TaskCoordinatorOptions): Promise<Ta
         if (head === record.head) throw new Error(`la tarea ${options.taskId} no tiene un commit nuevo`);
         record.state = 'INTEGRATING';
         record.head = head;
+        appendTaskEvent(record, { now: options.now ?? Date.now(), actor: record.agent, action: 'INTEGRATE_START', fromState: 'ACTIVE', toState: 'INTEGRATING' });
         await writeTask(root, record);
         try {
           await git(root, ['merge', '--ff-only', branch]);
@@ -618,6 +829,7 @@ export async function integrateTask(options: TaskCoordinatorOptions): Promise<Ta
       record.state = 'INTEGRATED';
       record.head = head;
       const now = options.now ?? Date.now();
+      appendTaskEvent(record, { now, actor: record.agent, action: 'INTEGRATE', fromState: 'INTEGRATING', toState: 'INTEGRATED', result: 'PASS' });
       record.updatedAt = new Date(now).toISOString();
       record.updatedAtMs = now;
       await writeTask(root, record);
@@ -646,12 +858,12 @@ async function worktreeClean(worktree: string | null): Promise<boolean | null> {
   }
 }
 
-export async function cleanupTask(options: TaskCoordinatorOptions): Promise<void> {
+export async function cleanupTask(options: TaskCoordinatorOptions): Promise<TaskTerminalState | null> {
   const root = rootOf(options.projectRoot);
   const primaryBranch = requiredPrimaryBranch(options);
   return withTaskLock(root, options.taskId, primaryBranch, async () => {
     const record = await readTask(root, options.taskId, primaryBranch);
-    if (!record) return;
+    if (!record) return null;
     if (record.agent !== options.agent) throw new Error(`tarea ${options.taskId} pertenece a ${record.agent}`);
     if (options.expectedUpdatedAtMs !== undefined && record.updatedAtMs !== options.expectedUpdatedAtMs) {
       throw new Error(`cleanup bloqueado: metadata de ${options.taskId} cambió durante la recuperación`);
@@ -688,6 +900,9 @@ export async function cleanupTask(options: TaskCoordinatorOptions): Promise<void
         recordedWorktree = canonicalWorktree;
       }
     }
+    const now = options.now ?? Date.now();
+    const terminalState = options.cleanupTerminalState ?? (forcedExpired ? 'RECOVERED' : 'CLEANED');
+    appendTaskEvent(record, { now, actor: options.cleanupActor ?? options.agent, action: terminalState, fromState: record.state, toState: terminalState, reason: options.cleanupReason });
     if (recordedWorktree && await exists(recordedWorktree)) {
       if (record.ignoredBaseline !== null) await validateIgnoredInputs(recordedWorktree, record.ignoredInputs, record.ignoredBaseline);
       await git(root, ['worktree', 'remove', '--force', recordedWorktree]);
@@ -705,7 +920,12 @@ export async function cleanupTask(options: TaskCoordinatorOptions): Promise<void
        * branch. */
       await git(root, ['branch', '-D', record.branch]);
     }
+    /* Archive only after every destructive resource operation succeeds. If a
+     * removal fails, active metadata remains the source of truth instead of
+     * falsely reporting a terminal task. */
+    await archiveTask(root, record, terminalState, options.cleanupActor ?? options.agent, options.cleanupReason, now);
     await fs.rm(await taskFilePath(root, options.taskId, record.target), { force: true });
+    return terminalState;
   });
 }
 
@@ -718,18 +938,24 @@ export async function releaseTask(options: TaskCoordinatorOptions): Promise<void
     if (record.agent !== options.agent) throw new Error(`tarea ${options.taskId} pertenece a ${record.agent}`);
     if (record.state === 'ACTIVE' || record.state === 'INTEGRATING') throw new Error(`release bloqueado: integra o abandona ${options.taskId}`);
     if (record.state === 'INTEGRATED') throw new Error(`cleanup requerido antes de release ${options.taskId}`);
+    if (record.branch || record.worktree || record.worktreesRoot) {
+      throw new Error(`release bloqueado: ${options.taskId} conserva recursos; ejecuta cleanup o recuperación`);
+    }
+    const now = options.now ?? Date.now();
+    appendTaskEvent(record, { now, actor: options.agent, action: 'RELEASE', fromState: record.state, toState: 'RELEASED' });
+    await archiveTask(root, record, 'RELEASED', options.agent, 'release explícito', now);
     await fs.rm(await taskFilePath(root, options.taskId, record.target), { force: true });
   });
 }
 
-async function registeredTaskWorktrees(root: string, branchPrefix: string): Promise<{ paths: Set<string>; branches: Set<string> }> {
+async function registeredTaskWorktrees(root: string, branchPrefixes: string[]): Promise<{ paths: Set<string>; branches: Set<string> }> {
   const output = await git(root, ['worktree', 'list', '--porcelain']);
   const paths = new Set<string>();
   const branches = new Set<string>();
   let worktree: string | null = null;
   let branch: string | null = null;
   const flush = () => {
-    if (worktree && branch?.startsWith(`${branchPrefix}/`)) {
+    if (worktree && branch && branchPrefixes.some(prefix => branch!.startsWith(`${prefix}/`))) {
       paths.add(path.resolve(worktree));
       branches.add(branch);
     }
@@ -744,37 +970,160 @@ async function registeredTaskWorktrees(root: string, branchPrefix: string): Prom
   return { paths, branches };
 }
 
-export async function taskStatus(projectRoot: string, primaryBranch: string): Promise<TaskStatusResult> {
+export async function recordTaskGateRun(options: TaskCoordinatorOptions & { mode: 'local' | 'full' | 'ci'; status: 'PASS' | 'FAIL' | 'ERROR'; exitCode: number; reportPath?: string }): Promise<void> {
+  const root = rootOf(options.projectRoot);
+  const primaryBranch = requiredPrimaryBranch(options);
+  await withTaskLock(root, options.taskId, primaryBranch, async () => {
+    const record = await readTask(root, options.taskId, primaryBranch);
+    if (!record) throw new Error(`tarea ${options.taskId} no está tomada`);
+    if (record.agent !== options.agent) throw new Error(`tarea ${options.taskId} pertenece a ${record.agent}`);
+    const now = options.now ?? Date.now();
+    record.gateRuns = [...(record.gateRuns ?? []), {
+      at: new Date(now).toISOString(),
+      actor: options.agent,
+      mode: options.mode,
+      status: options.status,
+      exitCode: options.exitCode,
+      ...(options.reportPath ? { reportPath: safeRelativeReference(options.reportPath, 'reportPath') ?? undefined } : {}),
+    }].slice(-50);
+    appendTaskEvent(record, { now, actor: options.agent, action: 'GATE', fromState: record.state, toState: record.state, exitCode: options.exitCode, result: options.status });
+    record.updatedAt = new Date(now).toISOString();
+    record.updatedAtMs = now;
+    await writeTask(root, record);
+  });
+}
+
+export async function taskStatus(projectRoot: string, primaryBranch: string, includeAll = false): Promise<TaskStatusResult> {
   const root = rootOf(projectRoot);
   const normalizedPrimaryBranch = sanitizeBranch(primaryBranch);
   const directory = await coordinatorDir(root, normalizedPrimaryBranch);
-  let names: string[] = [];
-  try { names = (await fs.readdir(directory)).filter(name => name.endsWith('.json')); }
-  catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
   const tasks: TaskStatusRecord[] = [];
+  const history: TaskHistoryRecord[] = [];
   const invalidMetadata: string[] = [];
-  for (const name of names) {
+  const legacyOrphans: TaskLegacyOrphan[] = [];
+  const statusCommonDir = await gitCommonDir(root);
+  const coordinationRoot = path.dirname(directory);
+  let identityDirectories = [path.basename(directory)];
+  if (includeAll) {
     try {
-      const value: unknown = JSON.parse(await fs.readFile(path.join(directory, name), 'utf8'));
-      const normalized = normalizeTaskRecord(value);
-      if (!normalized) throw new Error('schema inválido');
-      if (normalized.migrated) await writeTask(root, normalized.record);
-      const [alive, clean] = await Promise.all([processAlive(normalized.record), worktreeClean(normalized.record.worktree)]);
-      tasks.push({
-        ...normalized.record,
-        expired: stale(normalized.record, Date.now()),
-        processAlive: alive,
-        worktreeClean: clean,
-      });
-    } catch { invalidMetadata.push(name); }
+      identityDirectories = (await fs.readdir(coordinationRoot, { withFileTypes: true }))
+        .filter(entry => entry.isDirectory())
+        .map(entry => entry.name);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      identityDirectories = [];
+    }
+  }
+  for (const identityDirectory of identityDirectories) {
+    const activeDirectory = path.join(coordinationRoot, identityDirectory);
+    let names: string[] = [];
+    try { names = (await fs.readdir(activeDirectory)).filter(name => name.endsWith('.json')); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+    for (const name of names) {
+      try {
+        const value: unknown = JSON.parse(await fs.readFile(path.join(activeDirectory, name), 'utf8'));
+        const normalized = normalizeTaskRecord(value);
+        if (!normalized) {
+          const legacy = value && typeof value === 'object' && !Array.isArray(value)
+            ? value as Record<string, unknown>
+            : null;
+          if (legacy && (legacy.schemaVersion === 1 || legacy.schemaVersion === 2)
+            && typeof legacy.taskId === 'string' && SAFE_TASK_ID.test(legacy.taskId)) {
+            legacyOrphans.push({
+              metadataPath: includeAll ? `${identityDirectory}/${name}` : name,
+              taskId: legacy.taskId,
+              target: typeof legacy.target === 'string' ? legacy.target : null,
+              branch: typeof legacy.branch === 'string' ? legacy.branch : null,
+              worktree: typeof legacy.worktree === 'string' ? legacy.worktree : null,
+              reason: 'metadata legacy no cumple el esquema actual; requiere revisión/adopción explícita',
+            });
+            continue;
+          }
+          throw new Error('schema inválido');
+        }
+        /* status es diagnóstico: no debe mutar metadata legacy solo por leerla.
+         * Una metadata v1/v2 de otra rama/namespace no se convierte en tarea
+         * activa: se expone como legacyOrphan para revisión/adopción explícita. */
+        const taskIdentity = projectIdentity(statusCommonDir, normalized.record.target);
+        const expectedCurrentBranch = branchFor(normalized.record.taskId, projectIdentity(statusCommonDir, normalizedPrimaryBranch));
+        const legacyNamespaceMismatch = normalized.migrated && (
+          normalized.record.target !== normalizedPrimaryBranch
+          || (normalized.record.branch !== null && normalized.record.branch !== expectedCurrentBranch)
+        );
+        if (legacyNamespaceMismatch) {
+          legacyOrphans.push({
+            metadataPath: includeAll ? `${identityDirectory}/${name}` : name,
+            taskId: normalized.record.taskId,
+            target: normalized.record.target ?? null,
+            branch: normalized.record.branch,
+            worktree: normalized.record.worktree,
+            reason: 'metadata legacy pertenece a otra rama o namespace; requiere adopción/revisión explícita',
+          });
+          continue;
+        }
+        const safeWorktree = normalized.record.worktree
+          ? await resolveWorktreePath(root, normalized.record.worktree, statusCommonDir, normalized.record.taskId, taskIdentity, normalized.record.worktreesRoot ?? undefined)
+          : null;
+        const [alive, clean] = await Promise.all([processAlive(normalized.record), worktreeClean(safeWorktree?.worktree ?? null)]);
+        tasks.push({
+          ...normalized.record,
+          expired: stale(normalized.record, Date.now()),
+          processAlive: alive,
+          worktreeClean: clean,
+        });
+      } catch { invalidMetadata.push(includeAll ? `${identityDirectory}/${name}` : name); }
+    }
+  }
+  if (includeAll) {
+    const historyRoot = path.join(directory, '..', '..', 'history');
+    try {
+      let historyFilesRead = 0;
+      for (const identity of await fs.readdir(historyRoot)) {
+        if (!SAFE_PROJECT_IDENTITY.test(identity)) continue;
+        const identityRoot = path.join(historyRoot, identity);
+        for (const name of await fs.readdir(identityRoot)) {
+          if (!name.endsWith('.json')) continue;
+          if (++historyFilesRead > MAX_HISTORY_FILES) {
+            invalidMetadata.push(`history: límite de ${MAX_HISTORY_FILES} archivos alcanzado`);
+            break;
+          }
+          try {
+            const archived = JSON.parse(await fs.readFile(path.join(identityRoot, name), 'utf8')) as Partial<TaskHistoryRecord>;
+            const validArchive = archived.archiveSchemaVersion === 1
+              && typeof archived.taskId === 'string' && SAFE_TASK_ID.test(archived.taskId)
+              && typeof archived.projectIdentity === 'string' && SAFE_PROJECT_IDENTITY.test(archived.projectIdentity)
+              && ['CLEANED', 'RELEASED', 'RECOVERED'].includes(archived.terminalState ?? '')
+              && typeof archived.archivedAt === 'string'
+              && typeof archived.archivedBy === 'string' && SAFE_AGENT.test(archived.archivedBy)
+              && Boolean(archived.record) && validTaskRecord(archived.record)
+              && archived.record.taskId === archived.taskId
+              && archived.projectIdentity === projectIdentity(statusCommonDir, archived.record.target);
+            if (!validArchive) throw new Error('historial inválido');
+            history.push(archived as TaskHistoryRecord);
+          } catch { invalidMetadata.push(`history/${identity}/${name}`); }
+        }
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
   }
   const knownPaths = new Set(tasks.map(task => task.worktree).filter((value): value is string => Boolean(value)).map(value => path.resolve(value)));
   const knownBranches = new Set(tasks.map(task => task.branch).filter((value): value is string => Boolean(value)));
-  const commonDir = await gitCommonDir(root);
-  const branchPrefix = taskBranchPrefix(projectIdentity(commonDir, normalizedPrimaryBranch));
-  const registered = await registeredTaskWorktrees(root, branchPrefix);
-  const branches = (await git(root, ['for-each-ref', '--format=%(refname:short)', `refs/heads/${branchPrefix}/`]))
-    .split(/\r?\n/u).filter(Boolean);
+  const commonDir = statusCommonDir;
+  const identities = includeAll
+    ? identityDirectories.filter(identity => SAFE_PROJECT_IDENTITY.test(identity))
+    : [projectIdentity(commonDir, normalizedPrimaryBranch)];
+  const branchPrefixes = identities.map(taskBranchPrefix);
+  const allTaskBranches = await git(root, ['for-each-ref', '--format=%(refname:short)', 'refs/heads/task/']);
+  const discoveredPrefixes = allTaskBranches
+    .split(/\r?\n/u)
+    .filter(Boolean)
+    .map(branch => branch.split('/').slice(0, 2).join('/'))
+    .filter(prefix => /^task\/[a-f0-9]{16}$/u.test(prefix));
+  const allPrefixes = [...new Set([...branchPrefixes, ...discoveredPrefixes])];
+  const registered = await registeredTaskWorktrees(root, allPrefixes);
+  const branches = (await Promise.all(allPrefixes.map(prefix => git(root, ['for-each-ref', '--format=%(refname:short)', `refs/heads/${prefix}/`]))) )
+    .flatMap(output => output.split(/\r?\n/u).filter(Boolean));
   let locks: string[] = [];
   try {
     locks = (await fs.readdir(directory)).filter(name => name.endsWith('.lock'));
@@ -784,11 +1133,38 @@ export async function taskStatus(projectRoot: string, primaryBranch: string): Pr
     try { if (Date.now() - (await fs.stat(path.join(directory, lock))).mtimeMs > OPERATION_LOCK_TTL_MS) expiredLocks.push(lock); }
     catch { /* desapareció durante status */ }
   }
+  const physicalOrphanWorktrees: string[] = [];
+  const physicalRoots = new Set<string>([path.resolve(path.dirname(directory), '..', 'worktrees')]);
+  for (const task of tasks) {
+    if (task.worktreesRoot) physicalRoots.add(path.resolve(task.worktreesRoot));
+  }
+  for (const archived of history) {
+    if (archived.record.worktreesRoot) physicalRoots.add(path.resolve(archived.record.worktreesRoot));
+  }
+  for (const physicalRoot of physicalRoots) {
+    try {
+      for (const name of await fs.readdir(physicalRoot)) {
+        const candidate = path.resolve(physicalRoot, name);
+        if (knownPaths.has(candidate)) continue;
+        try {
+          const stat = await fs.lstat(candidate);
+          if (stat.isDirectory() || stat.isSymbolicLink()) physicalOrphanWorktrees.push(candidate);
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+        }
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+  }
   return {
     tasks,
     invalidMetadata,
+    legacyOrphans,
     orphanWorktrees: [...registered.paths].filter(value => !knownPaths.has(value)),
     orphanBranches: branches.filter(value => !knownBranches.has(value)),
     expiredLocks,
+    history: history.sort((a, b) => a.archivedAt.localeCompare(b.archivedAt)),
+    physicalOrphanWorktrees,
   };
 }

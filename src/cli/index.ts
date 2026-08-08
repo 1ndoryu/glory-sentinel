@@ -55,6 +55,7 @@ import {
   releaseTask,
   startTask,
   taskStatus,
+  recordTaskGateRun,
   verifyTaskWorktree,
 } from '../core/taskCoordinator';
 
@@ -80,6 +81,10 @@ export interface TaskCliArgs {
   stagesPath?: string;
   json?: boolean;
   outputPath?: string;
+  all?: boolean;
+  summary?: string;
+  planReference?: string;
+  relatedTaskIds?: string[];
 }
 
 export type TaskCliResult = Record<string, unknown>;
@@ -96,7 +101,7 @@ function taskUsage(): string {
     '  sentinel task claim <id> --project-root <dir> --agent <id> [--force] [--json]',
     '  sentinel task start <id> --project-root <dir> --agent <id> [--primary-branch <branch>] [--path <dir>] [--worktrees-root <dir>] [--env-manifest <path>]',
     '  sentinel task heartbeat <id> --project-root <dir> --agent <id>',
-    '  sentinel task status --project-root <dir> [--json]',
+    '  sentinel task status --project-root <dir> [--all] [--json]',
     '  sentinel task gate <id> --project-root <worktree> --agent <id> [--full|--ci]',
     '  sentinel task integrate <id> --project-root <dir> --agent <id> [--target <primary-branch>]',
     '  sentinel task cleanup <id> --project-root <dir> --agent <id> [--force]',
@@ -269,6 +274,17 @@ export function parseTaskCliArgs(args: string[]): TaskCliArgs {
     } else if (arg === '--stages') {
       parsed.stagesPath = takeValue(args, index, arg);
       index++;
+    } else if (arg === '--summary') {
+      parsed.summary = takeValue(args, index, arg);
+      index++;
+    } else if (arg === '--plan') {
+      parsed.planReference = takeValue(args, index, arg);
+      index++;
+    } else if (arg === '--related-task') {
+      parsed.relatedTaskIds = [...(parsed.relatedTaskIds ?? []), takeValue(args, index, arg)];
+      index++;
+    } else if (arg === '--all') {
+      parsed.all = true;
     } else if (arg === '--json') {
       parsed.json = true;
     } else if (arg === '--output') {
@@ -822,27 +838,38 @@ export async function taskCliTarget(args: TaskCliArgs): Promise<TaskCliExecution
   const primaryBranch = args.primaryBranch ?? configuredBranch;
   let result: TaskCliResult;
   switch (args.taskAction) {
-    case 'claim': result = { ...(await claimTask({ projectRoot: workspace, taskId, agent, force: args.force, target: args.target, primaryBranch })) }; break;
+    case 'claim': result = { ...(await claimTask({ projectRoot: workspace, taskId, agent, force: args.force, target: args.target, primaryBranch, summary: args.summary, planReference: args.planReference, relatedTaskIds: args.relatedTaskIds })) }; break;
     case 'start': result = { ...(await startTask({ projectRoot: workspace, taskId, agent, base: args.base, target: args.target, primaryBranch, worktreePath: args.worktreePath, worktreesRoot: args.worktreesRoot, envManifestPath: args.envManifestPath })) }; break;
     case 'heartbeat': result = { ...(await heartbeatTask({ projectRoot: workspace, taskId, agent, primaryBranch })) }; break;
     case 'status': {
       if (!primaryBranch) throw new Error('task status requiere project.primaryBranch en sentinel.config.json');
-      result = { ...(await taskStatus(workspace, primaryBranch)) };
+      result = { ...(await taskStatus(workspace, primaryBranch, args.all)) };
       break;
     }
     case 'gate': {
       if (!primaryBranch) throw new Error('task gate requiere project.primaryBranch en sentinel.config.json');
       await verifyTaskWorktree({ projectRoot: workspace, taskId, agent, primaryBranch });
       await heartbeatTask({ projectRoot: workspace, taskId, agent, primaryBranch });
-      const check = await checkCliTarget({
-        command: 'check', format: 'markdown', workspacePath: workspace, taskId,
-        full: args.full, ci: args.ci, allowHeavy: args.allowHeavy, stagesPath: args.stagesPath,
-      });
-      result = { taskId, gateExitCode: check.exitCode, output: check.output };
+      const mode = args.ci ? 'ci' : args.full ? 'full' : 'local';
+      try {
+        const check = await checkCliTarget({
+          command: 'check', format: 'markdown', workspacePath: workspace, taskId,
+          full: args.full, ci: args.ci, allowHeavy: args.allowHeavy, stagesPath: args.stagesPath,
+        });
+        await recordTaskGateRun({ projectRoot: workspace, taskId, agent, primaryBranch, mode, status: check.exitCode === 0 ? 'PASS' : 'FAIL', exitCode: check.exitCode, reportPath: path.relative(workspace, path.join(workspace, '.quality-reports', 'check', taskId)).replace(/\\/gu, '/') });
+        result = { taskId, gateExitCode: check.exitCode, output: check.output };
+      } catch (error) {
+        await recordTaskGateRun({ projectRoot: workspace, taskId, agent, primaryBranch, mode, status: 'ERROR', exitCode: 1 });
+        throw error;
+      }
       break;
     }
     case 'integrate': result = { ...(await integrateTask({ projectRoot: workspace, taskId, agent, target: args.target, primaryBranch })) }; break;
-    case 'cleanup': await cleanupTask({ projectRoot: workspace, taskId, agent, primaryBranch, force: args.force }); result = { taskId, state: 'CLEANED' }; break;
+    case 'cleanup': {
+      const state = await cleanupTask({ projectRoot: workspace, taskId, agent, primaryBranch, force: args.force });
+      result = { taskId, state: state ?? 'NOT_FOUND' };
+      break;
+    }
     case 'release': await releaseTask({ projectRoot: workspace, taskId, agent, primaryBranch }); result = { taskId, state: 'RELEASED' }; break;
     case 'recover': {
       if (!primaryBranch) throw new Error('task recover requiere project.primaryBranch en sentinel.config.json');

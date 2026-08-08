@@ -1,9 +1,10 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
-## [Unreleased] - 2026-08-07 (extensión local, sin publicar)
+## [Unreleased] - 2026-08-08 (extensión local, sin publicar)
 
 ### Agregado
+- Trazabilidad completa de tareas: `task status --all --json` conserva historial archivado tras `cleanup`/`release`, eventos del lifecycle, summary/plan/relaciones, resultados de gates, commits y archivos cambiados; detecta namespaces coordinados, worktrees/ramas huérfanos, locks expirados y carpetas físicas en raíces internas o externas autorizadas. La limpieza archiva solo después de retirar recursos con éxito y `release` rechaza metadata que aún conserva recursos.
 - `task start --worktrees-root <dir>`: raíz externa autorizada para worktrees temporalmente visibles
   al workspace del agente (por ejemplo `area-trabajo/task-worktrees`). Debe existir, quedar fuera del
   repositorio y resolverse a un path físico real; el resto de rutas arbitrarias siguen bloqueadas. La

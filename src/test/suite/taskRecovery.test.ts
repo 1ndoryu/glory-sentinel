@@ -57,6 +57,40 @@ suite('task recovery', () => {
     } finally { fs.rmSync(parent, { recursive: true, force: true }); }
   });
 
+  test('rechaza recuperar metadata legacy huérfana con explicación de adopción', async () => {
+    const { parent, root } = fixture();
+    try {
+      await claimTask({ projectRoot: root, primaryBranch: 'wandorius', taskId: 'LEGACY', agent: 'old-agent' });
+      const coordinationRoot = path.join(root, '.sentinel', 'coordination');
+      const projectDirectory = fs.readdirSync(coordinationRoot).find(name => fs.statSync(path.join(coordinationRoot, name)).isDirectory());
+      assert.ok(projectDirectory);
+      const coordination = path.join(coordinationRoot, projectDirectory!);
+      fs.writeFileSync(path.join(coordination, 'LEGACY.json'), JSON.stringify({
+        schemaVersion: 1,
+        taskId: 'LEGACY',
+        agent: 'old-agent',
+        state: 'ACTIVE',
+        branch: 'task/old/LEGACY',
+        worktree: path.join(parent, 'missing'),
+        base: 'old',
+        baseHead: git(root, ['rev-parse', 'HEAD']),
+        target: 'old',
+        head: git(root, ['rev-parse', 'HEAD']),
+        createdAt: new Date(0).toISOString(),
+        updatedAt: new Date(0).toISOString(),
+        updatedAtMs: 0,
+        pid: 1,
+        host: 'old-host',
+      }) + '\n', 'utf8');
+      await assert.rejects(
+        recoverTask({ projectRoot: root, primaryBranch: 'wandorius', taskId: 'LEGACY', recoveredBy: 'new-agent', now: Date.now() }),
+        /metadata legacy huérfana.*adopción explícita/,
+      );
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true });
+    }
+  });
+
   test('recupera una toma expirada, limpia metadata y escribe auditoría', async () => {
     const { parent, root } = fixture();
     try {

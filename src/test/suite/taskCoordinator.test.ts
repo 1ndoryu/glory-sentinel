@@ -50,6 +50,32 @@ suite('task coordinator', () => {
     }
   });
 
+  test('status all conserva historial de una tarea liberada y detecta metadata descriptiva', async () => {
+    const { parent, root } = fixture();
+    try {
+      await claimTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'HISTORY-1', agent: 'agent-a', summary: 'Liberar tarea', planReference: 'Agente/planes/history.md' });
+      await releaseTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'HISTORY-1', agent: 'agent-a' });
+      const status = await taskStatus(root, PRIMARY_BRANCH, true);
+      assert.strictEqual(status.tasks.length, 0);
+      assert.strictEqual(status.history.length, 1);
+      assert.strictEqual(status.history[0].terminalState, 'RELEASED');
+      assert.strictEqual(status.history[0].record.planReference, 'Agente/planes/history.md');
+      assert.ok(status.history[0].record.history?.some(event => event.action === 'RELEASE'));
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true });
+    }
+  });
+
+  test('rechaza referencias de plan absolutas o con traversal', async () => {
+    const { parent, root } = fixture();
+    try {
+      await assert.rejects(claimTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'BAD-PLAN', agent: 'agent-a', planReference: '../secreto.md' }), /planReference debe ser/);
+      await assert.rejects(claimTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'BAD-PLAN2', agent: 'agent-a', planReference: path.join(parent, 'secreto.md') }), /planReference debe ser/);
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true });
+    }
+  });
+
   test('rechaza takeover silencioso y exige force cuando la toma expiró', async () => {
     const { parent, root } = fixture();
     try {
@@ -177,18 +203,25 @@ suite('task coordinator', () => {
   test('integra solo un commit limpio con base estable y limpia repetidamente', async () => {
     const { parent, root } = fixture();
     try {
-      await claimTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'T-4', agent: 'agent-a' });
+      await claimTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'T-4', agent: 'agent-a', summary: 'Tarea de prueba', planReference: 'Agente/planes/test.md', relatedTaskIds: ['T-RELATED'] });
       const task = await startTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'T-4', agent: 'agent-a' });
       fs.writeFileSync(path.join(task.worktree!, 'feature.txt'), 'feature\n', 'utf8');
       git(task.worktree!, ['add', 'feature.txt']);
       git(task.worktree!, ['commit', '-q', '-m', 'T-4: feature']);
       const integrated = await integrateTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'T-4', agent: 'agent-a' });
       assert.strictEqual(integrated.state, 'INTEGRATED');
+      assert.strictEqual(integrated.summary, 'Tarea de prueba');
+      assert.deepStrictEqual(integrated.relatedTaskIds, ['T-RELATED']);
+      assert.ok((integrated.history ?? []).some(event => event.action === 'INTEGRATE'));
+      assert.ok((integrated.commits ?? []).length >= 1);
+      assert.deepStrictEqual(integrated.changedFiles, ['feature.txt']);
       assert.strictEqual(fs.existsSync(path.join(root, 'feature.txt')), true);
       await cleanupTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'T-4', agent: 'agent-a' });
       await cleanupTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'T-4', agent: 'agent-a' });
-      const status = await taskStatus(root, PRIMARY_BRANCH);
+      const status = await taskStatus(root, PRIMARY_BRANCH, true);
       assert.strictEqual(status.tasks.length, 0);
+      assert.strictEqual(status.history.length, 1);
+      assert.strictEqual(status.history[0].terminalState, 'CLEANED');
       assert.strictEqual(status.orphanWorktrees.length, 0);
       assert.strictEqual(git(root, ['for-each-ref', '--format=%(refname:short)', 'refs/heads/task/']).includes('/T-4'), false);
     } finally {
@@ -421,7 +454,10 @@ suite('env manifest provisioning ([VISIBLE-WORKTREE])', () => {
       fs.writeFileSync(metadataPath, `${JSON.stringify(metadata)}\n`, 'utf8');
       const status = await taskStatus(root, PRIMARY_BRANCH);
       assert.strictEqual(status.invalidMetadata.length, 0);
-      const migrated = JSON.parse(fs.readFileSync(metadataPath, 'utf8')) as Record<string, unknown>;
+      assert.strictEqual(status.tasks.length, 1);
+      const unchanged = JSON.parse(fs.readFileSync(metadataPath, 'utf8')) as Record<string, unknown>;
+      assert.strictEqual(unchanged.schemaVersion, 2);
+      const migrated = await claimTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'M-MIGRATE', agent: 'agent-a' });
       assert.strictEqual(migrated.schemaVersion, 3);
       assert.deepStrictEqual(migrated.ignoredInputs, []);
       assert.strictEqual(migrated.ignoredBaseline, null);
@@ -429,6 +465,47 @@ suite('env manifest provisioning ([VISIBLE-WORKTREE])', () => {
       fs.writeFileSync(metadataPath, `${JSON.stringify(metadata)}\n`, 'utf8');
       const invalid = await taskStatus(root, PRIMARY_BRANCH);
       assert.ok(invalid.invalidMetadata.includes('M-MIGRATE.json'));
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true });
+    }
+  });
+
+  test('expone metadata v1 de otra rama como legacyOrphan sin resolverla ni mutarla', async () => {
+    const { parent, root } = fixture();
+    try {
+      await claimTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'LEGACY-ORPHAN', agent: 'agent-a' });
+      const coordination = path.join(root, '.sentinel', 'coordination');
+      const projectDirectory = fs.readdirSync(coordination).find(name => fs.statSync(path.join(coordination, name)).isDirectory());
+      assert.ok(projectDirectory);
+      const metadataPath = path.join(coordination, projectDirectory!, 'LEGACY-ORPHAN.json');
+      const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8')) as Record<string, unknown>;
+      metadata.schemaVersion = 1;
+      metadata.target = 'wandorius';
+      metadata.branch = 'task/old-namespace/LEGACY-ORPHAN';
+      metadata.worktree = path.join(parent, 'missing-worktree');
+      fs.writeFileSync(metadataPath, `${JSON.stringify(metadata)}\n`, 'utf8');
+      const status = await taskStatus(root, PRIMARY_BRANCH, true);
+      assert.strictEqual(status.invalidMetadata.length, 0);
+      assert.strictEqual(status.tasks.length, 0);
+      assert.strictEqual(status.legacyOrphans.length, 1);
+      assert.strictEqual(JSON.parse(fs.readFileSync(metadataPath, 'utf8')).schemaVersion, 1);
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true });
+    }
+  });
+
+  test('valida profundamente eventos y gateRuns manipulados', async () => {
+    const { parent, root } = fixture();
+    try {
+      await claimTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'BAD-HISTORY', agent: 'agent-a' });
+      const coordination = path.join(root, '.sentinel', 'coordination');
+      const projectDirectory = fs.readdirSync(coordination).find(name => fs.statSync(path.join(coordination, name)).isDirectory());
+      const metadataPath = path.join(coordination, projectDirectory!, 'BAD-HISTORY.json');
+      const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8')) as Record<string, unknown>;
+      metadata.history = [{ eventId: 'bad', at: 'not-a-date', actor: 'agent-a', action: 'CLAIM', fromState: null, toState: 'CLAIMED' }];
+      fs.writeFileSync(metadataPath, `${JSON.stringify(metadata)}\n`, 'utf8');
+      const status = await taskStatus(root, PRIMARY_BRANCH);
+      assert.ok(status.invalidMetadata.includes('BAD-HISTORY.json'));
     } finally {
       fs.rmSync(parent, { recursive: true, force: true });
     }

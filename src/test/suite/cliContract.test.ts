@@ -119,10 +119,11 @@ suite('Sentinel CLI contract', () => {
     assert.strictEqual(recover.dryRun, true);
     assert.strictEqual(recover.force, undefined);
 
-    const status = parseTaskCliArgs(['task', 'status', '--project-root', '/repo', '--json']);
+    const status = parseTaskCliArgs(['task', 'status', '--project-root', '/repo', '--all', '--json']);
     assert.strictEqual(status.taskAction, 'status');
     assert.strictEqual(status.taskId, undefined);
     assert.strictEqual(status.agent, undefined);
+    assert.strictEqual(status.all, true);
     assert.throws(() => parseTaskCliArgs(['task', 'claim', 'GAME-01', '--project-root', '/repo']), /requiere --agent/);
     assert.throws(() => parseTaskCliArgs(['task', 'unknown', 'GAME-01']), /Uso de tareas/);
   });
