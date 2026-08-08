@@ -18,6 +18,7 @@ import {
   pwshAvailable,
   runInShell,
   sandboxEnv,
+  shellAvailable,
   writeSandboxRuntime,
 } from './guardMatrixCommon';
 
@@ -50,6 +51,11 @@ const shellSuite = suite('Sentinel guard matrix real de shells (Fase 4)', () => 
 
   suiteTeardown(() => {
     for (const dir of cleanup) fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('un probe no cero no declara el shell disponible', () => {
+    assert.strictEqual(shellAvailable(process.execPath, ['-e', 'process.exit(0)']), true);
+    assert.strictEqual(shellAvailable(process.execPath, ['-e', 'process.exit(1)']), false);
   });
 
   test('cmd: npm run test bloqueado (78) y npm --version pasa', () => {

@@ -78,7 +78,7 @@ export function runInShell(shell: string, args: string[], cwd: string, env: Node
  * hace skip en vez de fallar. */
 export function shellAvailable(shell: string, probeArgs: string[]): boolean {
   const probe = spawnSync(shell, probeArgs, { encoding: 'utf8', timeout: 10_000, windowsHide: true });
-  return !probe.error && probe.status !== null;
+  return !probe.error && probe.status === 0;
 }
 
 export function bashAvailable(): boolean {
