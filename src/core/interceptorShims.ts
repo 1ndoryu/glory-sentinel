@@ -33,7 +33,7 @@ export type ProfileKind = 'powershell' | 'bash';
  * invocarlo (shell injection en código generado). */
 export function assertSafeRuntimePath(targetRoot: string): string {
   const resolved = path.resolve(targetRoot);
-  if (!/^[A-Za-z0-9_\/.:\\ -]+$/u.test(resolved)) {
+  if (!/^[A-Za-z0-9_/.:\\ -]+$/u.test(resolved)) {
     throw new Error(`targetRoot contiene caracteres no permitidos para generar shims: ${resolved}`);
   }
   if (resolved.includes('..')) {

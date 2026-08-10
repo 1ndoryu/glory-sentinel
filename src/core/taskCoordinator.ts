@@ -129,6 +129,9 @@ async function gitTopLevel(root: string): Promise<string> {
 async function canonicalPath(target: string): Promise<string> {
   let candidate = path.resolve(target);
   const missing: string[] = [];
+  /* Resolución canónica ascendente: la salida es el return del try o el
+   * throw de un error distinto de ENOENT. Condición constante intencional. */
+  // eslint-disable-next-line no-constant-condition -- ascenso con salida explícita
   while (true) {
     try {
       const existing = await fs.realpath(candidate);
@@ -243,6 +246,11 @@ async function withLock<T>(root: string, key: string, primaryBranch: string, act
       const owner = JSON.parse(await fs.readFile(path.join(lock, 'owner.json'), 'utf8')) as { token?: unknown };
       if (owner.token === token) await fs.rm(lock, { recursive: true, force: true });
     } catch (error) {
+      /* La verificación de ownership no puede silenciarse: si el lock no es
+       * verificable, propagar el error en cleanup evita dejar un lock huérfano
+       * aunque la acción haya terminado. Desactivar no-unsafe-finally es
+       * intencional: el throw aquí no enmascara un return de action(). */
+      // eslint-disable-next-line no-unsafe-finally -- propagar fallos de verificación de ownership en cleanup
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     }
   }

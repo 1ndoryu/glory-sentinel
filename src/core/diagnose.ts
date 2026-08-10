@@ -93,6 +93,13 @@ export interface DiagnoseResult {
   tools: Record<string, DiagnoseTool>;
   issues: DiagnoseIssue[];
   ready: boolean;
+  /* [108A-1 Fase 1] Readiness separada: readyForAnalyze (el analizador puede
+   * correr en esta carpeta) vs readyForGate (el quality gate puede ejecutarse:
+   * hay raíz de gate y una política v2 válida). Un proyecto no-policy o sin
+   * raíz NUNCA declara gate listo, aunque ready sea true (el CLI analyze sí
+   * funciona). ready se conserva por compatibilidad = readyForAnalyze. */
+  readyForAnalyze: boolean;
+  readyForGate: boolean;
   runtime: RuntimeStatusResult;
 }
 
@@ -454,6 +461,8 @@ export async function diagnoseWorkspace(workspace: string): Promise<DiagnoseResu
   const packagePath = path.resolve(__dirname, '../../package.json');
   const packageJson = await readJsonFile(packagePath) as { version?: unknown } | null;
   const runtime = await runtimeStatus();
+  const readyForAnalyze = issues.length === 0;
+  const readyForGate = readyForAnalyze && root !== null && policy.status === 'policy';
   return {
     workspace,
     root,
@@ -465,7 +474,9 @@ export async function diagnoseWorkspace(workspace: string): Promise<DiagnoseResu
     leases,
     tools,
     issues,
-    ready: issues.length === 0,
+    ready: readyForAnalyze,
+    readyForAnalyze,
+    readyForGate,
     runtime,
   };
 }
@@ -488,6 +499,12 @@ export function formatDiagnose(result: DiagnoseResult): string {
     `Política: ${result.policy.status}${result.policy.mode ? ` · modo ${result.policy.mode}` : ''}${result.policy.policyHash ? ` · hash ${result.policy.policyHash.slice(0, 12)}` : ''}`,
     `Lock: ${result.lock.present ? `presente (${result.lock.version ?? '?'} · ${result.lock.commit?.slice(0, 8) ?? '?'})` : 'ausente'}`,
     `Preflight: ${result.ready ? 'PASS' : `BLOQUEADO (${result.issues.length} problemas)`}`,
+    /* [108A-1 Fase 1] Readiness explícita en la salida humana: el análisis
+     * puede estar listo sin que el gate lo esté (no-policy, sin raíz o
+     * política legacy/inválida). Nunca se responde “gate listo” cuando solo
+     * existe analyze. */
+    `Análisis: ${result.readyForAnalyze ? 'listo' : 'no listo'}`,
+    `Gate: ${result.readyForGate ? 'listo' : `no listo${result.policy.status !== 'policy' ? ` (política ${result.policy.status})` : result.root === null ? ' (sin raíz de gate)' : ''}`}`,
     `Scheduler: ${result.scheduler ? `target ${result.scheduler.targetBase}${result.scheduler.stateProjects !== undefined ? ` · ${result.scheduler.stateProjects} proyectos` : ''}${result.scheduler.activePid !== undefined ? ` · activo PID ${String(result.scheduler.activePid)}` : ''}` : 'no disponible'}`,
     `Leases: ${result.leases ? `clave ${result.leases.keyPresent ? 'ok' : 'ausente'} · ${result.leases.active} activas · ${result.leases.expired} expiradas` : 'no disponible'}`,
     `Runtime: ${result.runtime.activeVersion ? `activa v${result.runtime.activeVersion} (${result.runtime.activeVerified ? 'hash verificado' : 'hash pendiente'})` : 'no instalado'} · ${result.runtime.versions.length} versiones en ${result.runtime.targetRoot}`,

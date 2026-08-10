@@ -24,6 +24,10 @@ export interface ScopeContext {
   projectRoot: string;
   reportRoot: string;
   qualityConfig: ScopeQualityConfig;
+  /* [108A-1 Fase 1] En dry-run el alcance se calcula sin mutar nada: ni
+   * mkdir del reportRoot, ni changed-files.txt ni scope-manifest.json. Los
+   * paths devueltos son null porque ningún transporte los consumirá. */
+  dryRun?: boolean;
 }
 
 export interface ScopeHeavyDeferred {
@@ -60,8 +64,8 @@ export interface ScopeResult {
   executionFull: boolean;
   profileOverride: boolean;
   profileSource: 'cli' | 'env' | null;
-  changedFilesPath: string;
-  manifestPath: string;
+  changedFilesPath: string | null;
+  manifestPath: string | null;
 }
 
 function normalize(value: string): string {
@@ -117,8 +121,8 @@ export function resolveFullDecision({
   explicit: boolean;
 }): FullDecision {
   const full = Boolean(requested || automatic);
-  const effectiveFull = full && !Boolean(deferred);
-  const executionFull = effectiveFull && !Boolean(explicit);
+  const effectiveFull = full && !deferred;
+  const executionFull = effectiveFull && !explicit;
   return { full, effectiveFull, executionFull };
 }
 
@@ -259,7 +263,7 @@ export async function detectScope(context: ScopeContext, args: ScopeArgs): Promi
   const base = args.base ?? 'HEAD';
   /* [028A-6] El core crea su propio directorio de reportes: no depende de que
    * un preflight externo lo haya preparado (el orquestador original lo hacía). */
-  await mkdir(context.reportRoot, { recursive: true });
+  if (!context.dryRun) await mkdir(context.reportRoot, { recursive: true });
   const [changedStatus, untracked, tracked] = await Promise.all([
     gitLines(context.projectRoot, ['diff', '--name-status', '--diff-filter=ACMRD', base]),
     gitLines(context.projectRoot, ['ls-files', '--others', '--exclude-standard']),
@@ -299,33 +303,39 @@ export async function detectScope(context: ScopeContext, args: ScopeArgs): Promi
     }
   }
 
-  const changedFilesPath = path.join(context.reportRoot, 'changed-files.txt');
-  await writeFile(changedFilesPath, `${files.join('\n')}\n`, 'utf8');
-  /* [028A-8] Manifiesto único de alcance: archivos cambiados/eliminados, hashes
-   * de contenido, perfiles, dependencias locales y decisión full. Sentinel,
-   * VarSense, custom y la selección de tests pueden consumirlo sin repetir
-   * descubrimientos Git/glob. changed-files.txt se conserva como transporte
-   * plano compatible con el contrato `--files-from` de los analizadores. */
-  const manifestPath = path.join(context.reportRoot, 'scope-manifest.json');
-  const manifest = {
-    schemaVersion: 1,
-    generatedAt: new Date().toISOString(),
-    base,
-    requestedFull: Boolean(args.full || args.ci),
-    automaticFull,
-    effectiveFull,
-    fullReason: fullReason(args, automaticFull),
-    heavyDeferred: args.heavyDeferred
-      ? { reason: args.heavyDeferred.reason ?? 'guard', nextAllowedAt: args.heavyDeferred.nextAllowedAt ?? null }
-      : null,
-    profiles: [...profiles],
-    profileOverride: explicitProfiles.explicit,
-    files,
-    deletedFiles: parsedChanged.deletedFiles,
-    fingerprintFiles,
-    fileHashes: await hashChangedFiles(context.projectRoot, files),
-  };
-  await writeAtomic(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  /* [108A-1 Fase 1] Dry-run no muta: sin changed-files.txt ni
+   * scope-manifest.json (no hay etapas que los consuman) y los paths
+   * devueltos son null. El resto del cálculo es idéntico. */
+  const changedFilesPath = context.dryRun ? null : path.join(context.reportRoot, 'changed-files.txt');
+  const manifestPath = context.dryRun ? null : path.join(context.reportRoot, 'scope-manifest.json');
+  if (!context.dryRun) {
+    await writeFile(changedFilesPath!, `${files.join('\n')}\n`, 'utf8');
+    /* [028A-8] Manifiesto único de alcance: archivos cambiados/eliminados,
+     * hashes de contenido, perfiles, dependencias locales y decisión full.
+     * Sentinel, VarSense, custom y la selección de tests pueden consumirlo sin
+     * repetir descubrimientos Git/glob. changed-files.txt se conserva como
+     * transporte plano compatible con el contrato `--files-from` de los
+     * analizadores. */
+    const manifest = {
+      schemaVersion: 1,
+      generatedAt: new Date().toISOString(),
+      base,
+      requestedFull: Boolean(args.full || args.ci),
+      automaticFull,
+      effectiveFull,
+      fullReason: fullReason(args, automaticFull),
+      heavyDeferred: args.heavyDeferred
+        ? { reason: args.heavyDeferred.reason ?? 'guard', nextAllowedAt: args.heavyDeferred.nextAllowedAt ?? null }
+        : null,
+      profiles: [...profiles],
+      profileOverride: explicitProfiles.explicit,
+      files,
+      deletedFiles: parsedChanged.deletedFiles,
+      fingerprintFiles,
+      fileHashes: await hashChangedFiles(context.projectRoot, files),
+    };
+    await writeAtomic(manifestPath!, `${JSON.stringify(manifest, null, 2)}\n`);
+  }
   return {
     base,
     files,
