@@ -1,125 +1,220 @@
 # Glory Sentinel
 
-Sentinel es el producto de calidad del ecosistema Glory: analiza código, ejecuta plugins y stages del stack,
-genera el reporte y toma la única decisión de cierre.
+![Portada de Glory Sentinel](media/7599515f2b8981a49a057e0e9a75b8b6.jpg)
 
-La detección es estática y determinista. No requiere IA, red, claves ni servicios externos.
+**Una sola forma de saber si un cambio está realmente listo.**
 
-## La idea en 30 segundos
+Glory Sentinel es una plataforma local de calidad para equipos que trabajan con desarrolladores, agentes de código o ambos. Analiza el código, reúne los checks del proyecto y produce una decisión de cierre reproducible: qué pasó, qué falló y qué debe corregirse antes de integrar.
 
-- **Sentinel**: el producto y el CLI.
-- **Gate**: la operación `sentinel check <task-id>`.
-- **`gate:check`**: wrapper fino del consumidor que prepara el manifest y delega en `sentinel check`.
-- **VarSense**: analyzer especializado; informa hallazgos, pero no decide el cierre.
-- **`task`**: coordinación local opcional de claims, worktrees, integración y cleanup.
+No reemplaza tus tests, tu linter ni tu type-checker. Los convierte en partes de un mismo contrato para evitar que cada proyecto —o cada agente— termine inventando su propio gate, sus propios scripts y una definición diferente de “terminado”.
 
-Debe existir una sola decisión de cierre. `task:check` solo queda como compatibilidad temporal en consumidores
-legacy; no se debe ampliar ni convertir en un segundo gate.
+Sentinel es estático y determinista. Funciona localmente, no requiere IA, conexión a Internet, claves ni un servicio externo para analizar tu código.
 
-## Proyecto nuevo
+## El problema que resuelve
 
-Usa un release que muestre estas capabilities en `sentinel --help` (0.7.0 o posterior):
+En un proyecto real, la calidad suele estar repartida entre ESLint, tests, compiladores, scripts del repositorio, convenciones escritas y revisiones manuales. Cuando participan varios agentes, esa dispersión se vuelve más peligrosa: un check puede omitirse, duplicarse o producir un resultado que nadie conserva.
 
-```bash
-sentinel init --preset <node|rust|python|mixed> \
-  --project-root . --primary-branch <rama-real>
-sentinel doctor --json --workspace .
-sentinel check BOOTSTRAP-01 --stages <manifest-generado>
+Sentinel concentra ese recorrido:
+
+```mermaid
+flowchart LR
+    A["Cambio de código"] --> B["Sentinel"]
+    B --> C["Análisis estático"]
+    B --> D["Tests y herramientas del proyecto"]
+    B --> E["Plugins especializados"]
+    C --> F["Una decisión PASS / FAIL"]
+    D --> F
+    E --> F
+    F --> G["Reporte auditable"]
 ```
 
-`init` es idempotente y `--dry-run` no modifica nada. No copia `scripts/quality`, configs ni reglas de otro
-proyecto. La rama primaria pertenece al consumidor; nunca se supone que sea `main`.
+El resultado no es solo un exit code. Sentinel diferencia hallazgos del código, tests fallidos, timeouts, cancelaciones, errores de herramienta y cobertura que no llegó a ejecutarse. Un error operativo nunca se disfraza de PASS.
 
-En un consumidor con wrapper npm:
+## Qué aporta
+
+- **Problemas antes de producción.** Detecta patrones inseguros, errores de arquitectura y deuda técnica mientras todavía son baratos de corregir.
+- **Una decisión coherente.** El mismo contrato decide si el cambio puede cerrarse, sin gates paralelos.
+- **Evidencia útil.** Genera reportes Markdown y JSON que pueden leer personas, CI y agentes.
+- **Reglas consistentes.** CLI, LSP y extensión de VS Code consumen el mismo motor de análisis.
+- **Integración con tu stack.** Puede orquestar tests, linters, compiladores y analizadores externos como etapas declaradas, sin reimplementarlos.
+- **Trabajo paralelo más seguro.** Su coordinación opcional aísla tareas en worktrees y conserva ownership, estado, integración y cleanup.
+
+## Qué analiza
+
+El catálogo actual incluye más de 100 reglas para PHP/WordPress, TypeScript/React, JavaScript, CSS y Rust.
+Entre otras cosas, Sentinel puede detectar:
+
+- secretos hardcodeados, `eval`, procesos shell inseguros y SQL sin preparación;
+- catches vacíos, errores enmascarados y recursos sin cleanup;
+- componentes demasiado grandes, responsabilidades mezcladas y límites de arquitectura rotos;
+- efectos React sin limpieza, mutaciones de estado y patrones frágiles de Zustand;
+- contratos incompatibles entre APIs PHP y consumidores TypeScript;
+- `unwrap`, `panic`, handlers acoplados a base de datos y otros riesgos habituales en Rust;
+- convenciones específicas de un producto mediante reglas o adapters declarados y con ownership explícito.
+
+Las reglas pueden activarse, desactivarse o cambiar de severidad por proyecto. El objetivo no es imponer un estilo universal, sino convertir las decisiones de calidad del equipo en controles repetibles.
+
+Consulta el [catálogo completo de reglas](rules.md).
+
+## Dos formas de usar Sentinel
+
+### 1. Analizador estático
+
+Es la entrada más sencilla. Puedes analizar un archivo o un repositorio y obtener resultados en Markdown o JSON:
 
 ```bash
-npm run gate:check -- BOOTSTRAP-01
+sentinel analyze --workspace . --format markdown
+sentinel analyze --file src/app.ts --format json
 ```
 
-## Proyecto existente
+Este modo es útil en cualquier carpeta y no necesita coordinación de tareas ni un gate completo.
 
-Primero comprueba la capacidad real del binario:
+### 2. Quality gate
+
+Cuando el proyecto necesita una decisión de cierre, `sentinel check` ejecuta las etapas declaradas y crea el reporte combinado:
 
 ```bash
+sentinel check FEATURE-123 --stages sentinel-stages.json
+```
+
+El manifest indica qué herramientas forman parte del gate. Por ejemplo, este manifest ejecuta el propio analizador de Sentinel como una etapa estructurada:
+
+```json
+{
+    "schemaVersion": 1,
+    "stages": [
+        {
+            "name": "sentinel",
+            "executable": "sentinel",
+            "args": ["analyze", "--workspace", ".", "--format", "json", "--output", "{reportPath}"],
+            "expectedSchemaVersion": "1",
+            "timeoutMs": 60000
+        }
+    ]
+}
+```
+
+Después puedes añadir ESLint, tests, compilación, VarSense u otra herramienta que emita el contrato estructurado. Sentinel conserva una sola decisión final y un solo lugar para consultar la evidencia.
+
+## Sentinel, gate y wrappers: la diferencia
+
+- **Sentinel** es el producto: motor de reglas, CLI, reportes, orquestación y coordinación opcional.
+- **El gate** es la operación `sentinel check <task-id>` que produce la decisión final.
+- **`gate:check`** puede ser un alias npm fino para preparar el manifest del stack y delegar en Sentinel.
+- **Un analyzer o plugin** aporta hallazgos; no crea una segunda decisión de cierre.
+
+En otras palabras: Sentinel contiene el gate. No son dos productos separados.
+
+Los consumidores antiguos pueden conservar temporalmente `task:check` o `scripts/quality`, pero no deben añadirles lógica nueva. Sentinel incluye un inventario de migración para retirar esas copias sin perder cobertura.
+
+## Instalación desde un release
+
+Mientras no exista un paquete publicado para tu registry, instala desde el checkout de un release verificado:
+
+```bash
+git clone https://github.com/1ndoryu/glory-sentinel.git
+cd glory-sentinel
+git checkout v0.7.0
+npm ci
+npm run compile
+node out/cli/index.js install --source-root . --with-shims --with-path
+```
+
+Abre una terminal nueva y verifica la instalación real:
+
+```bash
+sentinel --version
 sentinel --help
-sentinel doctor --json --workspace .
+sentinel doctor --json
 ```
 
-Si el help ofrece `migrate`, ejecuta:
+La versión visible no basta para garantizar capacidades. Los proyectos que dependen de Sentinel deben fijar también el commit, el protocolo y el hash del artefacto en su lock.
+
+## Añadir Sentinel a un proyecto nuevo
+
+El bootstrap genera una política mínima para Node, Rust, Python o repositorios mixtos:
+
+```bash
+sentinel init --preset node \
+  --project-root . \
+  --primary-branch <rama-real> \
+  --with-alias gate:check
+```
+
+Antes de escribir archivos puedes inspeccionar el plan con `--dry-run`. Sentinel nunca supone que la rama principal se llama `main`.
+
+Después:
+
+1. revisa `sentinel.config.json` y el lock generado;
+2. declara las etapas reales del proyecto en un manifest;
+3. ejecuta `sentinel doctor --json`;
+4. prueba el gate con un ID real: `npm run gate:check -- BOOTSTRAP-01 --stages sentinel-stages.json`.
+
+Los reportes quedan bajo `.quality-reports/`.
+
+## Migrar un proyecto existente
+
+No copies la carpeta `scripts/quality` de otro repositorio. Tampoco borres scripts antiguos solo porque parezcan reemplazables.
+
+Primero genera un inventario de lo que existe:
 
 ```bash
 sentinel migrate --project-root . --json
 ```
 
-La migración solo inventaría; no borra ni desactiva cobertura. Clasifica cada regla o script como Core,
-plugin, configuración, adapter específico, fixture, duplicado u origen desconocido. Lo desconocido bloquea
-la retirada. Nunca copies una carpeta personal de un agente ni `scripts/quality` de otro proyecto.
+La migración clasifica reglas, scripts y adapters, pero no los borra. Cada capacidad debe terminar con un solo dueño: Core de Sentinel, plugin publicado, configuración declarativa o adapter específico del proyecto. Si el propósito de una pieza es desconocido, su retirada queda bloqueada hasta identificarlo.
 
-## Comandos habituales
+Consulta la [guía de migración legacy](docs/migration.md) antes de retirar cobertura.
 
-```bash
-# Analizar cualquier carpeta
-sentinel analyze --workspace . --format json
+## Superficies disponibles
 
-# Calcular alcance sin ejecutar etapas
-sentinel check <task-id> --dry-run
+| Superficie             | Para qué sirve                                                         |
+| ---------------------- | ---------------------------------------------------------------------- |
+| CLI `sentinel`         | Análisis, gate, diagnóstico, runtime y coordinación de tareas          |
+| Extensión de VS Code   | Diagnósticos mientras editas y comandos sobre archivo o workspace      |
+| LSP `sentinel-lsp`     | El mismo análisis en editores compatibles con Language Server Protocol |
+| Reportes Markdown/JSON | Evidencia legible y automatizable para equipos, CI y agentes           |
 
-# Ejecutar un gate con stages declarativos
-sentinel check <task-id> --stages <manifest.json>
+## Coordinación opcional para agentes
 
-# Diagnosticar instalación, lock y capabilities
-sentinel doctor --json
+`sentinel task` ayuda a evitar que dos agentes reclamen el mismo trabajo o modifiquen un checkout compartido. El recorrido conserva ownership y usa ramas y worktrees aislados:
 
-# Ver tareas y recursos de coordinación
-sentinel task status --project-root . --json
+```text
+claim → start → heartbeat → gate → integrate --ff-only → cleanup → release
 ```
 
-Los reportes combinados viven en `.quality-reports/`. Un timeout, error de herramienta, cancelación o test
-fallido nunca se clasifica como PASS.
+Esta capa no hace push, force, reset ni commits implícitos. También falla cerrado cuando el worktree, la rama, el lock o la evidencia no corresponden a la tarea registrada.
+
+La coordinación es opcional: puedes usar Sentinel únicamente como analizador o como gate.
 
 ## Compatibilidad
 
-La versión semántica no garantiza capabilities. Siempre compara `--help`, commit, protocolo y lock.
-
-| Release | Aporta |
-| --- | --- |
-| 0.4.x | analyzer `analyze`, configuración v1 y salida JSON |
-| 0.5.x | plano global: `check`, `guard`, `doctor`, `status`, leases y `task` |
-| 0.6.x | preflight fail-closed, validación de release y recuperación segura |
-| 0.7.x | `init`, `migrate`, `uninit`, readiness separada, registro de extensiones y stages declarativos |
+| Release | Capacidades principales                                               |
+| ------- | --------------------------------------------------------------------- |
+| 0.4.x   | Analyzer, configuración v1 y salida JSON                              |
+| 0.5.x   | `check`, `guard`, `doctor`, runtime, leases y `task`                  |
+| 0.6.x   | Preflight fail-closed, validación de release y recuperación segura    |
+| 0.7.x   | `init`, `migrate`, `uninit`, readiness separada y stages declarativos |
 
 El release coordinado vigente es **0.7.0**, publicado en `main` y `v0.7.0`.
 
-## Configuración mínima
+## Documentación
 
-- `sentinel.config.json`: política, gate, guard, analyzer y `project.primaryBranch`.
-- `sentinel.lock.json`: versión, commit, protocolo, capabilities y hashes instalados.
-
-Durante la migración pueden existir `quality.config.json`, `quality-tools.json`, `varsense.config.json` y
-`quality-adapter.json`. Son superficies legacy y no se copian a proyectos nuevos.
-
-Una extensión local solo se conserva si es project-owned, tiene un único owner, fixtures, límites de recursos,
-presupuesto, justificación de dominio y condición de retirada. Una regla o capability no puede tener dos
-dueños productivos.
-
-## Documentación detallada
-
-- [Conceptos](docs/concepts.md)
+- [Conceptos y vocabulario](docs/concepts.md)
 - [Configuración](docs/configuration.md)
-- [Operación](docs/operations.md)
-- [Migración desde un gate legacy](docs/migration.md)
-- [ADR: producto único](docs/adr/0001-producto-unico-sentinel.md)
+- [Operación diaria](docs/operations.md)
+- [Migración desde gates legacy](docs/migration.md)
 - [Contrato de stages](docs/stage-manifest-contract.md)
+- [ADR: Sentinel como producto único](docs/adr/0001-producto-unico-sentinel.md)
 - [Catálogo de reglas](rules.md)
 
-## Desarrollo de Sentinel
+## Desarrollo
 
 ```bash
-npm install
+npm ci
 npm run compile
 npm run test:unit
 node out/cli/index.js --help
 ```
 
-El CLI compilado está en `out/cli/index.js`; el LSP en `out/lsp/server.js`. El checkout debe estar limpio
-antes de publicar o fijar un commit en un consumidor.
+El CLI compilado vive en `out/cli/index.js`; el LSP en `out/lsp/server.js`. Un release destinado a otros proyectos debe compilarse y probarse desde un staging limpio antes de publicarse o fijarse en un lock.
