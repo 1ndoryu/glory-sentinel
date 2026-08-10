@@ -326,6 +326,17 @@ async function withLock<T>(root: string, key: string, primaryBranch: string, act
     actionError = error;
   } finally {
     clearInterval(refresh);
+    try {
+      const owner = JSON.parse(await fs.readFile(path.join(lock, 'owner.json'), 'utf8')) as { token?: unknown };
+      if (owner.token === token) await fs.rm(lock, { recursive: true, force: true });
+    } catch (error) {
+      /* La verificación de ownership no puede silenciarse: si el lock no es
+       * verificable, propagar el error en cleanup evita dejar un lock huérfano
+       * aunque la acción haya terminado. Desactivar no-unsafe-finally es
+       * intencional: el throw aquí no enmascara un return de action(). */
+      // eslint-disable-next-line no-unsafe-finally -- propagar fallos de verificación de ownership en cleanup
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
   }
   let cleanupError: unknown;
   try {

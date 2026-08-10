@@ -47,7 +47,11 @@ function escribir(nivel: string, mensaje: string): void {
     if (canal) {
         canal.appendLine(linea);
     } else {
-        /* Fallback antes de que se inicialice (no deberia ocurrir normalmente) */
-        console.log(linea);
+        /* [108A-1 Fase 1] Fallback sin canal (p. ej. CLI en Node puro): los
+         * diagnósticos van SIEMPRE a stderr. Usar console.log contaminaba
+         * stdout con prefijos [INFO]/[WARN] antes del documento JSON
+         * solicitado (sentinel analyze --format json | parser fallaba). En la
+         * extensión VS Code el canal existe y esta rama no se ejecuta. */
+        console.error(linea);
     }
 }

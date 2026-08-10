@@ -11,6 +11,7 @@ import { findQualityRoot, hasQualityMarker, resolveGuardRoot, resolveTargetBase 
 import { readV2GuardPolicy, GuardPolicy } from './guardCommand';
 import { runtimeStatus, RuntimeStatusResult } from './runtimeInstall';
 import { keyPresent, listLeases } from './lease';
+import { resolveShimWinners, formatShims, DiagnoseShimEntry } from './shimDiagnostics';
 
 const execFileAsync = promisify(execFile);
 
@@ -49,6 +50,9 @@ export interface DiagnoseTool {
   cliResponds: boolean;
   cliCapabilities: string[];
   missingCapabilities: string[];
+  /** [108A-1 Fase 2] Capabilities opcionales declaradas (task, recover,
+   * shims...): su ausencia NO bloquea el doctor; solo se reporta. */
+  optionalCapabilities: string[];
   packagePresent: boolean;
   packageLockPresent: boolean;
   dependenciesPresent: boolean;
@@ -93,8 +97,16 @@ export interface DiagnoseResult {
   scheduler: DiagnoseScheduler | null;
   leases: DiagnoseLeases | null;
   tools: Record<string, DiagnoseTool>;
+  shims: Record<string, DiagnoseShimEntry>;
   issues: DiagnoseIssue[];
   ready: boolean;
+  /* [108A-1 Fase 1] Readiness separada: readyForAnalyze (el analizador puede
+   * correr en esta carpeta) vs readyForGate (el quality gate puede ejecutarse:
+   * hay raíz de gate y una política v2 válida). Un proyecto no-policy o sin
+   * raíz NUNCA declara gate listo, aunque ready sea true (el CLI analyze sí
+   * funciona). ready se conserva por compatibilidad = readyForAnalyze. */
+  readyForAnalyze: boolean;
+  readyForGate: boolean;
   runtime: RuntimeStatusResult;
 }
 
@@ -271,7 +283,13 @@ function insideWorkspace(root: string, candidate: string): boolean {
 
 async function diagnoseConfiguredTools(root: string, lockData: Record<string, unknown> | null): Promise<{ tools: Record<string, DiagnoseTool>; issues: DiagnoseIssue[] }> {
   const manifest = await readJsonFile(path.join(root, 'quality-tools.json')) as { tools?: unknown } | null;
+  /* [108A-1 Fase 4] Sin quality-tools.json NO es un problema: un proyecto
+   * iniciado con `sentinel init` reduce el contrato a sentinel.config.json +
+   * sentinel.lock.json (la metadata de tools pasa a generación interna bajo
+   * .sentinel/). La verificación de tools aplica solo si están declaradas;
+   * un manifest presente pero inválido sí falla. */
   if (!manifest || !manifest.tools || typeof manifest.tools !== 'object' || Array.isArray(manifest.tools)) {
+    if (!manifest) return { tools: {}, issues: [] };
     return { tools: {}, issues: [{ code: 'tools-manifest-missing', message: 'quality-tools.json no contiene tools verificables' }] };
   }
   const configuredTools = manifest.tools as Record<string, unknown>;
@@ -340,7 +358,12 @@ async function diagnoseConfiguredTools(root: string, lockData: Record<string, un
     );
     const requiredCapabilities = Array.isArray(config?.requiredCapabilities)
       ? config.requiredCapabilities.filter((value): value is string => typeof value === 'string')
-      : (name === 'sentinel' ? ['guard', 'doctor', 'task', 'recover'] : []);
+      /* [108A-1 Fase 2] El análisis y el gate son el núcleo del producto
+       * (analyze/check/doctor/status). `task`, `recover` y los shims son
+       * capabilities OPCIONALES: su ausencia no debe bloquear el doctor de un
+       * checkout que solo corre `sentinel check` sin orquestación. */
+      : (name === 'sentinel' ? ['analyze', 'check', 'doctor', 'status'] : []);
+    const optionalCapabilities = name === 'sentinel' ? ['task', 'recover'] : [];
     /* sourcePath interno no admite patch local (setup lo rechaza); cualquier
      * cambio distinto de la metadata administrativa es inesperado. */
     const unexpectedChanges = changes.filter(change => change !== '.quality-install.json');
@@ -370,6 +393,7 @@ async function diagnoseConfiguredTools(root: string, lockData: Record<string, un
       cliResponds: Boolean(reportedVersion),
       cliCapabilities: capabilities,
       missingCapabilities: requiredCapabilities.filter(capability => !capabilities.includes(capability)),
+      optionalCapabilities,
       packagePresent: metadata.packagePresent,
       packageLockPresent: metadata.packageLockPresent,
       dependenciesPresent: metadata.dependenciesPresent,
@@ -474,6 +498,8 @@ export async function diagnoseWorkspace(workspace: string): Promise<DiagnoseResu
   const packagePath = path.resolve(__dirname, '../../package.json');
   const packageJson = await readJsonFile(packagePath) as { version?: unknown } | null;
   const runtime = await runtimeStatus();
+  const readyForAnalyze = issues.length === 0;
+  const readyForGate = readyForAnalyze && root !== null && policy.status === 'policy';
   return {
     workspace,
     root,
@@ -484,8 +510,11 @@ export async function diagnoseWorkspace(workspace: string): Promise<DiagnoseResu
     scheduler,
     leases,
     tools,
+    shims: resolveShimWinners(),
     issues,
-    ready: issues.length === 0,
+    ready: readyForAnalyze,
+    readyForAnalyze,
+    readyForGate,
     runtime,
   };
 }
@@ -508,6 +537,12 @@ export function formatDiagnose(result: DiagnoseResult): string {
     `Política: ${result.policy.status}${result.policy.mode ? ` · modo ${result.policy.mode}` : ''}${result.policy.policyHash ? ` · hash ${result.policy.policyHash.slice(0, 12)}` : ''}`,
     `Lock: ${result.lock.present ? `presente (${result.lock.version ?? '?'} · ${result.lock.commit?.slice(0, 8) ?? '?'})` : 'ausente'}`,
     `Preflight: ${result.ready ? 'PASS' : `BLOQUEADO (${result.issues.length} problemas)`}`,
+    /* [108A-1 Fase 1] Readiness explícita en la salida humana: el análisis
+     * puede estar listo sin que el gate lo esté (no-policy, sin raíz o
+     * política legacy/inválida). Nunca se responde “gate listo” cuando solo
+     * existe analyze. */
+    `Análisis: ${result.readyForAnalyze ? 'listo' : 'no listo'}`,
+    `Gate: ${result.readyForGate ? 'listo' : `no listo${result.policy.status !== 'policy' ? ` (política ${result.policy.status})` : result.root === null ? ' (sin raíz de gate)' : ''}`}`,
     `Scheduler: ${result.scheduler ? `target ${result.scheduler.targetBase}${result.scheduler.stateProjects !== undefined ? ` · ${result.scheduler.stateProjects} proyectos` : ''}${result.scheduler.activePid !== undefined ? ` · activo PID ${String(result.scheduler.activePid)}` : ''}` : 'no disponible'}`,
     `Leases: ${result.leases ? `clave ${result.leases.keyPresent ? 'ok' : 'ausente'} · ${result.leases.active} activas · ${result.leases.expired} expiradas` : 'no disponible'}`,
     `Runtime: ${result.runtime.activeVersion ? `activa v${result.runtime.activeVersion} (${result.runtime.activeVerified ? 'hash verificado' : 'hash pendiente'})` : 'no instalado'} · ${result.runtime.versions.length} versiones en ${result.runtime.targetRoot}`,
@@ -522,6 +557,8 @@ export function formatDiagnose(result: DiagnoseResult): string {
     lines.push(`  ${tool.name}: source ${tool.sourcePresent ? 'ok' : 'missing'} - cli ${tool.cliPresent ? 'ok' : 'missing'} - version ${tool.cliVersion ?? 'failed'} - checkout ${tool.checkoutCommit?.slice(0, 8) ?? 'n/a'}${tool.checkoutDirty ? ' - DIRTY' : ''}${gitlinkText}${dependencyText}${capabilityText}${releaseText}`);
   }
   for (const issue of result.issues) lines.push(`ERROR ${issue.code}: ${issue.message}`);
+  lines.push('');
+  lines.push(formatShims(result.shims));
   return lines.join('\n');
 }
 

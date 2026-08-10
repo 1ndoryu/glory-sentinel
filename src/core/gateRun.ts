@@ -89,7 +89,12 @@ async function reportLimits(workspace: string): Promise<{ maxFindings?: number; 
 export async function runCheck(args: CheckRunArgs): Promise<CheckRunResult> {
   const workspace = path.resolve(args.workspace);
   if (!args.dryRun) await assertWorkspaceReady(workspace);
-  const reportRoot = await ensureContainedDirectory(workspace, args.reportRoot, 'reportRoot');
+  /* [108A-1 Fase 1] Dry-run estrictamente no mutante: se resuelve el reportRoot
+   * pero NO se crea (ensureContainedDirectory hace mkdir). detectScope con
+   * dryRun tampoco escribe changed-files.txt ni scope-manifest.json. */
+  const reportRoot = args.dryRun
+    ? path.resolve(args.reportRoot)
+    : await ensureContainedDirectory(workspace, args.reportRoot, 'reportRoot');
   /* [028A-6 Fase 2] Lease efímero firmado por ejecución: exime a las etapas
    * del guard de comandos directos sin depender del token plano (firma +
    * binding de proyecto/PID + expiración + auditoría). La emisión es
@@ -103,19 +108,24 @@ export async function runCheck(args: CheckRunArgs): Promise<CheckRunResult> {
     ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   let issuedLease: IssuedLease | null = null;
   try {
-    try {
-      const leaseRoot = await findQualityRoot(workspace);
-      issuedLease = await issueLease({
-        projectRoot: leaseRoot,
-        taskId: args.taskId ?? null,
-        command: 'gate',
-      });
-      process.env[LEASE_ENV_VAR] = issuedLease.path;
-    } catch (error) {
-      /* Sin lease: el token legacy cubre las etapas, pero el operador debe
-       * saber que los shims nuevos no eximirán (el guard bloquea, nunca
-       * degrada a permisivo). */
-      process.stderr.write(`[glory-sentinel] aviso: no se pudo emitir el lease del gate (${error instanceof Error ? error.message : String(error)}); las etapas corren con el token legacy.\n`);
+    /* [108A-1 Fase 1] El lease es una escritura en el runtime (aunque
+     * efímera: se revoca al cerrar). En dry-run no hay etapas que eximir, así
+     * que no se emite: la operación no debe mutar nada, ni siquiera el runtime. */
+    if (!args.dryRun) {
+      try {
+        const leaseRoot = await findQualityRoot(workspace);
+        issuedLease = await issueLease({
+          projectRoot: leaseRoot,
+          taskId: args.taskId ?? null,
+          command: 'gate',
+        });
+        process.env[LEASE_ENV_VAR] = issuedLease.path;
+      } catch (error) {
+        /* Sin lease: el token legacy cubre las etapas, pero el operador debe
+         * saber que los shims nuevos no eximirán (el guard bloquea, nunca
+         * degrada a permisivo). */
+        process.stderr.write(`[glory-sentinel] aviso: no se pudo emitir el lease del gate (${error instanceof Error ? error.message : String(error)}); las etapas corren con el token legacy.\n`);
+      }
     }
     const requestedFull = args.full ?? false;
     const requestedCi = args.ci ?? false;
@@ -151,7 +161,7 @@ async function runCheckWithToken(
     : null;
   const qualityConfig = await loadScopeQualityConfig(workspace);
   const scope = await detectScope(
-    { projectRoot: workspace, reportRoot, qualityConfig },
+    { projectRoot: workspace, reportRoot, qualityConfig, dryRun: args.dryRun },
     {
       full: requestedFull,
       ci: requestedCi,

@@ -1,9 +1,10 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
-## [Unreleased] - 2026-08-08 (extensión local, sin publicar)
+## [0.7.0] - 2026-08-10
 
 ### Agregado
+- Merge de la auditoría 108A-1 (rama `f1/cli-contracts`) sobre `main` 0.6.4: contratos CLI corregidos (logger siempre a stderr, stdout reservado al JSON), `doctor` separa `readyForAnalyze` de `readyForGate`, `check --dry-run` estrictamente no mutante, budgets conectados (`quality:profile --budgets`), `sentinel init/migrate/uninit` con presets node/rust/python/mixed, Sentinel como producto único (ADR 0001: registro de extensiones, fronteras `check:core`, CLI dividido en args/commands, capabilities opcionales) y endurecimiento de seguridad/concurrencia (path containment, redacción, locks atómicos con verificación de ownership, fixtures de seguridad). Suite upstream: 557 passing.
 - Trazabilidad completa de tareas: `task status --all --json` conserva historial archivado tras `cleanup`/`release`, eventos del lifecycle, summary/plan/relaciones, resultados de gates, commits y archivos cambiados; detecta namespaces coordinados, worktrees/ramas huérfanos, locks expirados y carpetas físicas en raíces internas o externas autorizadas. La limpieza archiva solo después de retirar recursos con éxito y `release` rechaza metadata que aún conserva recursos.
 - `task start --worktrees-root <dir>`: raíz externa autorizada para worktrees temporalmente visibles
   al workspace del agente (por ejemplo `area-trabajo/task-worktrees`). Debe existir, quedar fuera del

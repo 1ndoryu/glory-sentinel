@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "updated": "2026-08-10",
+  "adr": "docs/adr/0001-producto-unico-sentinel.md",
+  "note": "Budget de tamaño por módulo (checklist Fase 2 de la auditoría). Los módulos grandes de consolidación (taskCoordinator, interceptorShims, runtimeInstall, diagnose) tienen excepción justificada en el ADR: se dividen en Fase 5/F6, el budget frena el crecimiento mientras tanto. Los módulos no listados no tienen budget hasta estabilizarse; check:core reporta el top-10 para visibilidad. taskCoordinator sube a 1250 en la release 0.7.0 (merge de main: env-manifest, worktrees-root e historial de tareas); la división física queda en la consolidación de Retirada Legacy.",
+  "modules": {
+    "src/core/taskCoordinator.ts": 1250,
+    "src/core/interceptorShims.ts": 750,
+    "src/analyzers/rustAnalyzer.ts": 650,
+    "src/cli/commands.ts": 650,
+    "src/core/runtimeInstall.ts": 600,
+    "src/core/diagnose.ts": 600,
+    "src/analyzers/externalToolsAnalyzer.ts": 550,
+    "src/core/lease.ts": 550,
+    "src/cli/args.ts": 550,
+    "src/core/scope.ts": 450,
+    "src/analyzers/react/reactComponentRules.ts": 950,
+    "src/analyzers/static/staticCssRules.ts": 700,
+    "src/analyzers/glory/apiContractIndexer.ts": 550,
+    "src/analyzers/php/phpDataRules.ts": 550
+  }
+}

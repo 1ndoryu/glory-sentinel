@@ -19,6 +19,9 @@ export async function runBoundedStages<T>(
   let stopScheduling = false;
 
   async function worker(): Promise<void> {
+    /* Worker que agota la cola: la salida es el return al detectar
+     * cancelación o fin de cursor. Condición constante intencional. */
+    // eslint-disable-next-line no-constant-condition -- cola agotada por return explícito
     while (true) {
       if (stopScheduling || options.isCancelled?.()) {
         if (options.isCancelled?.()) errors.push(new Error('quality gate cancelado durante las etapas'));

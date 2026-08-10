@@ -8,6 +8,10 @@ export function isPathInside(root: string, candidate: string): boolean {
 
 async function existingAncestor(candidate: string): Promise<string> {
   let current = path.resolve(candidate);
+  /* Recorre hacia la raíz hasta el ancestro existente; la salida es el return
+   * del try o el throw de un error distinto de ENOENT: condición constante
+   * intencional, no un loop sin salida. */
+  // eslint-disable-next-line no-constant-condition -- bucle de ascenso con salida explícita
   while (true) {
     try {
       await fs.lstat(current);

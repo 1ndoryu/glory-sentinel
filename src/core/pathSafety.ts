@@ -4,6 +4,9 @@ import * as path from 'path';
 export async function canonicalPath(target: string): Promise<string> {
   let candidate = path.resolve(target);
   const missing: string[] = [];
+  /* Resolución canónica ascendente: la salida es el return del try o el
+   * throw de un error distinto de ENOENT. Condición constante intencional. */
+  // eslint-disable-next-line no-constant-condition -- ascenso con salida explícita
   while (true) {
     try {
       const existing = await fs.realpath(candidate);
