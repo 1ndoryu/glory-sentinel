@@ -67,6 +67,7 @@ import {
   taskUsage,
   usage,
 } from './args';
+import { initCliTarget, migrateCliTarget, uninitCliTarget } from './bootstrapCommands';
 
 async function fileExists(filePath: string): Promise<boolean> {
   try {
@@ -551,6 +552,21 @@ export async function runCli(rawArgs: string[]): Promise<number> {
     const output = await leaseCliTarget(args);
     await writeOrPrint(output, args.outputPath);
     return 0;
+  }
+  if (args.command === 'init') {
+    const result = await initCliTarget(args, await readPackageVersion());
+    await writeOrPrint(result.output, args.outputPath);
+    return result.exitCode;
+  }
+  if (args.command === 'migrate') {
+    const output = await migrateCliTarget(args);
+    await writeOrPrint(output, args.outputPath);
+    return 0;
+  }
+  if (args.command === 'uninit') {
+    const result = await uninitCliTarget(args);
+    await writeOrPrint(result.output, args.outputPath);
+    return result.exitCode;
   }
   const result = await analyzeCliTarget(args);
   await writeOrPrint(renderOutput(result, args, await readPackageVersion()), args.outputPath);

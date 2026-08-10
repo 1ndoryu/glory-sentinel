@@ -273,7 +273,13 @@ function insideWorkspace(root: string, candidate: string): boolean {
 
 async function diagnoseConfiguredTools(root: string, lockData: Record<string, unknown> | null): Promise<{ tools: Record<string, DiagnoseTool>; issues: DiagnoseIssue[] }> {
   const manifest = await readJsonFile(path.join(root, 'quality-tools.json')) as { tools?: unknown } | null;
+  /* [108A-1 Fase 4] Sin quality-tools.json NO es un problema: un proyecto
+   * iniciado con `sentinel init` reduce el contrato a sentinel.config.json +
+   * sentinel.lock.json (la metadata de tools pasa a generación interna bajo
+   * .sentinel/). La verificación de tools aplica solo si están declaradas;
+   * un manifest presente pero inválido sí falla. */
   if (!manifest || !manifest.tools || typeof manifest.tools !== 'object' || Array.isArray(manifest.tools)) {
+    if (!manifest) return { tools: {}, issues: [] };
     return { tools: {}, issues: [{ code: 'tools-manifest-missing', message: 'quality-tools.json no contiene tools verificables' }] };
   }
   const configuredTools = manifest.tools as Record<string, unknown>;

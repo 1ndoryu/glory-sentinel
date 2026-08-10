@@ -56,7 +56,7 @@ export type SentinelCliConfigFile = SentinelConfigFile;
 
 
 export interface ParsedCliArgs {
-  command: 'analyze' | 'check' | 'guard' | 'doctor' | 'status' | 'install' | 'update' | 'rollback' | 'uninstall' | 'lease' | 'task';
+  command: 'analyze' | 'check' | 'guard' | 'doctor' | 'status' | 'install' | 'update' | 'rollback' | 'uninstall' | 'lease' | 'task' | 'init' | 'migrate' | 'uninit';
   taskAction?: TaskAction;
   agent?: string;
   base?: string;
@@ -92,6 +92,11 @@ export interface ParsedCliArgs {
   withPath?: boolean;
   withoutPath?: boolean;
   keepRuntime?: boolean;
+  /* [108A-1 Fase 4] Opciones de init/migrate/uninit. */
+  initPreset?: string;
+  initPrimaryBranch?: string;
+  initAlias?: string;
+  initAnalyzerVersion?: string;
 }
 
 export interface CliAnalysisResult {
@@ -123,6 +128,9 @@ export function usage(): string {
     '  sentinel lease revoke --lease <path> [--json]',
     '  sentinel lease verify --lease <path> [--project-root <dir>] [--pid <n>] [--json]',
     '  sentinel task claim|start|heartbeat|status|gate|integrate|cleanup|release|recover <id> [opciones]',
+    '  sentinel init --preset <node|rust|python|mixed> [--project-root <dir>] [--primary-branch <rama>] [--dry-run] [--force] [--with-alias <nombre>] [--json]',
+    '  sentinel migrate --project-root <dir> [--json]',
+    '  sentinel uninit --project-root <dir> [--dry-run] [--json]',
     '  sentinel --version',
     '',
     'Opciones:',
@@ -225,7 +233,7 @@ export function parseTaskCliArgs(args: string[]): TaskCliArgs {
 
 export function parseCliArgs(args: string[]): ParsedCliArgs {
   if (args[0] === 'task') return parseTaskCliArgs(args) as unknown as ParsedCliArgs;
-  if (!['analyze', 'check', 'guard', 'doctor', 'status', 'install', 'update', 'rollback', 'uninstall', 'lease'].includes(args[0] ?? '')) {
+  if (!['analyze', 'check', 'guard', 'doctor', 'status', 'install', 'update', 'rollback', 'uninstall', 'lease', 'init', 'migrate', 'uninit'].includes(args[0] ?? '')) {
     throw new Error(usage());
   }
 
@@ -326,6 +334,42 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
         parsed.withoutPath = true;
       } else if (arg === '--keep-runtime') {
         parsed.keepRuntime = true;
+      } else if (arg === '--json') {
+        parsed.json = true;
+      } else if (arg === '--help' || arg === '-h') {
+        throw new Error(usage());
+      } else {
+        throw new Error(`Opcion no reconocida: ${arg}\n${usage()}`);
+      }
+    }
+    return parsed;
+  }
+
+  if (args[0] === 'init' || args[0] === 'migrate' || args[0] === 'uninit') {
+    /* [108A-1 Fase 4] Bootstrap reproducible: init genera el contrato mínimo
+     * (sentinel.config.json v2 + lock + init-manifest); migrate SOLO descubre
+     * legacy; uninit retira solo lo administrado. Todos respetan --dry-run. */
+    for (let index = 1; index < args.length; index++) {
+      const arg = args[index];
+      if (arg === '--preset') {
+        parsed.initPreset = takeValue(args, index, arg);
+        index++;
+      } else if (arg === '--project-root' || arg === '--workspace') {
+        parsed.workspacePath = takeValue(args, index, arg);
+        index++;
+      } else if (arg === '--primary-branch') {
+        parsed.initPrimaryBranch = takeValue(args, index, arg);
+        index++;
+      } else if (arg === '--with-alias') {
+        parsed.initAlias = takeValue(args, index, arg);
+        index++;
+      } else if (arg === '--analyzer-version') {
+        parsed.initAnalyzerVersion = takeValue(args, index, arg);
+        index++;
+      } else if (arg === '--dry-run') {
+        parsed.dryRun = true;
+      } else if (arg === '--force') {
+        parsed.force = true;
       } else if (arg === '--json') {
         parsed.json = true;
       } else if (arg === '--help' || arg === '-h') {
