@@ -47,6 +47,9 @@ export interface DiagnoseTool {
   cliResponds: boolean;
   cliCapabilities: string[];
   missingCapabilities: string[];
+  /** [108A-1 Fase 2] Capabilities opcionales declaradas (task, recover,
+   * shims...): su ausencia NO bloquea el doctor; solo se reporta. */
+  optionalCapabilities: string[];
   packagePresent: boolean;
   packageLockPresent: boolean;
   dependenciesPresent: boolean;
@@ -336,7 +339,12 @@ async function diagnoseConfiguredTools(root: string, lockData: Record<string, un
     );
     const requiredCapabilities = Array.isArray(config?.requiredCapabilities)
       ? config.requiredCapabilities.filter((value): value is string => typeof value === 'string')
-      : (name === 'sentinel' ? ['guard', 'doctor', 'task', 'recover'] : []);
+      /* [108A-1 Fase 2] El análisis y el gate son el núcleo del producto
+       * (analyze/check/doctor/status). `task`, `recover` y los shims son
+       * capabilities OPCIONALES: su ausencia no debe bloquear el doctor de un
+       * checkout que solo corre `sentinel check` sin orquestación. */
+      : (name === 'sentinel' ? ['analyze', 'check', 'doctor', 'status'] : []);
+    const optionalCapabilities = name === 'sentinel' ? ['task', 'recover'] : [];
     /* sourcePath interno no admite patch local (setup lo rechaza); cualquier
      * cambio distinto de la metadata administrativa es inesperado. */
     const unexpectedChanges = changes.filter(change => change !== '.quality-install.json');
@@ -363,6 +371,7 @@ async function diagnoseConfiguredTools(root: string, lockData: Record<string, un
       cliResponds: Boolean(reportedVersion),
       cliCapabilities: capabilities,
       missingCapabilities: requiredCapabilities.filter(capability => !capabilities.includes(capability)),
+      optionalCapabilities,
       packagePresent: metadata.packagePresent,
       packageLockPresent: metadata.packageLockPresent,
       dependenciesPresent: metadata.dependenciesPresent,

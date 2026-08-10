@@ -87,8 +87,12 @@ suite('Sentinel core diagnose (orquestador agnóstico)', () => {
       assert.strictEqual(result.ready, false);
       const tool = result.tools.sentinel;
       assert.ok(tool);
-      assert.deepStrictEqual(tool.missingCapabilities, ['guard', 'doctor', 'task', 'recover']);
+      /* [108A-1 Fase 2] El núcleo requerido es analyze/check/doctor/status;
+       * task/recover son opcionales y su ausencia no genera issue. */
+      assert.deepStrictEqual(tool.missingCapabilities, ['check', 'doctor', 'status']);
+      assert.deepStrictEqual(tool.optionalCapabilities, ['task', 'recover']);
       assert.ok(result.issues.some(issue => issue.code === 'tool-capability-missing'));
+      assert.ok(!result.issues.some(issue => issue.code === 'tool-capability-missing' && /task|recover/u.test(issue.message)), 'task/recover opcionales no deben declarar capacidad faltante');
       assert.ok(result.issues.some(issue => issue.code === 'tool-release-unpublished'));
       assert.ok(result.issues.some(issue => issue.code === 'tool-release-evidence-missing'));
       assert.ok(result.issues.some(issue => issue.code === 'tool-package-lock-dirty'));
