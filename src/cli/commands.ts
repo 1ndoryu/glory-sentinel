@@ -16,6 +16,7 @@ import {
   QUALITY_GUARD_EXIT_CODE,
 } from '../core/guardCommand';
 import { diagnoseWorkspace, formatDiagnose, formatStatus } from '../core/diagnose';
+import { formatShims } from '../core/shimDiagnostics';
 import { runCheck, CheckRunResult } from '../core/gateRun';
 import { cancelAll } from '../core/toolRunner';
 import { resolveGuardRoot, resolveTargetBase } from '../core/scheduler';
@@ -538,9 +539,13 @@ export async function runCli(rawArgs: string[]): Promise<number> {
   if (args.command === 'doctor' || args.command === 'status') {
     const workspace = path.resolve(args.workspacePath ?? process.cwd());
     const diagnosis = await diagnoseWorkspace(workspace);
+    /* [108A-1 F6] `doctor --shims`: salida enfocada en qué ejecutable gana
+     * realmente en PATH para node/npm/npx/cargo (marcando shims del guard). */
     const output = args.json
       ? `${JSON.stringify(diagnosis, null, 2)}\n`
-      : `${(args.command === 'doctor' ? formatDiagnose(diagnosis) : formatStatus(diagnosis))}\n`;
+      : args.command === 'doctor' && args.doctorShims
+        ? `${formatShims(diagnosis.shims)}\n`
+        : `${(args.command === 'doctor' ? formatDiagnose(diagnosis) : formatStatus(diagnosis))}\n`;
     await writeOrPrint(output, args.outputPath);
     /* Doctor es preflight fail-closed: una capacidad ausente, checkout dirty,
      * lock divergente o release no publicada debe producir exit != 0 antes de

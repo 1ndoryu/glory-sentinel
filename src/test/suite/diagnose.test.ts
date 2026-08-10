@@ -7,6 +7,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
 import { diagnoseWorkspace, formatDiagnose, formatStatus } from '../../core/diagnose';
+import { formatShims, resolveShimWinners } from '../../core/shimDiagnostics';
 import { runCli } from '../../cli/index';
 
 function policy(): object {
@@ -152,5 +153,21 @@ suite('Sentinel core diagnose (orquestador agnóstico)', () => {
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  /* [108A-1 F6] `doctor --shims`: lista los ganadores reales de PATH para
+   * node/npm/npx/cargo y marca si el shim gana. Resolución pura de PATH, sin
+   * tocar el sistema. */
+  test('resolveShimWinners cubre los 4 ejecutables y formatShims es legible', () => {
+    const shims = resolveShimWinners();
+    for (const executable of ['node', 'npm', 'npx', 'cargo']) {
+      assert.ok(shims[executable], `entrada para ${executable}`);
+      assert.ok(Array.isArray(shims[executable].candidates));
+      assert.ok(shims[executable].winner === null || typeof shims[executable].winner === 'string');
+    }
+    const text = formatShims(shims);
+    assert.match(text, /node/);
+    assert.match(text, /cargo/);
+    assert.ok(text.includes('no encontrado') || text.includes('->'), 'formato ganador legible');
   });
 });

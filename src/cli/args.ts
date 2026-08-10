@@ -68,6 +68,8 @@ export interface ParsedCliArgs {
   leasePid?: number;
   leaseTtlMs?: number;
   workspacePath?: string;
+  /* [108A-1 F6] `doctor --shims`: lista qué ejecutable gana realmente en PATH. */
+  doctorShims?: boolean;
   filePath?: string;
   filesFromPath?: string;
   format: CliFormat;
@@ -117,7 +119,7 @@ export function usage(): string {
     '  sentinel check <task-id> --dry-run [--workspace .] [--full|--ci] [--profile rust,...]',
     '  sentinel check <task-id> --stages <json> [--full|--ci] [--workspace .]',
     '  sentinel guard --executable <exe> [--project-root <dir>] [--json] -- <args...>',
-    '  sentinel doctor [--json] [--workspace .]',
+    '  sentinel doctor [--json] [--workspace .] [--shims]',
     '  sentinel status [--json] [--workspace .]',
     '  sentinel install [--target-root <dir>] [--source-root <dir>] [--version <v>] [--dry-run] [--with-shims] [--with-profiles] [--with-path] [--without-path] [--json]',
     '  sentinel update [--target-root <dir>] [--source-root <dir>] [--version <v>] [--dry-run] [--with-shims] [--with-profiles] [--with-path] [--without-path] [--json]',
@@ -449,6 +451,9 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
         break;
       case '--json':
         parsed.json = true;
+        break;
+      case '--shims':
+        parsed.doctorShims = true;
         break;
       case '--help':
       case '-h':

@@ -78,9 +78,39 @@ deben cumplir las extensiones para que añadir una no rompa el núcleo
 - Los fixtures/snapshots antes y después conservan decisiones y findings
   ordenados (gate de refactor de la auditoría).
 
+## Alcance local y límites de recursos (Fase 6)
+
+- **Coordinación local por workspace/clon:** los locks, leases y la metadata de
+  tareas viven en `.sentinel/` del repositorio del proyecto (coordination,
+  tasks, leases). **Clones distintos no comparten ownership**: cada clon tiene
+  su propia metadata local y un claim de un clon no afecta a otro.
+- **Sin backend distribuido:** no se implementa orquestación distribuida ni
+  coordinación remota sin un segundo consumidor independiente y un ADR de
+  consistencia que lo justifique.
+- **Límites de recursos fijados:** captura de procesos acotada a 64 KiB con
+  marcador visible de truncación (`[TRUNCATED]`), timeout por proceso (default
+  120 s), redacción de secretos antes de publicar (stdout/stderr/logs/reportes),
+  escrituras atómicas (`writeAtomic`: tmp + rename, sin estados parciales) y
+  verificación SHA-256 de artifacts antes y después de instalar.
+- **Shims del guard:** son una capability OPCIONAL (no requisito de `check`).
+  Presupuesto de overhead p95 < 50 ms por invocación; la medición real
+  (bench-shims) excedió el presupuesto (p95 ~291–769 ms en node/npm/cargo por
+  el `where` del shim + arranque de Node + guard), por lo que **los shims
+  legacy deben salir de la ruta normal** y el reemplazo canónico es
+  `sentinel guard` / `sentinel check`. `doctor --shims` lista qué ejecutable
+  gana realmente en PATH y marca si el shim gana.
+- **Estados distintos y fail-closed:** FAIL de findings, ERROR de herramienta,
+  timeout y cancelación tienen estados/ruleIds separados; lock corrupto, path
+  fuera del workspace (traversal/symlink/junction), artifact manipulado y PID
+  no descendiente fallan cerrado con error distinto (fixtures de seguridad).
+
 ## Referencias
 
 - Auditoría §14 Fase 2 (checklist de arquitectura, validación SOLID, gate de
   refactor, rollback).
+- Auditoría §14 Fase 6 (concurrencia, shims, seguridad, alcance).
 - `scripts/check-core-no-vscode.mjs` (fronteras + budgets).
 - `src/core/extensionRegistry.ts` y `src/test/suite/extensionRegistry.test.ts`.
+- `src/core/shimDiagnostics.ts`, `src/core/securityFixtures` (tests),
+  `src/core/redaction.ts` (fix de backtracking catastrófico de URL_CREDENTIALS
+  y de `Authorization: Bearer <token>`).

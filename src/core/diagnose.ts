@@ -11,6 +11,7 @@ import { findQualityRoot, hasQualityMarker, resolveGuardRoot, resolveTargetBase 
 import { readV2GuardPolicy, GuardPolicy } from './guardCommand';
 import { runtimeStatus, RuntimeStatusResult } from './runtimeInstall';
 import { keyPresent, listLeases } from './lease';
+import { resolveShimWinners, formatShims, DiagnoseShimEntry } from './shimDiagnostics';
 
 const execFileAsync = promisify(execFile);
 
@@ -94,6 +95,7 @@ export interface DiagnoseResult {
   scheduler: DiagnoseScheduler | null;
   leases: DiagnoseLeases | null;
   tools: Record<string, DiagnoseTool>;
+  shims: Record<string, DiagnoseShimEntry>;
   issues: DiagnoseIssue[];
   ready: boolean;
   /* [108A-1 Fase 1] Readiness separada: readyForAnalyze (el analizador puede
@@ -488,6 +490,7 @@ export async function diagnoseWorkspace(workspace: string): Promise<DiagnoseResu
     scheduler,
     leases,
     tools,
+    shims: resolveShimWinners(),
     issues,
     ready: readyForAnalyze,
     readyForAnalyze,
@@ -531,6 +534,8 @@ export function formatDiagnose(result: DiagnoseResult): string {
     lines.push(`  ${tool.name}: source ${tool.sourcePresent ? 'ok' : 'missing'} - cli ${tool.cliPresent ? 'ok' : 'missing'} - version ${tool.cliVersion ?? 'failed'} - checkout ${tool.checkoutCommit?.slice(0, 8) ?? 'n/a'}${tool.checkoutDirty ? ' - DIRTY' : ''}${dependencyText}${capabilityText}${releaseText}`);
   }
   for (const issue of result.issues) lines.push(`ERROR ${issue.code}: ${issue.message}`);
+  lines.push('');
+  lines.push(formatShims(result.shims));
   return lines.join('\n');
 }
 

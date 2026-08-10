@@ -2,9 +2,16 @@
  * scripts/quality/redaction.mjs. Los reportes publicados nunca deben exponer
  * tokens, credenciales ni valores de claves sensibles. */
 const SECRET_NAME = /(TOKEN|KEY|SECRET|PASSWORD|PASSWD|AUTHORIZATION|DATABASE_URL)/i;
-const ASSIGNMENT = /((?:TOKEN|KEY|SECRET|PASSWORD|PASSWD|AUTHORIZATION|DATABASE_URL)[\w-]*\s*[:=]\s*)[^\s,;]+/gi;
+/* [108A-1 F6] `Authorization: Bearer <token>`: el valor consume el prefijo
+ * Bearer como parte del token; sin el grupo opcional el ASSIGNMENT se quedaba
+ * con "Bearer" y dejaba el token expuesto (hallazgo del fixture de seguridad). */
+const ASSIGNMENT = /((?:TOKEN|KEY|SECRET|PASSWORD|PASSWD|AUTHORIZATION|DATABASE_URL)[\w-]*\s*[:=]\s*)(?:Bearer\s+)?[^\s,;]+/gi;
 const BEARER = /Bearer\s+[A-Za-z0-9._~+/-]{12,}/gi;
-const URL_CREDENTIALS = /([a-z][a-z0-9+.-]*:\/\/)[^\s:@/]+:[^\s@/]+@/gi;
+/* [108A-1 F6] Backtracking catastrófico preexistente: el esquema greedy
+ * `[a-z0-9+.-]*` y las clases de user/pass sin acotar degeneraban a O(n²)
+ * sobre líneas largas sin `://` (hallazgo del fixture: 60 s en 300 KiB).
+ * Esquema y credenciales quedan acotados a tamaños reales de URL. */
+const URL_CREDENTIALS = /([a-z][a-z0-9+.-]{0,32}:\/\/)[^\s:@/]{1,256}:[^\s@/]{1,256}@/gi;
 
 export function redact(value: unknown): string {
   return String(value ?? '')
