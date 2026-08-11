@@ -114,7 +114,7 @@ Mientras no exista un paquete publicado para tu registry, instala desde el check
 ```bash
 git clone https://github.com/1ndoryu/glory-sentinel.git
 cd glory-sentinel
-git checkout v0.7.0
+git checkout v0.7.1
 npm ci
 npm run compile
 node out/cli/index.js install --source-root . --with-shims --with-path
@@ -196,7 +196,7 @@ La coordinación es opcional: puedes usar Sentinel únicamente como analizador o
 | 0.6.x   | Preflight fail-closed, validación de release y recuperación segura    |
 | 0.7.x   | `init`, `migrate`, `uninit`, readiness separada y stages declarativos |
 
-El release coordinado vigente es **0.7.0**, publicado en `main` y `v0.7.0`.
+El release coordinado vigente es **0.7.1**, publicado en `main` y `v0.7.1`.
 
 ## Documentación
 

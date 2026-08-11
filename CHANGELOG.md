@@ -1,6 +1,13 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
+## [0.7.1] - 2026-08-11
+
+### Corregido
+- `sentinel init --json` aplica el bootstrap igual que la salida de texto; `--json` cambia solo la representación.
+- Los conflictos existentes conservan salida y código de error sin sobrescribir archivos del proyecto.
+- Prueba de CLI real para config, lock y `init-manifest`: 8 casos PASS.
+
 ## [0.7.0] - 2026-08-10
 
 ### Agregado
