@@ -41,7 +41,11 @@ export async function initCliTarget(args: ParsedCliArgs, analyzerVersion?: strin
     analyzerVersion: args.initAnalyzerVersion ?? analyzerVersion,
     withAlias: args.initAlias,
   });
-  if (args.json) {
+  /* --json cambia la representación, no el contrato: una inicialización
+   * real sigue aplicando el plan. Antes de este punto el retorno temprano
+   * hacía que `sentinel init --json` anunciara archivos creados sin escribir
+   * ninguno, justo el comando que usarían automatizaciones y bootstrap. */
+  if (args.dryRun || (args.json && plan.conflicts.length > 0)) {
     return {
       output: `${JSON.stringify({
         dryRun: Boolean(args.dryRun),
@@ -50,15 +54,28 @@ export async function initCliTarget(args: ParsedCliArgs, analyzerVersion?: strin
         conflicts: plan.conflicts,
         files: plan.files.map(file => ({ path: path.relative(projectRoot, file.path).replace(/\\/g, '/'), action: file.action })),
       }, null, 2)}\n`,
-      exitCode: 0,
+      exitCode: args.dryRun || plan.conflicts.length === 0 ? 0 : 1,
     };
   }
-  if (args.dryRun) return { output: `${formatInitPlan(plan)}\n`, exitCode: 0 };
   if (plan.conflicts.length > 0) {
     return { output: `${formatInitPlan(plan)}\n`, exitCode: 1 };
   }
   const applied = await applyInit(plan, projectRoot);
   const backupText = applied.backedUp.length > 0 ? ` (backup: ${applied.backedUp.join(', ')})` : '';
+  if (args.json) {
+    return {
+      output: `${JSON.stringify({
+        dryRun: false,
+        preset: plan.preset,
+        primaryBranch: plan.primaryBranch,
+        conflicts: plan.conflicts,
+        files: plan.files.map(file => ({ path: path.relative(projectRoot, file.path).replace(/\\/g, '/'), action: file.action })),
+        applied: applied.applied.map(file => path.relative(projectRoot, file).replace(/\\/g, '/')),
+        backedUp: applied.backedUp.map(file => path.relative(projectRoot, file).replace(/\\/g, '/')),
+      }, null, 2)}\n`,
+      exitCode: 0,
+    };
+  }
   return {
     output: `${formatInitPlan(plan)}\n[init] aplicado: ${applied.applied.join(', ')}${backupText}\n`,
     exitCode: 0,

@@ -179,4 +179,20 @@ suite('Bootstrap reproducible — sentinel init/migrate/uninit (108A-1 Fase 4)',
       fs.rmSync(root, { recursive: true, force: true });
     }
   });
+
+  test('CLI real: init --json aplica el bootstrap y no solo lo anuncia', () => {
+    const root = makeRepo();
+    try {
+      const init = runCli(root, ['init', '--preset', 'node', '--project-root', root, '--json']);
+      assert.strictEqual(init.status, 0, init.stderr);
+      const result = JSON.parse(init.stdout.trim()) as { dryRun?: boolean; applied?: string[] };
+      assert.strictEqual(result.dryRun, false);
+      assert.ok(result.applied?.includes('sentinel.config.json'));
+      assert.ok(fs.existsSync(path.join(root, 'sentinel.config.json')), 'init --json escribe la configuración');
+      assert.ok(fs.existsSync(path.join(root, 'sentinel.lock.json')), 'init --json escribe el lock');
+      assert.ok(fs.existsSync(path.join(root, '.sentinel', 'init-manifest.json')), 'init --json escribe el manifiesto');
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
