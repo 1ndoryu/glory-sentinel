@@ -4,6 +4,7 @@
  * any type explicito, non-null assertion excesivo.
  */
 
+import * as fs from 'fs';
 import { Violacion } from '../../types';
 import { CoreTextDocument } from '../../core/types';
 import { contarLineasEfectivas, obtenerLimiteArchivo } from '../../utils/lineCounter';
@@ -336,7 +337,6 @@ export function verificarDirectorioAbarrotado(
   let conteo = cacheConteoDirectorios.get(directorio);
   if (conteo === undefined) {
     try {
-      const fs = require('fs') as typeof import('fs');
       const entradas = fs.readdirSync(directorio);
       conteo = entradas.filter((e: string) => {
         try {

@@ -8,12 +8,15 @@
  */
 
 import type * as vscode from 'vscode';
+import { createRequire } from 'module';
+
+const loadRuntimeModule = createRequire(__filename);
 
 let canal: vscode.OutputChannel | null = null;
 
 /* Inicializa el canal. Llamar una sola vez desde extension.ts al activar. */
 export function inicializarCanal(context: vscode.ExtensionContext): vscode.OutputChannel {
-    const vscodeApi = require('vscode') as typeof vscode;
+    const vscodeApi = loadRuntimeModule('vscode') as typeof vscode;
     canal = vscodeApi.window.createOutputChannel('Code Sentinel');
     context.subscriptions.push(canal);
     return canal;

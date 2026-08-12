@@ -2,7 +2,7 @@
   "name": "glory-sentinel",
   "displayName": "Glory Sentinel",
   "description": "Analiza automaticamente el codigo del workspace con reglas estaticas para detectar problemas de arquitectura, seguridad y calidad.",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "publisher": "1ndoryu",
   "icon": "media/7599515f2b8981a49a057e0e9a75b8b6.jpg",
   "repository": {
@@ -134,18 +134,20 @@
     "@types/mocha": "^10.0.6",
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",
-    "@typescript-eslint/eslint-plugin": "^6.21.0",
-    "@typescript-eslint/parser": "^6.21.0",
+    "@typescript-eslint/eslint-plugin": "^8.67.0",
+    "@typescript-eslint/parser": "^8.67.0",
     "@vscode/test-electron": "^2.3.8",
     "eslint": "^8.57.1",
     "glob": "^13.0.6",
-    "minimatch": "^9.0.3",
-    "mocha": "^10.2.0",
+    "mocha": "^11.8.0",
     "typescript": "^5.3.3"
   },
   "dependencies": {
-    "minimatch": "^9.0.3",
+    "minimatch": "^10.2.6",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.12"
+  },
+  "overrides": {
+    "diff": "^8.0.3"
   }
 }

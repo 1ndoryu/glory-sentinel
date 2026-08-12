@@ -10,6 +10,7 @@
 
 import * as vscode from 'vscode';
 import * as cp from 'child_process';
+import * as fs from 'fs';
 import * as path from 'path';
 import { Violacion, SeveridadRegla } from '../types';
 import { logInfo, logWarn } from '../utils/logger';
@@ -393,8 +394,6 @@ function encontrarRaizCargo(folders: readonly vscode.WorkspaceFolder[]): string 
   for (const folder of folders) {
     const cargoPath = path.join(folder.uri.fsPath, 'Cargo.toml');
     try {
-      /* fs.existsSync equivalente via vscode no es async, usamos path check */
-      const fs = require('fs');
       if (fs.existsSync(cargoPath)) {
         return folder.uri.fsPath;
       }
