@@ -1,6 +1,14 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
+## [0.7.4] - 2026-08-12
+
+### Corregido
+- La matriz de guards y los tests de coordinación son portables en runners POSIX: rutas temporales,
+  separadores y mensajes ya no asumen Windows.
+- El guard PowerShell resuelve ejecutables sin extensión `.exe` cuando corre sobre PowerShell 7 en Linux.
+- La CI publica los nombres y mensajes de los fallos de Mocha como anotaciones y artefacto descargable.
+
 ## [0.7.1] - 2026-08-11
 
 ### Corregido
