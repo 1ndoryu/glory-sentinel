@@ -38,6 +38,41 @@ jobs:
       - name: Publish unit-test diagnostics
         if: steps.unit.outcome == 'failure'
         run: |
+          set +e
+          npx mocha --reporter json --full-trace > mocha-json.log 2>&1
+          set -e
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const raw = fs.readFileSync('mocha-json.log', 'utf8');
+          const marker = raw.lastIndexOf('\n{\n  "stats"');
+          let report = null;
+          if (marker >= 0) {
+            try {
+              report = JSON.parse(raw.slice(marker + 1));
+            } catch (error) {
+              console.log(`::warning::No se pudo parsear el JSON de Mocha: ${error.message}`);
+            }
+          }
+          const failures = report?.failures ?? [];
+          const lines = failures.map((failure) => {
+            const file = failure.file ? path.relative(process.cwd(), failure.file) : '';
+            const line = failure.err?.line || 1;
+            const message = `${failure.fullTitle}: ${failure.err?.message || 'fallo sin mensaje'}`
+              .replaceAll(/\r?\n/gu, ' ')
+              .replaceAll('::', ':');
+            console.log(`::error file=${file},line=${line}::${message}`);
+            return `- **${failure.fullTitle}** — ${failure.err?.message || 'fallo sin mensaje'}`;
+          });
+          const summary = [
+            '## Unit-test failures',
+            '',
+            lines.length ? lines.join('\n') : 'No se pudo extraer la lista estructurada; revisar `mocha-json.log`.',
+            '',
+            `Tests: ${report?.stats?.tests ?? 'desconocidos'}; fallos: ${report?.stats?.failures ?? 'desconocidos'}`,
+          ].join('\n');
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${summary}\n`);
+          NODE
           {
             echo '## Unit-test diagnostics'
             echo
@@ -45,6 +80,16 @@ jobs:
             tail -n 300 mocha-output.log
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload unit-test diagnostics
+        if: steps.unit.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sentinel-unit-test-diagnostics
+          path: |
+            mocha-output.log
+            mocha-json.log
+          if-no-files-found: error
 
       - name: Fail if unit tests failed
         if: steps.unit.outcome == 'failure'
