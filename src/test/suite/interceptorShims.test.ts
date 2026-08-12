@@ -85,11 +85,14 @@ suite('Sentinel core interceptorShims (shims y perfiles)', () => {
   });
 
   test('guard PowerShell define funciones y llama al guard del runtime', () => {
-    const pwsh = generatePowerShellGuard('C:\\Glory\\Runtime');
+    const runtimeRoot = process.platform === 'win32'
+      ? 'C:\\Glory\\Runtime'
+      : path.join(os.tmpdir(), 'Glory', 'Runtime');
+    const pwsh = generatePowerShellGuard(runtimeRoot);
     for (const name of ['cargo', 'npm', 'npx', 'node', 'vitest', 'tsc']) {
       assert.ok(pwsh.includes(`function ${name} {`));
     }
-    assert.ok(pwsh.includes("'C:\\Glory\\Runtime'"));
+    assert.ok(pwsh.includes(`'${path.resolve(runtimeRoot)}'`));
     assert.ok(pwsh.includes('current.js') && pwsh.includes('guard --project-root $qualityRoot'));
     assert.ok(pwsh.includes('-CommandType Application'));
   });
@@ -234,7 +237,10 @@ suite('Sentinel core interceptorShims (shims y perfiles)', () => {
     assert.throws(() => assertSafeRuntimePath('C:\\foo%bar'), /caracteres no permitidos/);
     assert.throws(() => assertSafeRuntimePath('C:\\foo..\\bar'), /\.\./);
     /* Rutas normales con espacios y guiones pasan. */
-    assert.strictEqual(assertSafeRuntimePath('C:\\Users\\Owner\\Glory Sentinel-runtime'), 'C:\\Users\\Owner\\Glory Sentinel-runtime');
+    const normalRuntime = process.platform === 'win32'
+      ? 'C:\\Users\\Owner\\Glory Sentinel-runtime'
+      : path.join(os.tmpdir(), 'Glory Sentinel-runtime');
+    assert.strictEqual(assertSafeRuntimePath(normalRuntime), path.resolve(normalRuntime));
     assert.throws(() => generateCmdShim('npm', 'C:\\foo&calc\\bar'), /caracteres no permitidos/);
     assert.throws(() => generateBashGuard('C:\\foo$(id)\\bar'), /caracteres no permitidos/);
     assert.throws(() => generatePowerShellGuard('C:\\foo`bar'), /caracteres no permitidos/);

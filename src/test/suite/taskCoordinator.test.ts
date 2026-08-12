@@ -21,6 +21,12 @@ function git(root: string, args: string[]): string {
 }
 
 const PRIMARY_BRANCH = 'wandorius';
+function isExternalWorktreeError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes('debe estar dentro de') &&
+    message.includes(`${path.sep}.sentinel${path.sep}worktrees`) &&
+    message.includes('rutas externas');
+}
 
 function fixture(): { parent: string; root: string } {
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-task-'));
@@ -129,7 +135,7 @@ suite('task coordinator', function () {
           agent: 'agent-a',
           worktreePath: path.join(parent, 'outside-worktree'),
         }),
-        /debe estar dentro de .*\\.sentinel[\\\\/]worktrees.*rutas externas/,
+        isExternalWorktreeError,
       );
     } finally {
       fs.rmSync(parent, { recursive: true, force: true });
@@ -196,7 +202,7 @@ suite('task coordinator', function () {
       fs.writeFileSync(metadataPath, `${JSON.stringify(metadata)}\n`, 'utf8');
       await assert.rejects(
         cleanupTask({ projectRoot: root, primaryBranch: PRIMARY_BRANCH, taskId: 'TAMPER', agent: 'agent-a' }),
-        /debe estar dentro de .*\\.sentinel[\\\\/]worktrees.*rutas externas/,
+        isExternalWorktreeError,
       );
       assert.strictEqual(fs.existsSync(outside), true);
       assert.strictEqual(fs.existsSync(task.worktree!), true);

@@ -105,13 +105,18 @@ const shellSuite = suite('Sentinel guard matrix real de shells (Fase 4)', () => 
 
   test('powershell 7 (pwsh): shim de PATH y dot-source bloquean (78)', () => {
     if (!pwshAvailable()) return;
-    const byPath = runInShell('pwsh', ['-NoProfile', '-NonInteractive', '-Command', 'npm run test; exit $LASTEXITCODE'], nodeRoot, env);
-    assert.strictEqual(byPath.status, 78, byPath.stdout + byPath.stderr);
-    const shim = shimDir.replace(/'/g, "''");
+    /* En POSIX, los shims .cmd no son ejecutables por PATH; el contrato
+     * soportado para pwsh es el guard dot-sourceado. Windows cubre además
+     * la resolución por PATH de cmd/PowerShell. */
+    if (process.platform === 'win32') {
+      const byPath = runInShell('pwsh', ['-NoProfile', '-NonInteractive', '-Command', 'npm run test; exit $LASTEXITCODE'], nodeRoot, env);
+      assert.strictEqual(byPath.status, 78, byPath.stdout + byPath.stderr);
+    }
+    const shim = path.join(shimDir, 'global-cargo-guard.ps1').replace(/'/g, "''");
     const fixture = nodeRoot.replace(/'/g, "''");
     const dotSourced = runInShell('pwsh', [
       '-NoProfile', '-NonInteractive', '-Command',
-      `. '${shim}\\global-cargo-guard.ps1'; Set-Location '${fixture}'; npm run test; exit $LASTEXITCODE`,
+      `. '${shim}'; Set-Location '${fixture}'; npm run test; exit $LASTEXITCODE`,
     ], nodeRoot, env);
     assert.strictEqual(dotSourced.status, 78, dotSourced.stdout + dotSourced.stderr);
   });
