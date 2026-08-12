@@ -22,5 +22,31 @@ jobs:
 
       - run: npm ci
       - run: npm run lint
-      - run: npm run test:unit
+      - run: npm run compile
+      - run: npm run check:core
+      - run: npm run smoke:lsp
+
+      - name: Run unit tests
+        id: unit
+        continue-on-error: true
+        env:
+          MOCHA_COLORS: 0
+        run: |
+          set -o pipefail
+          npx mocha --reporter spec --full-trace 2>&1 | tee mocha-output.log
+
+      - name: Publish unit-test diagnostics
+        if: steps.unit.outcome == 'failure'
+        run: |
+          {
+            echo '## Unit-test diagnostics'
+            echo
+            echo '```text'
+            tail -n 300 mocha-output.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if unit tests failed
+        if: steps.unit.outcome == 'failure'
+        run: exit 1
       - run: npm run check:zed
