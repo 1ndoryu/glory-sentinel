@@ -55,11 +55,11 @@ export async function writeSandboxRuntime(targetRoot: string, repoRoot: string):
  * determinista: `where`/`type -P` excluye solo el shim del sandbox). */
 export function sandboxEnv(shimDir: string, base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   const clean = (base.PATH ?? '')
-    .split(';')
+    .split(path.delimiter)
     .map(value => value.trim())
     .filter(Boolean)
     .filter(value => !/GlorySentinel/iu.test(value) && !/scripts[\\/]quality/iu.test(value));
-  return { ...base, PATH: [shimDir, ...clean].join(';') };
+  return { ...base, PATH: [shimDir, ...clean].join(path.delimiter) };
 }
 
 export interface ShellRun {
