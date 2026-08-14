@@ -15,9 +15,10 @@ import { fingerprint, readCachedPass, writeCachedPass, StageCacheContext } from 
 import { runStructuredTool, ToolOutcome } from './structuredTool';
 import { loadStageManifest } from './stageManifest';
 import { ensureContainedDirectory } from './pathContainment';
-import { createReport, compactLines, GateStage } from './gateReport';
+import { createReport, compactLines, GateStage, ReportPolicyIdentity } from './gateReport';
 import { issueLease, revokeLease, LEASE_ENV_VAR } from './lease';
 import type { IssuedLease } from './lease';
+import { policyDecision } from './policyDecision';
 
 const execFileAsync = promisify(execFile);
 
@@ -83,6 +84,23 @@ async function reportLimits(workspace: string): Promise<{ maxFindings?: number; 
   return {
     maxFindings: Number.isFinite(Number(config?.maxFindings)) ? Number(config?.maxFindings) : undefined,
     maxReminders: Number.isFinite(Number(config?.maxReminders)) ? Number(config?.maxReminders) : undefined,
+  };
+}
+
+function reportPolicyIdentity(workspace: string, taskId: string): ReportPolicyIdentity {
+  const discovered = readV2GuardPolicy(workspace);
+  const decision = policyDecision({
+    status: discovered.status,
+    policy: { mode: discovered.mode },
+  });
+  return {
+    projectRoot: workspace,
+    policyPath: discovered.status === 'no-policy' ? null : path.join(workspace, 'sentinel.config.json'),
+    policyHash: policyHashFor(workspace, discovered) ?? 'unavailable',
+    runtimeVersion: null,
+    decision,
+    reason: decision.reason,
+    recommendedCommand: `sentinel check ${taskId}`,
   };
 }
 
@@ -240,6 +258,7 @@ async function runCheckWithToken(
       reportRoot,
       heavyDeferred: heavyGuard,
       branch: await gitBranch(workspace),
+      policyIdentity: reportPolicyIdentity(workspace, args.taskId ?? 'task'),
       tools: {},
       qualityConfig: limits,
     },

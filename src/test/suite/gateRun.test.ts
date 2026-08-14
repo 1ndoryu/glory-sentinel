@@ -75,6 +75,32 @@ suite('Sentinel core gate run (orquestador agnóstico)', () => {
     } finally { fs.rmSync(root, { recursive: true, force: true }); }
   });
 
+  test('real-run serializa la identidad de política v2 en el reporte', async function () {
+    this.timeout(30000);
+    const root = gitRepo();
+    try {
+      fs.writeFileSync(path.join(root, 'sentinel.config.json'), JSON.stringify({
+        schemaVersion: 2,
+        mode: 'enforce',
+        guard: { directCommands: { npmScripts: [], npxTools: [], cargoSubcommands: [], tools: [] } },
+      }), 'utf8');
+      fs.writeFileSync(path.join(root, 'sentinel.lock.json'), JSON.stringify({
+        schemaVersion: 1,
+        analyzers: { sentinel: { version: '0.7.4', commit: 'a'.repeat(40) } },
+      }), 'utf8');
+      const stagesPath = path.join(root, 'stages-policy.json');
+      fs.writeFileSync(stagesPath, JSON.stringify([passStage()]), 'utf8');
+      const reportRoot = path.join(root, '.quality-reports', 'check', 'RUN-POLICY');
+      const result = await runCheck({ workspace: root, reportRoot, dryRun: false, taskId: 'RUN-POLICY', stagesPath });
+      assert.strictEqual(result.exitCode, 0);
+      const report = JSON.parse(fs.readFileSync(path.join(reportRoot, 'latest.json'), 'utf8'));
+      assert.strictEqual(report.policy.policyPath, path.join(root, 'sentinel.config.json'));
+      assert.notStrictEqual(report.policy.policyHash, 'unavailable');
+      assert.strictEqual(report.policy.decision.status, 'policy');
+      assert.strictEqual(report.policy.decision.mode, 'enforce');
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  });
+
   test('real-run con finding error produce FAIL y exit 1', async () => {
     const root = gitRepo();
     try {
