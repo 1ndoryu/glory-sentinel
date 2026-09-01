@@ -35,6 +35,10 @@ function existeComponenteUi(nombres: string[]): boolean {
     path.join('src', 'components', 'ui'),
     path.join('App', 'React', 'components', 'ui'),
     path.join('components', 'ui'),
+    /* [318A-3] PROYECTO TASKS tiene el design system en frontend/src/app/components
+     * (ui/ para componentes base, shared/ para compuestos tipo Range/ToggleSwitch) */
+    path.join('frontend', 'src', 'app', 'components', 'ui'),
+    path.join('frontend', 'src', 'app', 'components', 'shared'),
   ];
   const extensiones = ['tsx', 'ts', 'jsx', 'js'];
 
@@ -241,6 +245,8 @@ export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArc
   const archivosExcluidos = [
     'Boton', 'BotonBase', 'Button', 'Input', 'Select', 'SelectorMenu', 'SelectorBase', 'SelectorPersonalizado',
     'Textarea', 'CampoTexto', 'Checkbox', 'Radio', 'GloryLink', 'PageRenderer', 'ModalAcciones',
+    /* [318A-3] Range (components/shared) renderiza <input type="range"> y no debe auto-flaggearse */
+    'Range',
   ];
   const nombreBase = nombreArchivo.replace(/\.(tsx|jsx)$/, '');
   if (archivosExcluidos.includes(nombreBase)) { return []; }
@@ -263,6 +269,9 @@ export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArc
   const tieneInputUi = existeComponenteUi(['Input', 'CampoTexto']);
   const tieneTextareaUi = existeComponenteUi(['Textarea']);
   const tieneGloryLinkUi = existeComponenteUi(['GloryLink']);
+  /* [318A-3] El aviso de <Select> deprecado solo aplica donde existe SelectDropdown
+   * (rule 205A-2); en proyectos con Select propio y sin SelectDropdown era FP puro. */
+  const tieneSelectDropdownUi = existeComponenteUi(['SelectDropdown']);
 
   for (let i = 0; i < lineas.length; i++) {
     const linea = lineas[i];
@@ -310,8 +319,9 @@ export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArc
       continue;
     }
 
-    /* [205A-2] <Select> del sistema queda deprecated — usar SelectDropdown (usa MenuContextual). */
-    if (/<Select[\s/]/.test(linea)) {
+    /* [205A-2] <Select> del sistema queda deprecated — usar SelectDropdown (usa MenuContextual).
+     * [318A-3] Solo cuando SelectDropdown existe (si no, el Select del proyecto es canónico). */
+    if (tieneSelectDropdownUi && /<Select[\s/]/.test(linea)) {
       violaciones.push({
         reglaId: 'html-nativo-en-vez-de-componente',
         mensaje: 'Usar <SelectDropdown> de components/ui/SelectDropdown en vez de <Select> genérico. SelectDropdown usa MenuContextual para consistencia visual.',
