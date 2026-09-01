@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { verificarFormularioConfigSinSistema } from '../../analyzers/react/reactComponentRules';
+import { verificarFormularioConfigSinSistema } from '../../analyzers/react/formularioConfigSystem';
 import { verificarCssHardcoded } from '../../analyzers/static/staticCssRules';
 
 function crearDocumento(fileName: string) {

@@ -33,7 +33,6 @@ import {
   verificarKeyIndexLista,
   verificarComponenteSinHook,
   verificarHtmlNativoEnVezDeComponente,
-  verificarFormularioConfigSinSistema,
   verificarButtonClaseEspecifica,
   verificarComponenteArtesanal,
   verificarUpdateOptimistaSinRollback,
@@ -45,6 +44,7 @@ import {
   verificarMenuContextualOverride,
   configurarWorkspaceRootsReact,
 } from './react/reactComponentRules';
+import { verificarFormularioConfigSinSistema } from './react/formularioConfigSystem';
 import { verificarAccesoApiSinFallback } from './glory/apiFallbackRules';
 
 export interface ReactAnalysisOptions {
