@@ -33,6 +33,7 @@ import {
   verificarKeyIndexLista,
   verificarComponenteSinHook,
   verificarHtmlNativoEnVezDeComponente,
+  verificarFormularioConfigSinSistema,
   verificarButtonClaseEspecifica,
   verificarComponenteArtesanal,
   verificarUpdateOptimistaSinRollback,
@@ -111,6 +112,9 @@ export function analizarReact(documento: CoreTextDocument, opciones: ReactAnalys
     }
     if (reglaHabilitada('html-nativo-en-vez-de-componente')) {
       violaciones.push(...verificarHtmlNativoEnVezDeComponente(lineas, nombreArchivo));
+    }
+    if (reglaHabilitada('formulario-config-sin-sistema-declarativo')) {
+      violaciones.push(...verificarFormularioConfigSinSistema(lineas, nombreArchivo));
     }
     if (reglaHabilitada('button-clase-especifica')) {
       violaciones.push(...verificarButtonClaseEspecifica(lineas, nombreArchivo));

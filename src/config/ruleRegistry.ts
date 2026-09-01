@@ -153,11 +153,17 @@ const REGISTRO: DefinicionRegla[] = [
   { id: 'modal-semantica-no-canonica', nombre: 'Clase modal semantica no canonica', severidadDefault: 'warning', categoria: CategoriaRegla.EstructuraNomenclatura },
   { id: 'css-elemento-html-directo', nombre: 'Selector HTML directo en componente', severidadDefault: 'warning', categoria: CategoriaRegla.EstructuraNomenclatura },
   { id: 'css-especificacion-diseno-local', nombre: 'Especificacion de diseno local en CSS', severidadDefault: 'warning', categoria: CategoriaRegla.EstructuraNomenclatura },
-  /* css-hardcoded-value: desactivada. Descomentar para re-activar. */
-  // { id: 'css-hardcoded-value', nombre: 'Color CSS hardcodeado', severidadDefault: 'warning', categoria: CategoriaRegla.EstructuraNomenclatura },
+  /* [318A-4] Re-activada: implementacion verificarCssHardcoded (staticCssRules.ts)
+   * ahora cableada en staticAnalyzer.ts. Sigue excluyendo variables.css/init.css/theme.css/tokens.css,
+   * bloques :root, lineas con var() y node_modules/vendor. */
+  { id: 'css-hardcoded-value', nombre: 'Color CSS hardcodeado', severidadDefault: 'warning', categoria: CategoriaRegla.EstructuraNomenclatura },
 
   /* --- Sprint 4: React (reactAnalyzer.ts) --- */
   { id: 'html-nativo-en-vez-de-componente', nombre: 'HTML nativo en vez de componente', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
+  /* [318A-4] Modal/Seccion/Config manuales sin FormCampo/FormularioConfiguracion (plan 318A-3 §14).
+   * Detecta archivos (ModalConfig|SeccionConfig|Config)*.tsx con >=3 campos nativos y sin
+   * importar el sistema declarativo. Un hallazgo por archivo, accionable. */
+  { id: 'formulario-config-sin-sistema-declarativo', nombre: 'Formulario de config manual sin sistema declarativo', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
   { id: 'button-clase-especifica', nombre: 'Clase específica en botón', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
   { id: 'modal-con-titulo', nombre: 'Título dentro de Modal', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
   { id: 'modal-acciones-no-canonico', nombre: 'Clase de acciones no canónica en Modal', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },

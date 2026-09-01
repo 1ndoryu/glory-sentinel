@@ -11,7 +11,7 @@ import {reglaHabilitada, obtenerSeveridadRegla} from '../config/ruleRegistry';
 
 /* Submodulos */
 import {REGLAS_LIMITE_LINEAS, verificarLimiteLineas, verificarUseStateExcesivo, verificarImportsMuertos, verificarAnyType, verificarNonNullAssertion, verificarDirectorioAbarrotado} from './static/staticCodeRules';
-import {verificarCardIconoExtiendeBase, verificarCssAdhocButtonStyle, verificarCssEspecificacionDisenoLocal, verificarModalSemanticaNoCanonica, verificarNomenclaturaCssIngles, verificarCssElementoHTMLDirecto} from './static/staticCssRules';
+import {verificarCardIconoExtiendeBase, verificarCssAdhocButtonStyle, verificarCssEspecificacionDisenoLocal, verificarModalSemanticaNoCanonica, verificarNomenclaturaCssIngles, verificarCssElementoHTMLDirecto, verificarCssHardcoded} from './static/staticCssRules';
 import { PortableBoundaryConfig, verificarReglasPortables } from './static/portableRules';
 
 /* [124A-FP1] Deduplicacion de directorio-abarrotado: se reporta 1 vez por
@@ -158,6 +158,10 @@ export function analizarEstatico(
         }
         if (reglaHabilitada('css-elemento-html-directo')) {
             violaciones.push(...verificarCssElementoHTMLDirecto(texto, documento, nombreArchivo));
+        }
+        /* [318A-4] Regla reactivada: colores hardcodeados fuera de tokens. */
+        if (reglaHabilitada('css-hardcoded-value')) {
+            violaciones.push(...verificarCssHardcoded(texto, documento, nombreArchivo));
         }
     }
 
