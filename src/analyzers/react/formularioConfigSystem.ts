@@ -2,7 +2,8 @@
  * [318A-4] Regla formulario-config-sin-sistema-declarativo (plan 318A-3 §14).
  * Detecta archivos (ModalConfig|SeccionConfig|Config)*.tsx que NO importan el sistema
  * declarativo (FormCampo/FormularioConfiguracion/CampoEspecificacion) y que contienen
- * >=3 campos de formulario nativos (<input|<select|<textarea|<button).
+ * >=3 campos de formulario nativos (<input|<select|<textarea|<button en minusculas;
+ * los componentes Input/Select/Textarea/Boton del sistema NO cuentan — patrón twin-class §12.2).
  * Un solo hallazgo por archivo (accionable: migrar al sistema).
  *
  * Modulo propio (split 0.7.6) para mantener reactComponentRules.ts dentro del
@@ -35,7 +36,9 @@ export function verificarFormularioConfigSinSistema(lineas: string[], nombreArch
 
   let campos = 0;
   let primerCampo = -1;
-  const patronCampo = /<\s*(?:input|select|textarea|button)[\s/>]/i;
+  /* Solo etiquetas nativas en minusculas: los componentes del sistema (Input/Select/
+     Textarea/Boton) ya son el patron twin-class aceptado (plan 318A-3 §12.2), no campos nativos. */
+  const patronCampo = /<\s*(?:input|select|textarea|button)[\s/>]/;
 
   for (let i = 0; i < lineas.length; i++) {
     const linea = lineas[i];

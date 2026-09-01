@@ -100,6 +100,31 @@ suite('formulario-config-sin-sistema-declarativo', () => {
     assert.strictEqual(violaciones.length, 0);
   });
 
+  test('no flaggea componentes del sistema (Input/Select/Textarea/Boton) en minuscula-pattern', () => {
+    const texto = [
+      "import { Input } from '../ui/Input';",
+      "import { Select } from '../ui/Select';",
+      "import { Boton } from '../ui/Boton';",
+      '',
+      'export function SeccionConfigPerfil() {',
+      '  return (',
+      '    <div>',
+      '      <Input tipo="text" />',
+      '      <Input tipo="password" />',
+      '      <Input tipo="password" />',
+      '      <Select />',
+      '      <Boton>Guardar</Boton>',
+      '    </div>',
+      '  );',
+      '}',
+    ].join('\n');
+    const violaciones = verificarFormularioConfigSinSistema(texto.split('\n'), 'SeccionConfigPerfil.tsx');
+
+    /* [318A-4-fix] El patron es case-sensitive: los componentes capitalizados del sistema
+       (patron twin-class §12.2) NO son campos nativos. */
+    assert.strictEqual(violaciones.length, 0);
+  });
+
   test('no flaggea el propio FormCampo', () => {
     const texto = ['export function FormCampo() {', '  return <input />;', '}'].join('\n');
     const violaciones = verificarFormularioConfigSinSistema(texto.split('\n'), 'FormCampo.tsx');
