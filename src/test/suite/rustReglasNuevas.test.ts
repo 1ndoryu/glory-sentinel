@@ -33,6 +33,34 @@ function contar(reglaId: string, findings: ReturnType<typeof analyze>): number {
   return findings.filter(item => item.reglaId === reglaId).length;
 }
 
+suite('archivos de solo-test (#![cfg(test)])', () => {
+  test('las tres reglas ignoran un archivo completo con atributo interno cfg(test)', () => {
+    const findings = analyze([
+      '#![cfg(test)]',
+      'use crate::PuertosHarness;',
+      'fn mock() -> u32 {',
+      '  "1".parse().expect("helper de test");',
+      '  let rt = tokio::runtime::Handle::current();',
+      '  rt.block_on(async {});',
+      '  1',
+      '}',
+    ].join('\n'));
+    for (const regla of REGLAS) {
+      assert.strictEqual(contar(regla, findings), 0, `${regla} no debe disparar en archivo solo-test`);
+    }
+  });
+
+  test('el mismo codigo SIN el atributo interno si dispara (garantia anti-sobre-exclusion)', () => {
+    const findings = analyze([
+      'fn mock() -> u32 {',
+      '  "1".parse().expect("helper");',
+      '  1',
+      '}',
+    ].join('\n'));
+    assert.strictEqual(contar('expect-produccion-rs', findings), 1);
+  });
+});
+
 suite('expect-produccion-rs', () => {
   test('detecta .expect() fuera de tests', () => {
     const findings = analyze([
