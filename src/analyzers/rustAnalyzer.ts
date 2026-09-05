@@ -16,6 +16,11 @@
 import { Violacion } from '../types';
 import { CoreTextDocument } from '../core/types';
 import { reglaHabilitada, obtenerSeveridadRegla } from '../config/ruleRegistry';
+import {
+  detectarBlockEnAsync,
+  detectarExpect,
+  detectarLockATravesAwait,
+} from './rustReglasNuevas';
 
 /* Limite de lineas efectivas por funcion (clippy tambien lo verifica,
  * pero Sentinel lo muestra inline sin necesidad de compilar) */
@@ -81,6 +86,19 @@ export function analizarRust(documento: CoreTextDocument): Violacion[] {
    * `{id}` se registra como segmento literal y devuelve 404 silencioso. */
   if (reglaHabilitada('axum-ruta-sintaxis-rs')) {
     violaciones.push(...detectarRutaParametroSintaxis(lineas, texto));
+  }
+
+  /* [059A-S7] Paso 7: reglas nuevas (modulo rustReglasNuevas.ts). */
+  if (reglaHabilitada('expect-produccion-rs')) {
+    violaciones.push(...detectarExpect(lineas, rangoTests, texto));
+  }
+
+  if (reglaHabilitada('block-en-async-rs')) {
+    violaciones.push(...detectarBlockEnAsync(lineas, rangoTests, texto));
+  }
+
+  if (reglaHabilitada('lock-a-traves-await-rs')) {
+    violaciones.push(...detectarLockATravesAwait(lineas, rangoTests, texto));
   }
 
   return violaciones;

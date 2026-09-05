@@ -219,6 +219,13 @@ const REGISTRO: DefinicionRegla[] = [
    * `{id}` en .route() se registra como segmento literal y devuelve 404 silencioso.
    * Los paths de utoipa conservan {id} (templating OpenAPI) y NO deben tocarse. */
   { id: 'axum-ruta-sintaxis-rs', nombre: 'Ruta axum con {param} en vez de :param', severidadDefault: 'error', categoria: CategoriaRegla.RustPatrones },
+  /* [059A-S7] Reglas nuevas (rustReglasNuevas.ts, decision D4 del plan 059A).
+   * block-en-async-rs: evidencia real panic "Cannot block the current thread
+   * from within a runtime" (tui.rs:281). lock-a-traves-await-rs: heuristica
+   * por rango, warning (posibles falsos positivos acotados). */
+  { id: 'expect-produccion-rs', nombre: '.expect() en produccion', severidadDefault: 'error', categoria: CategoriaRegla.RustPatrones },
+  { id: 'block-en-async-rs', nombre: 'block_on dentro de contexto async', severidadDefault: 'error', categoria: CategoriaRegla.RustPatrones },
+  { id: 'lock-a-traves-await-rs', nombre: 'MutexGuard sincrono vivo a traves de .await', severidadDefault: 'warning', categoria: CategoriaRegla.RustPatrones },
 
   /* --- Organizacion de directorios (staticCodeRules.ts) --- */
   { id: 'directorio-abarrotado', nombre: 'Directorio con demasiados archivos', severidadDefault: 'warning', categoria: CategoriaRegla.LimitesArchivo },

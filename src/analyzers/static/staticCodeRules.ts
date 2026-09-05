@@ -297,7 +297,30 @@ export function invalidarCacheDirectorios(): void {
 /* Limite default de archivos por directorio */
 const LIMITE_ARCHIVOS_DIRECTORIO = 10;
 
-/* [114A-7] Verifica si la carpeta del archivo tiene demasiados archivos.
+/* [059A-1] Extensiones que cuentan como codigo para la densidad de directorio.
+ * Cargo.toml/Cargo.lock, package.json, README.md, dotfiles, imagenes, etc.
+ * son config/infra/docs y NO debian contar: inflaban el conteo y producian
+ * falsos positivos (p. ej. la raiz del workspace "abarrotada" por 11+ archivos
+ * no-codigo). La densidad mide organizacion del codigo, no del repo. */
+const EXTENSIONES_CODIGO = new Set([
+  'rs', 'ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs', 'vue',
+  'css', 'scss', 'sass', 'py', 'php', 'go', 'java', 'rb',
+  'kt', 'swift', 'c', 'h', 'cpp', 'hpp', 'cs', 'sql',
+  'sh', 'bash', 'zsh', 'ps1', 'prisma', 'graphql', 'proto',
+]);
+
+function esArchivoCodigo(nombre: string): boolean {
+  if (nombre.startsWith('.') || nombre.endsWith('.lock')) {
+    return false;
+  }
+  const punto = nombre.lastIndexOf('.');
+  if (punto <= 0) {
+    return false; /* Sin extension: Dockerfile, Makefile, LICENSE, etc. no cuentan */
+  }
+  return EXTENSIONES_CODIGO.has(nombre.slice(punto + 1).toLowerCase());
+}
+
+/* [114A-7] Verifica si la carpeta del archivo tiene demasiados archivos de codigo.
  * Soporte de excepciones:
  * 1. sentinel-disable-file directorio-abarrotado en el archivo
  * 2. codeSentinel.directoryExceptions en settings.json (patrones glob)
@@ -340,7 +363,7 @@ export function verificarDirectorioAbarrotado(
       const entradas = fs.readdirSync(directorio);
       conteo = entradas.filter((e: string) => {
         try {
-          return fs.statSync(directorio + '/' + e).isFile();
+          return fs.statSync(directorio + '/' + e).isFile() && esArchivoCodigo(e);
         } catch {
           return false;
         }
