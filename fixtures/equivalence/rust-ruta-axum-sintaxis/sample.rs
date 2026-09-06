@@ -1,5 +1,6 @@
 // [297A-14] Fixture equivalencia: sintaxis de parametros de ruta axum.
-// matchit 0.7.3 parsea `:param`; `{param}` devuelve 404 silencioso.
+// Sin Cargo.lock junto al fixture rige el legacy (stack desconocido):
+// matchit 0.7 parsea `:param`; `{param}` devuelve 404 silencioso.
 use axum::routing::{delete, get};
 use axum::Router;
 

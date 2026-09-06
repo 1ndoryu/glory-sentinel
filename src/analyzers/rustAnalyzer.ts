@@ -10,12 +10,15 @@
  * - handler-accede-bd-rs: sqlx::query en handlers/ (viola DIP)
  * - funcion-larga-rs: funciones > 100 lineas efectivas
  * - parametros-excesivos-rs: funciones con 6+ parametros
- * - axum-ruta-sintaxis-rs: {param} en .route() de axum (matchit 0.7.3 usa :param)
+ * - axum-ruta-sintaxis-rs: sintaxis {param}/:param incorrecta para el stack
+ *   axum/matchit resuelto (version-aware; legacy ante stack desconocido)
  */
 
 import { Violacion } from '../types';
 import { CoreTextDocument } from '../core/types';
 import { reglaHabilitada, obtenerSeveridadRegla } from '../config/ruleRegistry';
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   detectarBlockEnAsync,
   detectarExpect,
@@ -81,11 +84,12 @@ export function analizarRust(documento: CoreTextDocument): Violacion[] {
     violaciones.push(...detectarBroadcastMutex(lineas, rangoTests, texto));
   }
 
-  /* [297A-14] Paso 6: sintaxis de parametros de ruta axum.
-   * matchit 0.7.3 (resuelto por axum 0.7.9) parsea `:param`, no `{param}`:
-   * `{id}` se registra como segmento literal y devuelve 404 silencioso. */
+  /* [297A-14] Paso 6: sintaxis de parametros de ruta axum (version-aware:
+   * matchit 0.7 (axum 0.7) parsea `:param`; matchit 0.8 (axum 0.8+) parsea
+   * `{param}`. Sin evidencia del stack se conserva el comportamiento legacy
+   * (flaggear `{param}`: el caso historicamente roto). */
   if (reglaHabilitada('axum-ruta-sintaxis-rs')) {
-    violaciones.push(...detectarRutaParametroSintaxis(lineas, texto));
+    violaciones.push(...detectarRutaParametroSintaxis(lineas, texto, documento.fileName));
   }
 
   /* [059A-S7] Paso 7: reglas nuevas (modulo rustReglasNuevas.ts). */
@@ -554,20 +558,139 @@ function detectarBroadcastMutex(
   return violaciones;
 }
 
-/* [297A-14] Detecta `{param}` dentro de .route("...") de axum.
+/* [297A-14] Detecta la sintaxis de parametro INCORRECTA dentro de
+ * .route("...") de axum, segun el stack resuelto del workspace.
  *
- * matchit 0.7.3 (resuelto por axum 0.7.9) parsea parametros con `:param`;
- * `{id}` se registra como segmento literal y el endpoint devuelve 404
- * silencioso (sin error de compilacion). Caso real: todas las rutas
- * `{id}`/`{slug}`/`{version}` del backend estuvieron rotas.
+ * - matchit 0.7 (axum 0.7): parsea `:param`; `{id}` se registra como
+ *   segmento literal y el endpoint devuelve 404 silencioso (sin error de
+ *   compilacion). Caso real 297A-14: rutas `{id}`/`{slug}` rotas.
+ * - matchit 0.8 (axum 0.8+): parsea `{param}`; `:id` es el literal roto.
+ *   Flaggear `{param}` aqui seria un falso positivo (caso 069A-2: 11 errores
+ *   sobre rutas correctas verificadas con 200 en vivo).
+ *
+ * La version se lee del Cargo.lock subiendo desde el fichero (matchit, y
+ * axum como respaldo; Cargo.toml como ultimo recurso). Solo decide con
+ * evidencia: sin rastro del stack se conserva el legacy (flaggear `{param}`).
  *
  * Los paths de utoipa (`path = "/api/articles/{id}"`) NO se flaggean:
  * usan {id} por ser templating OpenAPI (docs), no routing.
  *
- * Solucion: .route("/users/:id", ...) — y dejar {id} solo en utoipa::path. */
+ * Solucion (stack antiguo): .route("/users/:id", ...) — y dejar {id} solo
+ * en utoipa::path. Solucion (stack nuevo): .route("/users/{id}", ...). */
+type SintaxisAxum = 'nueva' | 'antigua' | 'desconocida';
+
+interface StackAxum {
+  sintaxis: SintaxisAxum;
+  matchit: string | null;
+  axum: string | null;
+}
+
+const cacheStackAxum = new Map<string, StackAxum>();
+
+function versionPaqueteLock(contenido: string, nombre: string): string | null {
+  const lineas = contenido.split('\n');
+  for (let i = 0; i + 1 < lineas.length; i++) {
+    if (lineas[i].trim() === `name = "${nombre}"`) {
+      const m = lineas[i + 1].trim().match(/^version = "([^"]+)"/);
+      if (m) {
+        return m[1];
+      }
+    }
+  }
+  return null;
+}
+
+function versionAxumToml(contenido: string | null): string | null {
+  if (!contenido) {
+    return null;
+  }
+  const m = contenido.match(/^\s*axum\s*=\s*(?:"([^"]+)"|\{\s*version\s*=\s*"([^"]+)")/m);
+  return m ? (m[1] ?? m[2] ?? null) : null;
+}
+
+/* matchit/axum 0.7 vs 0.8 difieren en el MINOR (major 0 en ambos):
+ * `nueva` = 0.8+ (o major >= 1 futuro). */
+function esSintaxisNueva(version: string | null): boolean | null {
+  if (!version) {
+    return null;
+  }
+  const m = version.trim().replace(/^[^\d]*/, '').match(/^(\d+)\.(\d+)/);
+  if (!m) {
+    return null;
+  }
+  const mayor = parseInt(m[1], 10);
+  const menor = parseInt(m[2], 10);
+  return mayor >= 1 || (mayor === 0 && menor >= 8);
+}
+
+function stackDesdeLockToml(lock: string | null, toml: string | null): StackAxum | null {
+  const matchit = lock ? versionPaqueteLock(lock, 'matchit') : null;
+  const axum = (lock ? versionPaqueteLock(lock, 'axum') : null) ?? versionAxumToml(toml);
+  const porMatchit = esSintaxisNueva(matchit);
+  if (porMatchit !== null) {
+    return {
+      sintaxis: porMatchit ? 'nueva' : 'antigua',
+      matchit,
+      axum,
+    };
+  }
+  const porAxum = esSintaxisNueva(axum);
+  if (porAxum !== null) {
+    return {
+      sintaxis: porAxum ? 'nueva' : 'antigua',
+      matchit,
+      axum,
+    };
+  }
+  return null;
+}
+
+function detectarStackAxum(rutaArchivo: string): StackAxum {
+  const dirInicio = path.dirname(rutaArchivo.replace(/\\/g, '/'));
+  const cached = cacheStackAxum.get(dirInicio);
+  if (cached) {
+    return cached;
+  }
+  let resultado: StackAxum = { sintaxis: 'desconocida', matchit: null, axum: null };
+  let dir = dirInicio;
+  for (let nivel = 0; nivel < 8; nivel++) {
+    let lock: string | null = null;
+    let toml: string | null = null;
+    try {
+      const rutaLock = path.join(dir, 'Cargo.lock');
+      if (fs.existsSync(rutaLock)) {
+        lock = fs.readFileSync(rutaLock, 'utf8');
+      }
+    } catch {
+      /* lock ilegible: se sigue subiendo */
+    }
+    try {
+      const rutaToml = path.join(dir, 'Cargo.toml');
+      if (fs.existsSync(rutaToml)) {
+        toml = fs.readFileSync(rutaToml, 'utf8');
+      }
+    } catch {
+      /* toml ilegible: se sigue subiendo */
+    }
+    const stack = stackDesdeLockToml(lock, toml);
+    if (stack) {
+      resultado = stack;
+      break;
+    }
+    const padre = path.dirname(dir);
+    if (padre === dir) {
+      break;
+    }
+    dir = padre;
+  }
+  cacheStackAxum.set(dirInicio, resultado);
+  return resultado;
+}
+
 function detectarRutaParametroSintaxis(
   lineas: string[],
   texto: string,
+  rutaArchivo: string,
 ): Violacion[] {
   if (texto.includes('sentinel-disable-file axum-ruta-sintaxis-rs')) {
     return [];
@@ -576,13 +699,22 @@ function detectarRutaParametroSintaxis(
   const violaciones: Violacion[] = [];
   /* Captura la llamada .route( (permite multilinea: .route(\n " ... ")) */
   const patronRuta = /\.route\(\s*"([^"]*)"/g;
+  /* Stack resuelto una vez por fichero (con cache por directorio). */
+  const stack = detectarStackAxum(rutaArchivo);
+  const versionInfo = stack.matchit
+    ? `matchit ${stack.matchit}`
+    : (stack.axum ? `axum ${stack.axum}` : 'stack desconocido');
 
   let match: RegExpExecArray | null;
   while ((match = patronRuta.exec(texto)) !== null) {
     const ruta = match[1];
 
-    /* Solo interesa si el path contiene un parametro entre llaves */
-    if (!/\{[a-zA-Z_][a-zA-Z0-9_]*\}/.test(ruta)) {
+    /* Direccion segun stack: antigua/desconocida flaggea {param} (legacy);
+     * nueva flaggea :param (la sintaxis rota en matchit 0.8+). */
+    const esRota = stack.sintaxis === 'nueva'
+      ? /(^|\/):[a-zA-Z_][a-zA-Z0-9_]*/.test(ruta)
+      : /\{[a-zA-Z_][a-zA-Z0-9_]*\}/.test(ruta);
+    if (!esRota) {
       continue;
     }
 
@@ -609,7 +741,9 @@ function detectarRutaParametroSintaxis(
 
     violaciones.push({
       reglaId: 'axum-ruta-sintaxis-rs',
-      mensaje: 'Ruta axum con {param}: esta version de matchit (0.7.3) parsea `:param`; {id} devuelve 404 silencioso. Usar :id en .route() (utoipa::path conserva {id} por ser OpenAPI).',
+      mensaje: stack.sintaxis === 'nueva'
+        ? `Ruta axum con :param: este workspace resuelve ${versionInfo} (axum 0.8+), que solo parsea {param}; :id se registra como literal y devuelve 404 silencioso. Usar {id} en .route().`
+        : `Ruta axum con {param}: este workspace resuelve ${versionInfo}, que solo parsea \`:param\`; {id} se registra como literal y devuelve 404 silencioso. Usar :id en .route() (utoipa::path conserva {id} por ser OpenAPI).`,
       severidad: obtenerSeveridadRegla('axum-ruta-sintaxis-rs'),
       linea: lineaIndex,
       columna: columnaInicio,

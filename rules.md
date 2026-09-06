@@ -113,7 +113,7 @@ Total: 105 reglas.
 
 ## rust-patrones
 
-- [axum-ruta-sintaxis-rs] Ruta axum con {param} en vez de :param — error
+- [axum-ruta-sintaxis-rs] Sintaxis de parametro de ruta axum incorrecta para el stack (`:param` en matchit 0.7/axum 0.7, `{param}` en matchit 0.8/axum 0.8+; legacy ante stack desconocido) — error
 - [broadcast-mutex-riesgo-rs] tokio::sync::broadcast usa Mutex interno — error
 - [funcion-larga-rs] Funcion Rust excede 100 lineas — warning
 - [handler-accede-bd-rs] Handler Rust accede BD directamente — warning

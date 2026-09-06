@@ -215,10 +215,11 @@ const REGISTRO: DefinicionRegla[] = [
    * bloquea los tokio workers y congela el runtime completo.
    * Usar mpsc::unbounded_channel por suscriptor (lock-free) en su lugar. */
   { id: 'broadcast-mutex-riesgo-rs', nombre: 'tokio::sync::broadcast usa Mutex interno', severidadDefault: 'error', categoria: CategoriaRegla.RustPatrones },
-  /* [297A-14] matchit 0.7.3 (resuelto por axum 0.7.9) parsea `:param`, no `{param}`:
-   * `{id}` en .route() se registra como segmento literal y devuelve 404 silencioso.
-   * Los paths de utoipa conservan {id} (templating OpenAPI) y NO deben tocarse. */
-  { id: 'axum-ruta-sintaxis-rs', nombre: 'Ruta axum con {param} en vez de :param', severidadDefault: 'error', categoria: CategoriaRegla.RustPatrones },
+  /* [297A-14] Sintaxis de parametro de ruta axum segun stack resuelto
+   * (Cargo.lock: matchit/axum): `:param` en matchit 0.7 (axum 0.7), `{param}`
+   * en matchit 0.8 (axum 0.8+). Sin evidencia del stack, legacy: flaggea
+   * `{param}` (caso 297A-14 historicamente roto). utoipa conserva {id}. */
+  { id: 'axum-ruta-sintaxis-rs', nombre: 'Sintaxis de parametro de ruta axum incorrecta para el stack', severidadDefault: 'error', categoria: CategoriaRegla.RustPatrones },
   /* [059A-S7] Reglas nuevas (rustReglasNuevas.ts, decision D4 del plan 059A).
    * block-en-async-rs: evidencia real panic "Cannot block the current thread
    * from within a runtime" (tui.rs:281). lock-a-traves-await-rs: heuristica
