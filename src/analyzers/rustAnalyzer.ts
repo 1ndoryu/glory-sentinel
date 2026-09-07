@@ -18,6 +18,7 @@ import { Violacion } from '../types';
 import { CoreTextDocument } from '../core/types';
 import { reglaHabilitada, obtenerSeveridadRegla } from '../config/ruleRegistry';
 import { detectarStackAxum } from './rustAxumStack';
+import { esArchivoSoloTest } from './rustTestScope';
 import {
   detectarBlockEnAsync,
   detectarExpect,
@@ -160,7 +161,7 @@ function detectarUnwrap(
   rangoTests: Set<number>,
   texto: string,
 ): Violacion[] {
-  if (texto.includes('sentinel-disable-file unwrap-produccion-rs')) {
+  if (texto.includes('sentinel-disable-file unwrap-produccion-rs') || esArchivoSoloTest(texto)) {
     return [];
   }
 
@@ -210,7 +211,7 @@ function detectarPanic(
   rangoTests: Set<number>,
   texto: string,
 ): Violacion[] {
-  if (texto.includes('sentinel-disable-file panic-produccion-rs')) {
+  if (texto.includes('sentinel-disable-file panic-produccion-rs') || esArchivoSoloTest(texto)) {
     return [];
   }
 

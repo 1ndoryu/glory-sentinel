@@ -117,9 +117,9 @@ Total: 105 reglas.
 - [broadcast-mutex-riesgo-rs] tokio::sync::broadcast usa Mutex interno — error
 - [funcion-larga-rs] Funcion Rust excede 100 lineas — warning
 - [handler-accede-bd-rs] Handler Rust accede BD directamente — warning
-- [panic-produccion-rs] panic!/todo!/unimplemented! en produccion — warning
+- [panic-produccion-rs] panic!/todo!/unimplemented! en produccion (ignora fichero solo-test `#![cfg(test)]`, 079A-1 F6) — warning
 - [parametros-excesivos-rs] Funcion Rust con 9+ parametros — hint
-- [unwrap-produccion-rs] .unwrap() en produccion — warning
+- [unwrap-produccion-rs] .unwrap() en produccion (ignora fichero solo-test `#![cfg(test)]`, 079A-1 F6) — warning
 
 ---
 

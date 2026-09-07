@@ -16,20 +16,11 @@
 
 import { Violacion } from '../types';
 import { obtenerSeveridadRegla } from '../config/ruleRegistry';
+import { esArchivoSoloTest } from './rustTestScope';
 
 const REGLA_EXPECT = 'expect-produccion-rs';
 const REGLA_BLOCK = 'block-en-async-rs';
 const REGLA_LOCK_AWAIT = 'lock-a-traves-await-rs';
-
-/* Archivo completo de solo-test declarado con atributo interno #![cfg(test)]
- * (p. ej. modulo de contrato incluido desde lib.rs bajo #[cfg(test)]). La
- * heuristica por rangos no ve la declaracion en el crate root, asi que el
- * atributo interno es el marcador honesto de "solo compila en tests". */
-const ES_ARCHIVO_TEST = /(?:^|\r?\n)\s*#!\[cfg\(test\)\]/;
-
-function esArchivoSoloTest(texto: string): boolean {
-  return ES_ARCHIVO_TEST.test(texto);
-}
 
 function tieneDisableSiguiente(lineas: string[], i: number, reglaId: string): boolean {
   return i > 0 && lineas[i - 1].includes(`sentinel-disable-next-line ${reglaId}`);
