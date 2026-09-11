@@ -11,7 +11,11 @@ export function run(): Promise<void> {
   const mocha = new Mocha({
     ui: 'tdd',
     color: true,
-    timeout: 10000,
+    /* [039A-1] 60s alineado con .mocharc.json: los tests de fixtures reales
+     * (git init/commit + spawn del CLI) tardan 2-10s y con 10s el límite de
+     * mocha quedaba por debajo del timeout de 60s que el propio test usa para
+     * su spawnSync. */
+    timeout: 60000,
   });
 
   const testsRoot = path.resolve(__dirname, '.');

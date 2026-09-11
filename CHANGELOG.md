@@ -1,6 +1,26 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
+## [0.7.8] - 2026-09-10
+
+### Agregado
+- Reglas de análisis solo-código (se saltan tests, fixtures y ejemplos) y nuevas reglas Rust
+  `expect-produccion-rs`, `block-on-produccion-rs` y `lock-await-produccion-rs` (059A-S1/S7).
+- `unwrap-produccion-rs` y las reglas nuevas ignoran archivos solo-test declarados con
+  `#![cfg(test)]`, incluidos los módulos de tests partidos a fichero propio (902c45e, 1587c59):
+  36 falsos positivos menos.
+- `axum-ruta-sintaxis-rs` resuelve el stack por versión (`matchit`/`axum` del `Cargo.lock`), de modo
+  que no reporta falsos positivos en axum 0.8+; la resolución se extrajo a `rustAxumStack.ts` para
+  respetar el budget del ADR 0001 (08aaf25, 6baf87c).
+
+### Corregido
+- `.mocharc.json` fija `timeout: 60000` y `src/test/suite/index.ts` usa el mismo valor. Con 10 s, los
+  tests de fixture real (`git init`/`commit` + spawn del CLI, 2-25 s por caso) morían por timeout de
+  Mocha antes de agotar el `timeout: 60_000` que el propio test declara en su `spawnSync`, es decir
+  el límite del runner quedaba por debajo del que el test consideraba suficiente. El perfil headless
+  `npm run test:unit` vuelve a ser verde (585 passing, 0 failing) y `quality:setup` puede certificar
+  `suite: "passed"` para los consumidores que fijan este commit.
+
 ## [0.7.4] - 2026-08-12
 
 ### Corregido

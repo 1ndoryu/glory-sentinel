@@ -218,3 +218,9 @@ node out/cli/index.js --help
 ```
 
 El CLI compilado vive en `out/cli/index.js`; el LSP en `out/lsp/server.js`. Un release destinado a otros proyectos debe compilarse y probarse desde un staging limpio antes de publicarse o fijarse en un lock.
+
+`npm run test:unit` es el perfil headless: `compile` + `check:core` + `smoke:lsp` + la suite de Mocha.
+`npm test` (el runner de VS Code) no sirve para un staging aislado porque exige la app. La suite incluye
+tests de fixture reales —`git init`/`commit` y spawn del CLI, además de spawns de shell— por lo que un
+caso aislado puede tardar entre 2 s y 25 s: el `timeout` de `.mocharc.json` es **60000 ms** y no debe
+bajarse, porque quedaría por debajo del `timeout: 60_000` que esos mismos tests usan en su `spawnSync`.

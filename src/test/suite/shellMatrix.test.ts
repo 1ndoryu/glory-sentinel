@@ -145,6 +145,8 @@ const shellSuite = suite('Sentinel guard matrix real de shells (Fase 4)', () => 
 });
 
 /* [028A-6] Los spawns reales de shells (npm --version, guard por invocación)
- * superan el timeout default de mocha (10s); el timeout se aplica a la suite
- * completa tras el registro. */
+ * superan el timeout de mocha de la suite; el timeout se aplica a la suite
+ * completa tras el registro. [039A-1] El default global pasó de 10s a 60s
+ * (.mocharc.json); aquí se conserva 120s porque estos spawns siguen siendo
+ * los más lentos de la suite. */
 shellSuite.timeout(120_000);
