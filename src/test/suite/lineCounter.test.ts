@@ -126,4 +126,35 @@ suite('lineCounter', () => {
     assert.strictEqual(limite?.tipo, 'modelo');
     assert.strictEqual(limite?.limite, 300);
   });
+
+  test('obtenerLimiteArchivo - FP-S4: harness en /tests/ es test-integracion', () => {
+    const limite = obtenerLimiteArchivo(
+      'bdp_simulator_integration.rs',
+      '/RESTAURANTE/tests/bdp_simulator_integration.rs',
+    );
+    assert.notStrictEqual(limite, null);
+    assert.strictEqual(limite?.tipo, 'test-integracion');
+    assert.strictEqual(limite?.limite, 1000);
+  });
+
+  test('obtenerLimiteArchivo - FP-S4: sufijo _test.rs es test-integracion', () => {
+    const limite = obtenerLimiteArchivo('parser_test.rs', '/src/parser_test.rs');
+    assert.notStrictEqual(limite, null);
+    assert.strictEqual(limite?.tipo, 'test-integracion');
+    assert.strictEqual(limite?.limite, 1000);
+  });
+
+  test('obtenerLimiteArchivo - FP-S4: sufijo _tests.rs es test-integracion', () => {
+    const limite = obtenerLimiteArchivo('api_tests.rs', '/src/api_tests.rs');
+    assert.notStrictEqual(limite, null);
+    assert.strictEqual(limite?.tipo, 'test-integracion');
+    assert.strictEqual(limite?.limite, 1000);
+  });
+
+  test('obtenerLimiteArchivo - FP-S4: .rs de produccion conserva default servicio/500', () => {
+    const limite = obtenerLimiteArchivo('deploy_service.rs', '/src/commands/deploy_service.rs');
+    assert.notStrictEqual(limite, null);
+    assert.strictEqual(limite?.tipo, 'servicio');
+    assert.strictEqual(limite?.limite, 500);
+  });
 });

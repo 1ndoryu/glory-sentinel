@@ -1,6 +1,17 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
+## [0.7.10] - 2026-09-11
+
+### Corregido
+- **FP-S4 (calibración `limite-lineas`, no falso positivo puro):** los harnesses Rust de tests de
+  integración (rutas `/tests/`, sufijos `_test.rs`/`_tests.rs`) tienen tipo propio `test-integracion`
+  con límite **1000** en vez del default `servicio`/500. Un harness legítimo supera 500 sin ser deuda
+  BASTA: con 1000, el nivel-2 exige >2000 efectivas y el nivel-3 >3000 (el caso medido,
+  `bdp_simulator_integration.rs` con 1718 efectivas, queda solo en nivel-1). Precedente: 0.7.8 dio trato
+  propio a `#![cfg(test)]` para `expect-produccion-rs`. Sin cambio para `.rs` de producción (conserva
+  `servicio`/500) ni para otros lenguajes. 4 tests nuevos en `lineCounter.test.ts`.
+
 ## [0.7.9] - 2026-09-10
 
 ### Corregido

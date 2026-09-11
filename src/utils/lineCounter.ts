@@ -56,7 +56,7 @@ export function contarLineasEfectivas(texto: string, esRust: boolean = false): n
  * Retorna null si no aplica ningun limite especial.
  */
 export interface LimiteArchivo {
-  tipo: 'componente' | 'hook' | 'util' | 'estilo' | 'controlador' | 'servicio' | 'repositorio' | 'modelo';
+  tipo: 'componente' | 'hook' | 'util' | 'estilo' | 'controlador' | 'servicio' | 'repositorio' | 'modelo' | 'test-integracion';
   limite: number;
 }
 
@@ -141,6 +141,15 @@ export function obtenerLimiteArchivo(nombreArchivo: string, rutaArchivo: string)
    * Repositories y models: 400/300 lineas (deben ser delgados)
    * bin/, migrations/, examples/: sin limite (runners, scripts de datos) */
   if (nombreLower.endsWith('.rs')) {
+    /* [FP-S4 11-09-2026] Harnesses de tests de integración: rutas /tests/ o
+     * sufijos _test.rs/_tests.rs tienen tipo propio calibrado (1000) en vez
+     * del default servicio/500. Un harness legítimo supera 500 sin ser deuda
+     * BASTA; con 1000, el nivel-3 exige >3000 efectivas y el nivel-2 >2000. */
+    if (rutaLower.includes('/tests/') || nombreLower.endsWith('_test.rs') ||
+        nombreLower.endsWith('_tests.rs')) {
+      return { tipo: 'test-integracion', limite: 1000 };
+    }
+
     if (rutaLower.includes('/bin/') || rutaLower.includes('/migrations/') ||
         rutaLower.includes('/examples/') || nombreLower === 'build.rs') {
       return null;
