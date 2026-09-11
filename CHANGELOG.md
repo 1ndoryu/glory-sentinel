@@ -1,6 +1,70 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
+## [0.7.9] - 2026-09-10
+
+### Corregido
+- **FP-S3 (`expect-produccion-rs`):** el `.expect(..)` que acompaña al constructor de clave HMAC
+  (`HmacSha256::new_from_slice`, `Hmac::<Sha512>::new_from_slice`, `SimpleHmac`, …) ya no se reporta.
+  HMAC normaliza la clave de cualquier longitud (RFC 2104: la hashea si excede el bloque del digest y la
+  rellena con ceros si es más corta), así que `InvalidLength` es inalcanzable y el `.expect(..)` es
+  correcto, no un panic de producción. Era el único `expect` vivo del área y el mismo defecto en las tres
+  copias del submódulo `glory-rs`. La exención exige un **tipo HMAC explícito**, de modo que
+  `Aes256Gcm::new_from_slice(..)`/ChaCha20 —donde el fallo por longitud **sí** existe— siguen
+  disparando, con test de sobre-exclusión que lo fija.
+- Los overrides locales de timeout de la suite ya no pueden quedar por debajo del `timeout` de
+  `.mocharc.json`. Tres suites (`taskCoordinator`, `lease`, `gateRun`) seguían fijando 30 s después de
+  subir el config a 60 s, y como un override inferior **endurece** el techo del runner en silencio, el
+  primer `quality:setup` de la campaña `039A-1` volvió a fallar de forma intermitente:
+  `Timeout of 30000ms exceeded` en `taskCoordinator` — un test que hace ~25 operaciones git reales
+  (`worktree add`, merge, cleanup) y tarda ~24 s, con lo que un techo de 30 s dejaba solo un 27 % de
+  margen. Alineados a 60 s. El `timeout` del config queda documentado en el `README.md` como **suelo**:
+  todo override local debe ser igual o mayor (los de 120 s y 180 s ya lo eran y se conservan).
+- **El test `verify valida un proceso descendiente REAL del emisor` (`lease`) deja de ser flaky.** El
+  fixture lanzaba un hijo con una vida de **5 s** y luego verificaba la cadena de procesos real; bajo la
+  carga de la suite completa ese margen se agotaba y el hijo ya había muerto, así que la cadena no
+  resolvía y el verificador fallaba cerrado con un falso `pid-no-descendiente`
+  (`AssertionError: false !== true` en `lease.test.js`). El hijo pasa a vivir 120 s (el `finally` lo
+  sigue matando), lo que elimina la carrera contra el reloj sin tocar el verificador.
+- Las dos suites de `taskCoordinator.test.ts` suben a 180 s. Con el techo ya en 60 s, el perfil completo
+  (591 tests, ~6-9 min) falló con `Timeout of 60000ms exceeded` en `aísla dos proyectos del mismo
+  repositorio aunque compartan task-id` y en `editable true autoriza el cambio de un ignored-local…`, y la
+  misma suite pasó **591 passing / 1 pending / 0 failing** en una segunda corrida sin tocar el código: los
+  dos fallos son **intermitentes por carga**, no deterministas. Como la evidencia de release exige
+  `suite: "passed"` reproducible, un techo con margen justo no sirve: se fija 180 s, el mismo criterio ya
+  aplicado a `shellMatrix` (120 s) y `workspaceReport` (180 s) para los tests de I/O real.
+- **FP-S1 (`inline-style-prohibido`): custom property con clave computada.** En TypeScript una custom
+  property no puede escribirse como clave literal — `CSSProperties` no admite claves `--*` — así que la
+  forma canónica es el índice computado, `style={{['--pixel-df' as string]: dimensiones}}`. La exención
+  solo reconocía la clave literal (`'--x':`), de modo que ese objeto se reportaba como estilo inline real.
+  Medido: `EditorPixelArt.tsx` de PROYECTO TASKS era el único caso vivo de la regla en el área (el segundo
+  hallazgo, `mensajes.tsx`, es un `width:` real y se conserva). La exención acepta ahora `['--x' as T]:` y
+  `['--x']:` y mantiene su condición fuerte: **todas** las propiedades del objeto deben ser custom
+  properties, así que un índice computado que no se puede probar como custom property (`[clave]: valor`) y
+  una mezcla con una propiedad real siguen reportándose, con tests de sobre-exclusión que lo fijan.
+- La regla `inline-style-prohibido` ya no reporta un `style={{}}` escrito **dentro de un comentario**. Es
+  un regex por línea, así que sin saltar comentarios un `style={{}}` dentro de `{/* … */}` o de un
+  comentario de bloque contaba como estilo inline real. Se calculan los rangos comentados del archivo en
+  una sola pasada —con seguimiento de comillas, para no confundir el `//` de una URL dentro de un string
+  con un comentario— y el match se descarta si cae dentro de un rango. **Es una corrección preventiva: la
+  medición del área no encontró ningún caso vivo** (el `{/* … */}` de `SelectorRepeticionPill.tsx` es un
+  `style` real, un panel flotante posicionado por JS, y está correctamente silenciado con
+  `sentinel-disable`). El salto se aplica **solo** a esta regla: generalizarlo al resto es un cambio de
+  comportamiento que necesita su propio caso y su propia medición. Tests de sobre-exclusión fijan que un
+  comentario cerrado no silencia el estilo real de la línea siguiente.
+
+### Verificado sin cambios
+- El presupuesto de **5000 ms** de `defaultParentPidOf` (resolución del padre real en Windows vía
+  `Get-CimInstance`) se conserva: medido bajo la carga de la suite completa, un salto cuesta
+  **0,7–1,2 s**, es decir ~4× de margen. El cuello de botella del test flaky de `lease` era la vida del
+  proceso hijo, no este presupuesto.
+- Los overrides de 120 s (`shellMatrix`) y 180 s (`workspaceReport`) se conservan: ya estaban por encima
+  del `timeout` del config y son deliberados.
+- Los dos hallazgos restantes de la regla en el área **no** son falsos positivos y se conservan: el
+  `style={{width: …}}` de `mensajes.tsx` es un ancho dinámico real, y el `style={{position: 'fixed', …}}`
+  de `SelectorRepeticionPill.tsx` es un panel flotante posicionado por JS (silenciado con
+  `sentinel-disable`, que la regla respeta).
+
 ## [0.7.8] - 2026-09-10
 
 ### Agregado

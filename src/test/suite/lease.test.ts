@@ -174,10 +174,19 @@ suite('Sentinel core leases efímeros firmados (Fase 2/SNT-10)', () => {
   });
 
   test('verify valida un proceso descendiente REAL del emisor', async function () {
-    this.timeout(30_000);
+    /* Alineado con .mocharc.json: un override por debajo del default del
+     * runner lo endurece en silencio (039A-1). */
+    this.timeout(60_000);
     const guardRoot = makeGuardRoot();
     const project = makeProject();
-    const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 5000)'], { stdio: 'ignore' });
+    /* [039A-1] El hijo debe seguir VIVO durante toda la verificacion. Con 5 s
+     * el test era flaky: bajo la carga de la suite completa, resolver el padre
+     * real en Windows cuesta un proceso powershell por salto (0,3-5 s, con
+     * presupuesto de 5000 ms en defaultParentPidOf), asi que el hijo podia
+     * haber muerto antes de verificar y la cadena no resolvia (fail closed ->
+     * falso "pid-no-descendiente"). Se le da un margen amplio; el finally lo
+     * mata. */
+    const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 120000)'], { stdio: 'ignore' });
     try {
       const issued = await issueLease({ projectRoot: project, guardRoot, pid: process.pid });
       assert.ok(child.pid, 'el hijo se lanza con PID');

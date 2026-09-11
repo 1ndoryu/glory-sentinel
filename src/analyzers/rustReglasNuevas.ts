@@ -4,7 +4,8 @@
  * no-disparo en src/test/suite/rustReglasNuevas.test.ts.
  *
  * - expect-produccion-rs (error): .expect(...) fuera de tests. Ampliacion de
- *   unwrap-produccion-rs (mismo riesgo: panic en produccion).
+ *   unwrap-produccion-rs (mismo riesgo: panic en produccion). Exento el
+ *   constructor de clave HMAC, que no puede fallar (FP-S3 de 039A-1).
  * - block-en-async-rs (error): block_on dentro de codigo async. Evidencia real:
  *   panic "Cannot block the current thread from within a runtime" en
  *   cli/src/tui.rs:281 (Bloque 3 F1) corregido manualmente; la regla lo habria
@@ -30,6 +31,34 @@ function tieneDisableSiguiente(lineas: string[], i: number, reglaId: string): bo
 /* expect-produccion-rs                                                */
 /* ------------------------------------------------------------------ */
 
+/* [039A-1 FP-S3] Constructor de clave HMAC: inalcanzable, no es un panic real.
+ *
+ * `Hmac<D>` implementa `KeyInit::new_from_slice` devolviendo `Ok` SIEMPRE: HMAC
+ * (RFC 2104) normaliza la clave de cualquier longitud (la hashea si excede el
+ * bloque, la rellena con ceros si es corta), asi que `InvalidLength` no puede
+ * darse. El `.expect(..)` que lo acompania es honesto y correcto.
+ *
+ * NO se exime `new_from_slice` en general: en AES-GCM/ChaCha20 SI puede fallar
+ * por longitud invalida, y ahi el `.expect(..)` es un panic real. Por eso el
+ * patron exige un tipo HMAC explicito delante del constructor. */
+const RECEPTOR_HMAC = /\b(?:Simple)?Hmac[A-Za-z0-9_]*\b[\s\S]{0,80}?\bnew_from_slice\s*\(/;
+
+/* El `.expect(..)` puede ir en la misma linea que el constructor o en la
+ * siguiente (continuacion empezando por `.`), que es como se escribe en el
+ * codigo real: por eso se mira hacia atras una vez. */
+function caeEnConstructorHmac(lineas: string[], i: number, columna: number): boolean {
+  const antes = lineas[i].slice(0, columna);
+  if (RECEPTOR_HMAC.test(antes)) { return true; }
+  if (antes.trim() !== '' && antes.trim() !== '.') { return false; }
+
+  for (let k = i - 1; k >= 0 && k >= i - 4; k--) {
+    const previa = lineas[k].trim();
+    if (previa === '' || previa.startsWith('//') || previa.startsWith('*')) { continue; }
+    return RECEPTOR_HMAC.test(lineas[k]);
+  }
+  return false;
+}
+
 export function detectarExpect(
   lineas: string[],
   rangoTests: Set<number>,
@@ -54,6 +83,7 @@ export function detectarExpect(
     let match: RegExpExecArray | null;
     patron.lastIndex = 0;
     while ((match = patron.exec(linea)) !== null) {
+      if (caeEnConstructorHmac(lineas, i, match.index)) { continue; }
       violaciones.push({
         reglaId: REGLA_EXPECT,
         mensaje: '.expect(...) en codigo de produccion: panic si la condicion falla. Usar ? o manejo explicito del error.',

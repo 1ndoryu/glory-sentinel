@@ -86,6 +86,45 @@ suite('expect-produccion-rs', () => {
     ].join('\n'));
     assert.strictEqual(contar('expect-produccion-rs', findings), 0);
   });
+
+  /* [039A-1 FP-S3] HMAC normaliza la clave de cualquier longitud (RFC 2104),
+   * asi que el constructor no puede fallar: el .expect() es correcto. */
+  test('no reporta el .expect() del constructor de clave HMAC en la linea siguiente (caso real glory-rs)', () => {
+    const findings = analyze([
+      'fn sign(payload: &str, secret: &str) -> String {',
+      '    let mut mac = HmacSha256::new_from_slice(secret.as_bytes())',
+      '        .expect("HMAC acepta cualquier longitud de key");',
+      '    mac.update(payload.as_bytes());',
+      '    hex::encode(mac.finalize().into_bytes())',
+      '}',
+    ].join('\n'));
+    assert.strictEqual(contar('expect-produccion-rs', findings), 0);
+  });
+
+  test('no reporta el .expect() del constructor de clave HMAC en la misma linea', () => {
+    const findings = analyze([
+      'fn sign(payload: &str, secret: &[u8]) -> String {',
+      '    let mut mac = Hmac::<Sha512>::new_from_slice(secret).expect("HMAC infalible");',
+      '    mac.update(payload.as_bytes());',
+      '    hex::encode(mac.finalize().into_bytes())',
+      '}',
+    ].join('\n'));
+    assert.strictEqual(contar('expect-produccion-rs', findings), 0);
+  });
+
+  /* Garantia anti-sobre-exclusion: en AES-GCM/ChaCha20 `new_from_slice` SI
+   * puede fallar por longitud invalida, asi que el .expect() sigue siendo un
+   * panic real y NO debe eximirse. */
+  test('si reporta el .expect() de new_from_slice en un cifrado con longitud obligatoria (AES-GCM)', () => {
+    const findings = analyze([
+      'fn cifrar(key: &[u8]) -> String {',
+      '    let cipher = Aes256Gcm::new_from_slice(key)',
+      '        .expect("clave de 32 bytes");',
+      '    hex::encode(cipher.nonce_size())',
+      '}',
+    ].join('\n'));
+    assert.strictEqual(contar('expect-produccion-rs', findings), 1);
+  });
 });
 
 suite('block-en-async-rs', () => {

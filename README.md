@@ -224,3 +224,24 @@ El CLI compilado vive en `out/cli/index.js`; el LSP en `out/lsp/server.js`. Un r
 tests de fixture reales —`git init`/`commit` y spawn del CLI, además de spawns de shell— por lo que un
 caso aislado puede tardar entre 2 s y 25 s: el `timeout` de `.mocharc.json` es **60000 ms** y no debe
 bajarse, porque quedaría por debajo del `timeout: 60_000` que esos mismos tests usan en su `spawnSync`.
+
+**El `timeout` de `.mocharc.json` es un SUELO, no un valor por defecto cualquiera.** Un `this.timeout(...)`
+o `suite.timeout(...)` local **por debajo** de ese valor lo endurece en silencio: el techo real pasa a ser
+el del override, aunque el config diga 60000. Es exactamente lo que ocurrió en `039A-1` — tres overrides
+de 30 s (`taskCoordinator`, `lease`, `gateRun`) sobrevivieron al arreglo del config y la suite volvió a
+fallar de forma intermitente con `Timeout of 30000ms exceeded` en un test que tarda ~24 s de trabajo git
+real. Regla: todo override local debe ser **igual o mayor** que el valor del config; los que suben
+(`shellMatrix` a 120 s, `workspaceReport` a 180 s) son correctos y deliberados.
+
+Ojo con el razonamiento inverso: **subir un override por encima del config no basta cuando el test es
+intermitente**. Con el config ya en 60 s, las dos suites de `taskCoordinator.test.ts` fallaron con
+`Timeout of 60000ms exceeded` y la **misma** suite pasó 591/1/0 en una segunda corrida sin tocar el código:
+los fallos eran de carga, no deterministas. Un techo con margen justo no sirve para certificar
+`suite: "passed"`, así que ambas se fijan en 180 s, igual que `workspaceReport`.
+
+**`mocha <archivo>` NO acota la corrida si `.mocharc.json` declara `spec`**: el `spec` del config manda y
+el argumento posicional no lo reduce, de modo que un «archivo aislado» puede estar corriendo la suite
+completa y dar un recuento parcial que parece limpio. Comprobar el tamaño de la salida (la suite completa
+ronda las 1100 líneas y termina con `N passing`) antes de sacar conclusiones, y **medir los timeouts
+repitiendo la suite**, no con una corrida supuestamente acotada.
+

@@ -195,7 +195,15 @@ export function tieneSentinelDisableFile(texto: string, reglaId: string): boolea
 
 /* [104A-11] Permite style={{}} cuando solo se inyectan CSS custom properties,
  * incluso si el objeto completo vive en una sola linea. Evita falsos positivos
- * en barras de progreso y layouts que dependen de vars dinamicas. */
+ * en barras de progreso y layouts que dependen de vars dinamicas.
+ * [039A-1 FP-S1] Cubre tambien la clave computada (`['--x' as string]: valor`),
+ * que es la forma canonica de inyectar una custom property en TypeScript:
+ * `CSSProperties` no admite claves `--*`, asi que el indice computado no es un
+ * estilo inline real. Medido en EditorPixelArt.tsx. */
+function propiedadEsCssVar(token: string): boolean {
+    return /^(?:\[\s*)?['"]--[\w-]+['"](?:\s+as\s+[A-Za-z0-9_$.]+(?:<[^>]*>)?)?\s*\]?\s*:/.test(token);
+}
+
 function styleInlineSoloCssVars(lineas: string[], indice: number): boolean {
     const ventana = lineas.slice(indice, Math.min(indice + 15, lineas.length)).join('\n');
     const match = /style\s*=\s*\{\s*\{([\s\S]*?)\}\s*(?:as\s+[A-Za-z0-9_.]+)?\s*\}/.exec(ventana);
@@ -213,7 +221,77 @@ function styleInlineSoloCssVars(lineas: string[], indice: number): boolean {
         return false;
     }
 
-    return propiedades.every(propiedad => /^['"]--[\w-]+['"]\s*:/.test(propiedad));
+    return propiedades.every(propiedadEsCssVar);
+}
+
+/* [039A-1 FP-S2] Rangos comentados por linea, en una sola pasada por archivo.
+ * La regla es un regex por linea: sin esto, un `style={{}}` escrito dentro de un
+ * comentario JSX o de bloque cuenta como estilo inline real.
+ * Es una correccion PREVENTIVA: la medicion del area no encontro ningun caso
+ * vivo (el repro del backlog mezclaba un comentario con un estilo real).
+ * Se rastrean comillas para no confundir el `//` de una URL con un comentario. */
+function rangosComentados(lineas: string[]): Array<Array<[number, number]>> {
+    const porLinea: Array<Array<[number, number]>> = [];
+    let enBloque = false;
+
+    for (const linea of lineas) {
+        const rangos: Array<[number, number]> = [];
+        let cursor = 0;
+        let comilla: string | null = null;
+
+        while (cursor < linea.length) {
+            if (enBloque) {
+                const cierre = linea.indexOf('*/', cursor);
+                if (cierre === -1) {
+                    rangos.push([cursor, linea.length]);
+                    cursor = linea.length;
+                } else {
+                    rangos.push([cursor, cierre + 2]);
+                    cursor = cierre + 2;
+                    enBloque = false;
+                }
+                continue;
+            }
+
+            const caracter = linea[cursor];
+            if (comilla) {
+                if (caracter === '\\') {
+                    cursor += 2;
+                    continue;
+                }
+                if (caracter === comilla) {
+                    comilla = null;
+                }
+                cursor += 1;
+                continue;
+            }
+            if (caracter === '"' || caracter === "'" || caracter === '`') {
+                comilla = caracter;
+                cursor += 1;
+                continue;
+            }
+            if (caracter === '/' && linea[cursor + 1] === '*') {
+                enBloque = true;
+                rangos.push([cursor, cursor + 2]);
+                cursor += 2;
+                continue;
+            }
+            if (caracter === '/' && linea[cursor + 1] === '/') {
+                rangos.push([cursor, linea.length]);
+                cursor = linea.length;
+                continue;
+            }
+            cursor += 1;
+        }
+
+        porLinea.push(rangos);
+    }
+
+    return porLinea;
+}
+
+function enComentario(rangos: Array<[number, number]>, columna: number): boolean {
+    return rangos.some(([inicio, fin]) => columna >= inicio && columna < fin);
 }
 
 /*
@@ -227,6 +305,11 @@ function ejecutarReglaPorLinea(texto: string, regla: ReglaEstatica, documento: C
     }
 
     const lineas = texto.split('\n');
+
+    /* [039A-1 FP-S2] Solo la regla de estilo inline salta comentarios: es la que
+     * se reviso y midio. Generalizarlo al resto de reglas es un cambio de
+     * comportamiento que necesita su propio caso y su propia medicion. */
+    const comentarios = regla.id === 'inline-style-prohibido' ? rangosComentados(lineas) : null;
 
     for (let i = 0; i < lineas.length; i++) {
         const linea = lineas[i];
@@ -272,6 +355,7 @@ function ejecutarReglaPorLinea(texto: string, regla: ReglaEstatica, documento: C
              * CSS custom properties (--var). Es el patrón correcto para inyectar
              * valores dinámicos de JS a CSS sin usar inline styles reales. */
             if (regla.id === 'inline-style-prohibido') {
+                if (comentarios && enComentario(comentarios[i], match.index)) continue;
                 if (styleInlineSoloCssVars(lineas, i)) continue;
             }
 

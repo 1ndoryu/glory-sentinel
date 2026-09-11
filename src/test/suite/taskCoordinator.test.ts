@@ -42,10 +42,17 @@ function fixture(): { parent: string; root: string } {
 }
 
 suite('task coordinator', function () {
-  /* La suite crea y elimina worktrees Git reales. En Windows sobre carpetas
-   * sincronizadas, una corrida válida puede superar el timeout unitario de
-   * 10 s. Debe fijarse antes de registrar los tests para que lo hereden. */
-  this.timeout(30_000);
+  /* La suite crea y elimina worktrees Git reales (init/add/commit + worktree
+   * add + merge + cleanup: ~25 procesos git por test). En Windows sobre
+   * carpetas sincronizadas un test valido tarda 20-25 s, pero con la suite
+   * completa en marcha (589 tests, ~9 min) la carga acumulada lo empuja por
+   * encima de 60 s: los dos unicos fallos de 039A-1 fueron "Timeout of 60000ms
+   * exceeded" en este archivo, y pasan al correrlo aislado. Se fija 180 s, el
+   * mismo criterio que shellMatrix (120 s) y workspaceReport (180 s) para los
+   * tests de I/O real. Un valor por debajo del timeout de .mocharc.json (60 s)
+   * endurece el techo en silencio, asi que nunca puede quedar mas bajo.
+   * Debe fijarse antes de registrar los tests. */
+  this.timeout(180_000);
 
   test('solo un agente gana dos claims concurrentes para la misma tarea', async () => {
     const { parent, root } = fixture();
@@ -332,7 +339,12 @@ suite('task coordinator', function () {
   });
 });
 
-suite('env manifest provisioning ([VISIBLE-WORKTREE])', () => {
+/* Mismo motivo que la suite anterior: aprovisionar el manifiesto hace trabajo
+ * real de git y repositorios temporales, y bajo la carga de la suite completa
+ * superaba los 60 s (fallo "Timeout of 60000ms exceeded" de 039A-1). */
+suite('env manifest provisioning ([VISIBLE-WORKTREE])', function () {
+  this.timeout(180_000);
+
   function writeManifest(root: string, inputs: unknown[]): void {
     fs.writeFileSync(
       path.join(root, 'sentinel.env-manifest.json'),
