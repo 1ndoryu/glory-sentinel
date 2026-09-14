@@ -201,14 +201,18 @@ export const reglasEstaticas: ReglaEstatica[] = [
   },
 
   /* --- Seccion: Deteccion de TODOs y pendientes ---
-   * [044A-20] Detecta marcadores de trabajo pendiente (TODO, FIXME, HACK, PENDIENTE, XXX)
+   * [044A-20] Detecta marcadores de trabajo pendiente (TODO, FIXME, HACK, XXX)
    * en cualquier archivo de codigo. Severidad hint para no bloquear, pero hacer visible
-   * la deuda tecnica acumulada. Excluye archivos .md y de documentacion. */
+   * la deuda tecnica acumulada. Excluye archivos .md y de documentacion.
+   * [119A-4 S1] Case-sensitive y sin PENDIENTE: el flag /i convertia la palabra
+   * espanola "todo" (=everything: "todo el historial", "todo en el VPS") en TODO,
+   * y PENDIENTE es lenguaje de dominio (ej: estado "Pendiente de validacion" BDP).
+   * Solo tokens explicitos en MAYUSCULAS son marcadores reales. */
   {
     id: 'todo-pendiente',
     nombre: 'TODO/FIXME pendiente detectado',
     descripcion: 'Marcador de trabajo pendiente encontrado. Resolver o crear tarea en roadmap.',
-    patron: /(?:\/\/|\/\*|#|<!--)\s*(?:TODO|FIXME|HACK|PENDIENTE|XXX)\b/i,
+    patron: /(?:\/\/|\/\*|#|<!--)\s*(?:TODO|FIXME|HACK|XXX)\b/,
     severidad: 'hint',
     aplicaA: ['.php', '.ts', '.tsx', '.js', '.jsx', '.css', '.rs'],
     categoria: CategoriaRegla.EstructuraNomenclatura,

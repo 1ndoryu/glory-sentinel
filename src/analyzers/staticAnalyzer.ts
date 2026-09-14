@@ -8,6 +8,8 @@ import {ReglaEstatica, Violacion} from '../types';
 import { CoreTextDocument, positionAtOffset } from '../core/types';
 import {reglasEstaticas} from '../config/defaultRules';
 import {reglaHabilitada, obtenerSeveridadRegla} from '../config/ruleRegistry';
+import { proyectoTieneModalCanonico } from '../utils/analisisHelpers';
+import { obtenerWorkspaceRoots } from '../core/workspaceRoots';
 
 /* Submodulos */
 import {REGLAS_LIMITE_LINEAS, verificarLimiteLineas, verificarUseStateExcesivo, verificarImportsMuertos, verificarAnyType, verificarNonNullAssertion, verificarDirectorioAbarrotado} from './static/staticCodeRules';
@@ -154,7 +156,9 @@ export function analizarEstatico(
             violaciones.push(...verificarCardIconoExtiendeBase(texto, documento, nombreArchivo));
         }
         if (reglaHabilitada('modal-semantica-no-canonica')) {
-            violaciones.push(...verificarModalSemanticaNoCanonica(texto, documento, nombreArchivo));
+            /* [119A-4 S4] Coste con cache; solo se calcula si la regla esta habilitada. */
+            const tieneModalCanonico = proyectoTieneModalCanonico(obtenerWorkspaceRoots());
+            violaciones.push(...verificarModalSemanticaNoCanonica(texto, documento, nombreArchivo, tieneModalCanonico));
         }
         if (reglaHabilitada('css-elemento-html-directo')) {
             violaciones.push(...verificarCssElementoHTMLDirecto(texto, documento, nombreArchivo));

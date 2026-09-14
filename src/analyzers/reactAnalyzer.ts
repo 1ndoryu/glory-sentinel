@@ -9,7 +9,7 @@ import * as path from 'path';
 import { Violacion } from '../types';
 import { CoreTextDocument } from '../core/types';
 import { reglaHabilitada } from '../config/ruleRegistry';
-import { esRutaGlory } from '../utils/analisisHelpers';
+import { esRutaGlory, proyectoTieneModalCanonico } from '../utils/analisisHelpers';
 
 /* Submodulos */
 import {
@@ -43,6 +43,7 @@ import {
   verificarModalEstructuraNoCanonica,
   verificarMenuContextualOverride,
   configurarWorkspaceRootsReact,
+  obtenerWorkspaceRootsReact,
 } from './react/reactComponentRules';
 import { verificarFormularioConfigSinSistema } from './react/formularioConfigSystem';
 import { verificarAccesoApiSinFallback } from './glory/apiFallbackRules';
@@ -147,10 +148,12 @@ export function analizarReact(documento: CoreTextDocument, opciones: ReactAnalys
       violaciones.push(...verificarModalAccionesNoCanonico(lineas));
     }
     if (reglaHabilitada('modal-estructura-no-canonica')) {
-      violaciones.push(...verificarModalEstructuraNoCanonica(lineas, nombreArchivo));
+      /* [119A-4 S4] Coste con cache; solo se calcula si la regla esta habilitada. */
+      const tieneModalCanonico = proyectoTieneModalCanonico(obtenerWorkspaceRootsReact());
+      violaciones.push(...verificarModalEstructuraNoCanonica(lineas, nombreArchivo, tieneModalCanonico));
     }
     if (reglaHabilitada('menu-contextual-override-diseno')) {
-      violaciones.push(...verificarMenuContextualOverride(lineas));
+      violaciones.push(...verificarMenuContextualOverride(lineas, nombreArchivo));
     }
     if (reglaHabilitada('acceso-api-sin-fallback')) {
       violaciones.push(...verificarAccesoApiSinFallback(lineas));

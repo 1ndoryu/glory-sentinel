@@ -90,7 +90,12 @@ export function verificarReglasPortables(
   const isLoggerModule = inBoundary(document.fileName, loggerModules);
 
   lines.forEach((line, index) => {
-    const code = line.replace(/\/\/.*$/, '').trim();
+    /* [119A-4 S6] Despojar literales antes de testear: 'window.location' dentro
+     * de un string es documentacion/texto, no una referencia real (FP en
+     * etiquetas.ts del allowlist). Orden: primero strings (para no truncar en
+     * '//' dentro de URLs), luego comentarios. */
+    const sinStrings = line.replace(/'(?:[^'\\\r\n]|\\.)*'|"(?:[^"\\\r\n]|\\.)*"|`(?:[^`\\]|\\.)*`/g, '""');
+    const code = sinStrings.replace(/\/\/.*$/, '').trim();
     if (!code) return;
 
     if (!isDomBoundary && /\b(?:document|globalThis\.document)\.(?:createElement|querySelector|querySelectorAll|getElementById|body|head)\b/.test(code)) {

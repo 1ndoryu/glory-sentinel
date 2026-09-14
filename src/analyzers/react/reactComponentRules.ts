@@ -25,6 +25,12 @@ export function configurarWorkspaceRootsReact(roots: string[]): void {
   cacheComponentesUi.clear();
 }
 
+/* [119A-4 S4] Expone las roots para que reactAnalyzer calcule
+ * proyectoTieneModalCanonico() una vez por archivo. */
+export function obtenerWorkspaceRootsReact(): string[] {
+  return workspaceRootsReact;
+}
+
 function existeComponenteUi(nombres: string[]): boolean {
   const cacheKey = nombres.join('|');
   const cached = cacheComponentesUi.get(cacheKey);
@@ -119,15 +125,38 @@ export function verificarMutacionDirectaEstado(lineas: string[]): Violacion[] {
  */
 export function verificarKeyIndexLista(lineas: string[]): Violacion[] {
   const violaciones: Violacion[] = [];
+
+  /* [119A-4 S5] Receptores de slots fijos: useState/useMemo inicializados con
+   * Array(N).fill(...) tienen longitud fija y orden estable (ej: slots de
+   * imagenes): key={index} no causa reconciliacion incorrecta. Se detecta el
+   * nombre del estado (const [x, setX] = ...) o de la variable directa. */
+  const slotsFijos = new Set<string>();
+  const textoCompleto = lineas.join('\n');
+  const regexSlots = /(?:const|let|var)\s+(?:\[\s*(\w+)\s*,[^\]]*\]\s*=\s*(?:use\w+(?:<[^;]*?>)?\([^;]*?)?Array\s*\([^;]*?\)\.fill\s*\(|(\w+)\s*=\s*(?:use\w+(?:<[^;]*?>)?\([^;]*?)?Array\s*\([^;]*?\)\.fill\s*\()/g;
+  let mSlot: RegExpExecArray | null;
+  while ((mSlot = regexSlots.exec(textoCompleto)) !== null) {
+    const nombre = mSlot[1] ?? mSlot[2];
+    if (nombre) { slotsFijos.add(nombre); }
+  }
+
   let dentroDeMap = false;
   let profundidadMap = 0;
+  let receptorEsFijo = false;
 
   for (let i = 0; i < lineas.length; i++) {
     const linea = lineas[i];
 
-    if (/\.map\s*\(/.test(linea)) {
+    const matchMap = /(\w+)\.map\s*\(/.exec(linea);
+    if (matchMap) {
       dentroDeMap = true;
       profundidadMap = 0;
+      receptorEsFijo = slotsFijos.has(matchMap[1]);
+    } else if (/\.map\s*\(/.test(linea)) {
+      /* Map encadenado (ej: xs.filter(...).map(...)): sin receptor nombrable,
+       * se analiza como lista dinamica igual que antes. */
+      dentroDeMap = true;
+      profundidadMap = 0;
+      receptorEsFijo = false;
     }
 
     if (dentroDeMap) {
@@ -136,7 +165,7 @@ export function verificarKeyIndexLista(lineas: string[]): Violacion[] {
         if (char === ')') { profundidadMap--; }
       }
 
-      if (/key\s*=\s*\{\s*(index|i|idx|indice)\s*\}/.test(linea)) {
+      if (!receptorEsFijo && /key\s*=\s*\{\s*(index|i|idx|indice)\s*\}/.test(linea)) {
         violaciones.push({
           reglaId: 'key-index-lista',
           mensaje: 'key={index} causa reconciliacion incorrecta en listas dinamicas. Usar ID unico del item.',
@@ -148,6 +177,7 @@ export function verificarKeyIndexLista(lineas: string[]): Violacion[] {
 
       if (profundidadMap <= 0) {
         dentroDeMap = false;
+        receptorEsFijo = false;
       }
     }
   }
@@ -784,9 +814,16 @@ const CLASES_CONTENEDOR_MODAL_CANONICAS = new Set([
 /* [035A-24] Detecta contenedor/formulario/campos locales que reescriben la receta compartida del modal.
  * Casos como .usuariosModal, .hostingFormCrear o .usuariosCrearCampo deben migrar
  * al sistema compartido de Modal en vez de redefinir estructura en cada componente. */
-export function verificarModalEstructuraNoCanonica(lineas: string[], nombreArchivo: string): Violacion[] {
+export function verificarModalEstructuraNoCanonica(
+  lineas: string[],
+  nombreArchivo: string,
+  /* [119A-4 S4] El caller (reactAnalyzer) lo calcula con proyectoTieneModalCanonico().
+   * Default true = fail-closed: sin evidencia de ausencia, la regla dispara como antes. */
+  tieneModalCanonico = true,
+): Violacion[] {
   const texto = lineas.join('\n');
   if (texto.includes('sentinel-disable-file modal-estructura-no-canonica')) { return []; }
+  if (!tieneModalCanonico) { return []; }
 
   const violaciones: Violacion[] = [];
   const archivoModal = archivoPareceModal(nombreArchivo);
@@ -869,17 +906,39 @@ export function verificarModalEstructuraNoCanonica(lineas: string[], nombreArchi
  * hasta el cierre o una linea en blanco, y reporta en la linea exacta donde
  * aparece la prop problemática.
  */
-export function verificarMenuContextualOverride(lineas: string[]): Violacion[] {
+export function verificarMenuContextualOverride(lineas: string[], nombreArchivo = ''): Violacion[] {
+  const base = nombreArchivo.split(/[/\\]/).pop() ?? '';
+  /* [119A-4 S3] El propio componente documenta/usa sus props en su fichero;
+   * auto-flagguearse no es deuda del consumidor. */
+  if (/^MenuContextual\.(tsx|jsx)$/.test(base)) { return []; }
+
   const violaciones: Violacion[] = [];
   const PROPS_OVERRIDE = ['className', 'panelClassName', 'triggerClassName', 'itemClassName'];
+  /* Cadenas entrecomilladas en una linea: para no confundir '>' dentro de
+   * strings con el cierre del tag de apertura. */
+  const STRIP_STRINGS = /'(?:[^'\\\r\n]|\\.)*'|"(?:[^"\\\r\n]|\\.)*"|`(?:[^`\\]|\\.)*`/g;
 
   for (let i = 0; i < lineas.length; i++) {
     if (!/<MenuContextual[\s>]/.test(lineas[i])) { continue; }
 
-    /* Buscar hasta 15 lineas hacia adelante el cierre del JSX */
+    /* [119A-4 S3] Delimitar el tag de apertura: primer '>' a profundidad 0
+     * de llaves (ignora '>' dentro de props como trigger={<Boton ...>}).
+     * Antes el escaneo seguia hasta 15 lineas e incluia hijos/hermanos. */
     const fin = Math.min(i + 15, lineas.length);
-
+    let finTag = -1;
+    let profundidadLlaves = 0;
     for (let j = i; j < fin; j++) {
+      const sinStrings = lineas[j].replace(STRIP_STRINGS, '""');
+      for (const ch of sinStrings) {
+        if (ch === '{') { profundidadLlaves++; }
+        else if (ch === '}') { profundidadLlaves = Math.max(0, profundidadLlaves - 1); }
+        else if (ch === '>' && profundidadLlaves === 0) { finTag = j; break; }
+      }
+      if (finTag >= 0) { break; }
+    }
+    if (finTag < 0) { finTag = fin - 1; }
+
+    for (let j = i; j <= finTag; j++) {
       const linea = lineas[j];
 
       if (tieneSentinelDisable(lineas, j, 'menu-contextual-override-diseno')) { continue; }
@@ -901,10 +960,6 @@ export function verificarMenuContextualOverride(lineas: string[]): Violacion[] {
           }
         }
       }
-
-      /* Salir solo ante cierre real del tag; no confundir con => de callbacks. */
-      const recorte = linea.trim();
-      if (j >= i && (recorte === '>' || recorte.endsWith('/>'))) { break; }
     }
   }
 
