@@ -104,6 +104,10 @@ const REGISTRO: DefinicionRegla[] = [
 
   /* --- Sprint 2: TypeScript (staticAnalyzer.ts) --- */
   { id: 'any-type-explicito', nombre: 'Tipo any explicito', severidadDefault: 'hint', categoria: CategoriaRegla.EstructuraNomenclatura },
+  /* [149A-1] Productor HTML sin declarar (staticCodeRules.ts). Flaggea al
+   * PRODUCTOR (funcion exportada que construye HTML), no al consumidor con
+   * allowlist; la allowlist es configurable por proyecto. */
+  { id: 'html-sin-origen-declarado', nombre: 'Productor HTML sin declarar en allowlist', severidadDefault: 'error', categoria: CategoriaRegla.ReactPatrones },
 
   /* --- Sprint 2: Glory (gloryAnalyzer.ts) --- */
   { id: 'isla-no-registrada', nombre: 'Isla no registrada', severidadDefault: 'warning', categoria: CategoriaRegla.GlorySchema },
@@ -227,6 +231,17 @@ const REGISTRO: DefinicionRegla[] = [
   { id: 'expect-produccion-rs', nombre: '.expect() en produccion', severidadDefault: 'error', categoria: CategoriaRegla.RustPatrones },
   { id: 'block-en-async-rs', nombre: 'block_on dentro de contexto async', severidadDefault: 'error', categoria: CategoriaRegla.RustPatrones },
   { id: 'lock-a-traves-await-rs', nombre: 'MutexGuard sincrono vivo a traves de .await', severidadDefault: 'warning', categoria: CategoriaRegla.RustPatrones },
+  /* [149A-1] Segunda hornada F1+F2 (rustReglasNuevas.ts, Paso 8).
+   * god-object-rs: default warning; el detector escala a error >800 efectivas. */
+  { id: 'rusqlite-bloqueante-en-async', nombre: 'Mutex<Connection> rusqlite con .lock() en async', severidadDefault: 'error', categoria: CategoriaRegla.RustPatrones },
+  { id: 'shell-modelo-sin-allowlist', nombre: 'Shell interactivo con argumento no literal', severidadDefault: 'error', categoria: CategoriaRegla.RustPatrones },
+  { id: 'secreto-en-log', nombre: 'Posible secreto interpolado en log', severidadDefault: 'error', categoria: CategoriaRegla.RustPatrones },
+  { id: 'ruta-post-sin-rate-limit', nombre: 'Ruta POST sin rate limiting visible', severidadDefault: 'error', categoria: CategoriaRegla.RustPatrones },
+  { id: 'path-join-sin-canonicalize', nombre: 'Path.join() sin canonicalize() en el scope', severidadDefault: 'error', categoria: CategoriaRegla.RustPatrones },
+  { id: 'sqlite-carga-N-consultas', nombre: '3+ .await secuenciales sin join en la misma funcion', severidadDefault: 'warning', categoria: CategoriaRegla.RustPatrones },
+  { id: 'clone-bajo-lock-rs', nombre: '.clone() bajo lock sincrono', severidadDefault: 'warning', categoria: CategoriaRegla.RustPatrones },
+  { id: 'god-object-rs', nombre: 'Archivo god-object (>500 warn, >800 error)', severidadDefault: 'warning', categoria: CategoriaRegla.RustPatrones },
+  { id: 'port-fs-duplicado-rs', nombre: 'Contenido .rs duplicado con otro crate del workspace', severidadDefault: 'warning', categoria: CategoriaRegla.RustPatrones },
 
   /* --- Organizacion de directorios (staticCodeRules.ts) --- */
   { id: 'directorio-abarrotado', nombre: 'Directorio con demasiados archivos', severidadDefault: 'warning', categoria: CategoriaRegla.LimitesArchivo },

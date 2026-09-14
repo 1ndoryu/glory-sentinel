@@ -12,7 +12,7 @@ import { proyectoTieneModalCanonico } from '../utils/analisisHelpers';
 import { obtenerWorkspaceRoots } from '../core/workspaceRoots';
 
 /* Submodulos */
-import {REGLAS_LIMITE_LINEAS, verificarLimiteLineas, verificarUseStateExcesivo, verificarImportsMuertos, verificarAnyType, verificarNonNullAssertion, verificarDirectorioAbarrotado} from './static/staticCodeRules';
+import {REGLAS_LIMITE_LINEAS, verificarLimiteLineas, verificarUseStateExcesivo, verificarImportsMuertos, verificarAnyType, verificarNonNullAssertion, verificarDirectorioAbarrotado, verificarHtmlSinOrigenDeclarado} from './static/staticCodeRules';
 import {verificarCardIconoExtiendeBase, verificarCssAdhocButtonStyle, verificarCssEspecificacionDisenoLocal, verificarModalSemanticaNoCanonica, verificarNomenclaturaCssIngles, verificarCssElementoHTMLDirecto, verificarCssHardcoded} from './static/staticCssRules';
 import { PortableBoundaryConfig, verificarReglasPortables } from './static/portableRules';
 
@@ -31,6 +31,9 @@ export function limpiarDirectoriosReportados(): void {
 export interface StaticAnalysisOptions {
     directoryExceptions?: string[];
     portableBoundaries?: PortableBoundaryConfig;
+    /* [149A-1] Sufijos de ruta de productores HTML declarados por el proyecto
+     * (patron directoryExceptions). Default vacio: cada consumidor declara. */
+    htmlProductoresPermitidos?: string[];
 }
 
 export function analizarEstatico(
@@ -134,6 +137,13 @@ export function analizarEstatico(
     /* non-null assertions excesivas en TS/TSX */
     if (['.ts', '.tsx'].includes(extension) && !nombreArchivo.endsWith('.d.ts') && reglaHabilitada('non-null-assertion-excesivo')) {
         violaciones.push(...verificarNonNullAssertion(texto, documento));
+    }
+
+    /* [149A-1] Productor HTML sin declarar (TS/TSX, no .d.ts).
+     * Region 119A-4: este bloque es nuevo y no toca imports (L8-12) ni el
+     * hunk S4 (~L156+); solo anade import nominal + bloque aqui. */
+    if (['.ts', '.tsx'].includes(extension) && !nombreArchivo.endsWith('.d.ts') && reglaHabilitada('html-sin-origen-declarado')) {
+        violaciones.push(...verificarHtmlSinOrigenDeclarado(texto, documento, opciones.htmlProductoresPermitidos ?? []));
     }
 
     /* [018A-5] Reglas agnósticas de boundaries/lifecycle. La configuración

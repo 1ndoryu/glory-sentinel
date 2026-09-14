@@ -1,6 +1,45 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
+## [0.7.11] - 2026-09-14
+
+### Incluido sin release propio (batch 119A-4, ya en base)
+
+- S1 `todo-pendiente`: la prosa española no es marcador (exige `TODO:`/`FIXME`/…).
+- S2 `css-hardcoded`: `mask-image` es luminancia, no color hardcodeado.
+- S3 `menu-contextual`: el propio componente y el tag de apertura no cuentan.
+- S4 `modal`: sin modal canónica no hay deuda.
+- S5 `key-index`: slots fijos `Array().fill()` exentos.
+- S6 reglas portables: los strings no son referencias.
+- S7 `esRutaGlory` cubre `glory-core`.
+
+### Añadido (plan 149A-1: 9 reglas Rust + 1 TS)
+
+- `rusqlite-bloqueante-en-async` (error): `Mutex<Connection>` + `.lock()` en
+  contexto async. Exime `spawn_blocking` (es el fix) y archivos solo-test.
+- `shell-modelo-sin-allowlist` (error): `Command::new("cmd"|"sh"|…)` con args no
+  literales. Exime funciones con modelo allowlist en código (`BUILTINS_…`,
+  `allowlist`, `PERMITID`…).
+- `secreto-en-log` (error): macro de log con palabra secreta + argumento
+  interpolado. La coma debe estar fuera de literales; métricas `tokens_*`
+  exentas.
+- `ruta-post-sin-rate-limit` (error): `.route(…, post(…))` sin governor/RateLimit
+  en el fichero ni en el `Cargo.toml` (hasta 4 niveles).
+- `path-join-sin-canonicalize` (error): `.join()` sin `canonicalize()` en el
+  scope. Un hallazgo por línea; args solo-literales y `join(CONSTANTE)` exentos.
+- `sqlite-carga-N-consultas` (warning): ≥3 `.await` sobre persistencia en la
+  misma función sin `join!`/`try_join`, por statement (cadenas multilinea sí
+  cuentan; `git`/`sleep` no).
+- `clone-bajo-lock-rs` (warning): `.clone()` bajo guard `Mutex`, sin doble
+  marcado con `lock-a-traves-await-rs`.
+- `god-object-rs` (warning >500 / error >800 líneas efectivas): `mod.rs`
+  solo-reexport exento.
+- `port-fs-duplicado-rs`: gemelo >80 % en otro crate vía `workspaceRoots`,
+  fail-closed sin roots, waiver `diverge de`, sin self-match.
+- `html-sin-origen-declarado` (TS, error): productor exportado de HTML con
+  backticks + tag conocido, salvo allowlist `htmlProductoresPermitidos`.
+- 36 tests en `batch149A1.test.ts` (casos ➕/➖ + regresión H11).
+
 ## [0.7.10] - 2026-09-11
 
 ### Corregido

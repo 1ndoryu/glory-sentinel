@@ -19,11 +19,7 @@ import { CoreTextDocument } from '../core/types';
 import { reglaHabilitada, obtenerSeveridadRegla } from '../config/ruleRegistry';
 import { detectarStackAxum } from './rustAxumStack';
 import { esArchivoSoloTest } from './rustTestScope';
-import {
-  detectarBlockEnAsync,
-  detectarExpect,
-  detectarLockATravesAwait,
-} from './rustReglasNuevas';
+import { analizarReglasNuevas } from './rustReglasNuevas';
 
 /* Limite de lineas efectivas por funcion (clippy tambien lo verifica,
  * pero Sentinel lo muestra inline sin necesidad de compilar) */
@@ -92,18 +88,9 @@ export function analizarRust(documento: CoreTextDocument): Violacion[] {
     violaciones.push(...detectarRutaParametroSintaxis(lineas, texto, documento.fileName));
   }
 
-  /* [059A-S7] Paso 7: reglas nuevas (modulo rustReglasNuevas.ts). */
-  if (reglaHabilitada('expect-produccion-rs')) {
-    violaciones.push(...detectarExpect(lineas, rangoTests, texto));
-  }
-
-  if (reglaHabilitada('block-en-async-rs')) {
-    violaciones.push(...detectarBlockEnAsync(lineas, rangoTests, texto));
-  }
-
-  if (reglaHabilitada('lock-a-traves-await-rs')) {
-    violaciones.push(...detectarLockATravesAwait(lineas, rangoTests, texto));
-  }
+  /* [059A-S7] Pasos 7-8: hornadas de reglas nuevas (orquestador en
+   * rustReglasNuevas.ts por budget ADR 0001; 149A-1 añade la segunda hornada). */
+  violaciones.push(...analizarReglasNuevas(lineas, rangoTests, texto, documento.fileName));
 
   return violaciones;
 }
