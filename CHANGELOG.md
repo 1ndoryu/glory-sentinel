@@ -1,6 +1,20 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
+## [0.7.12] - 2026-09-14
+
+### Fix-forward release (sin reglas nuevas)
+
+- Split mecanico por budget ADR 0001: `reactComponentRules.ts` (968 lineas,
+  breach heredado del snapshot in-base `2752448`, batch 119A-4) extrae el
+  bloque cohesivo de modales (`verificarModalConTitulo`,
+  `verificarModalAccionesNoCanonico`, `verificarModalEstructuraNoCanonica` +
+  helpers) a `src/analyzers/react/reactModalRules.ts` (movimiento puro) con
+  re-export en el modulo original: cero cambio de comportamiento y cero
+  importadores tocados. `check:core` verde (776 lineas), `mocha` 667 passing
+  1 pending identico al pre-split, `lint` 0 errors. Este release existe solo
+  para que el pin del harness tenga `test:unit` verde (F4 149A-1).
+
 ## [0.7.11] - 2026-09-14
 
 ### Incluido sin release propio (batch 119A-4, ya en base)
