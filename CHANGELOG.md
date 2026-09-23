@@ -1,6 +1,28 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
+## [0.7.13] - 2026-09-23
+
+### Correccion de falsos positivos (229A-1)
+
+- `sqlite-carga-N-consultas`: el detector disparaba sobre llamadas a
+  ejecutores remotos (`docker_exec`, `ssh.execute`, `copy_*`) porque la
+  regex `PATRON_PERSISTENCIA` matcheaba identificadores como `pg_db`,
+  `db_name` o `database_manager` en los ARGUMENTOS. Ahora exige que el
+  patron aparezca tambien en el callee (`PATRON_PERSISTENCIA_CALLEE`,
+  con `::`, `!()`, `.metodo(` o `(` mas word-boundary, y
+  `db_name`/`database_manager` excluidos del callee): un `docker_exec`
+  con argumentos de backup ya no cuenta como consulta de persistencia.
+  Caso real: `coolify-manager-rs` pasaba de 9 warnings a 0.
+- `css-especificacion-diseno-local`: un panel decorativo circular
+  (`border-radius: 50%` + `radial-gradient` con tokens, caso real
+  `.vpsOrbitPanel` en `coolify-manager-rs`) ya no cuenta como deuda de
+  diseno: `border-radius` se descuenta del conteo solo cuando TODAS sus
+  declaraciones son `50%`/`100%` (geometria circular, no especificacion
+  visual). Un radio literal (`8px`) sigue disparando (test de control).
+- `mocha` 672 passing 1 pending (670 previos + 2 tests nuevos CSS + 3
+  tests nuevos N-consultas, 0 fallos).
+
 ## [0.7.12] - 2026-09-14
 
 ### Fix-forward release (sin reglas nuevas)

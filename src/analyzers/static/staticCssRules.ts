@@ -114,9 +114,32 @@ function claseTieneRolInteractivoLocal(nombreClase: string): boolean {
 
 function obtenerPropiedadesDiseno(cuerpo: string): string[] {
   const cuerpoLimpio = cuerpo.replace(/\/\*[\s\S]*?\*\//g, ' ');
-  return PROPIEDADES_DISENO_CSS
+  const propiedades = PROPIEDADES_DISENO_CSS
     .filter(propiedad => propiedad.patron.test(cuerpoLimpio))
     .map(propiedad => propiedad.nombre);
+
+  /* [229A-1] `border-radius: 50%/100%` es geometria estructural (circulo),
+   * no especificacion de diseno: un panel orbital decorativo
+   * (radial-gradient + 50%) no debe contar como receta visual local.
+   * Solo se descuenta cuando TODAS las declaraciones de border-radius del
+   * bloque son circulo; `8px` o `var(--radius-sm)` siguen contando. */
+  const indiceRadio = propiedades.indexOf('border-radius');
+  if (indiceRadio !== -1 && todoRadioEsCirculo(cuerpoLimpio)) {
+    propiedades.splice(indiceRadio, 1);
+  }
+
+  return propiedades;
+}
+
+function todoRadioEsCirculo(cuerpoLimpio: string): boolean {
+  const valores: string[] = [];
+  const regexRadio = /border-radius\s*:\s*([^;}{]+)/gi;
+  let match: RegExpExecArray | null;
+  while ((match = regexRadio.exec(cuerpoLimpio)) !== null) {
+    valores.push(match[1].trim());
+  }
+  if (valores.length === 0) { return false; }
+  return valores.every(valor => /^(50%|100%)(\s*\/\s*(50%|100%))?$/.test(valor));
 }
 
 function bloqueDefineEspecificacionDisenoLocal(cuerpo: string): string[] {

@@ -70,6 +70,37 @@ suite('css-especificacion-diseno-local', () => {
     assert.strictEqual(violaciones.length, 0);
   });
 
+  test('[229A-1] ignora panel decorativo con border-radius 50% (geometria, no diseno)', () => {
+    const texto = [
+      '.vpsOrbitPanel {',
+      '  width: 454px;',
+      '  height: 454px;',
+      '  background: radial-gradient(circle at 50% 50%, var(--vpsColorResplandor) 0%, transparent 65%);',
+      '  border-radius: 50%;',
+      '}',
+    ].join('\n');
+
+    const violaciones = verificarCssEspecificacionDisenoLocal(
+      texto,
+      crearDocumento('/repo/gui/src/estilos/portal-secciones.css'),
+      'portal-secciones.css'
+    );
+
+    assert.strictEqual(violaciones.length, 0);
+  });
+
+  test('[229A-1] mismo panel con radio literal si dispara (control)', () => {
+    const texto = '.vpsOrbitPanel { background: radial-gradient(circle, var(--a) 0%, transparent 65%); border-radius: 8px; }';
+
+    const violaciones = verificarCssEspecificacionDisenoLocal(
+      texto,
+      crearDocumento('/repo/gui/src/estilos/portal-secciones.css'),
+      'portal-secciones.css'
+    );
+
+    assert.strictEqual(violaciones.length, 1);
+  });
+
   test('respeta sentinel-disable-next-line', () => {
     const texto = [
       '/* sentinel-disable-next-line css-especificacion-diseno-local */',

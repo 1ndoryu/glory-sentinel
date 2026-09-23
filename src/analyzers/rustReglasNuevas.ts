@@ -811,10 +811,16 @@ export function detectarPathJoinSinCanonicalize(
 /* Caso real: web_datos/conversaciones.rs:125-137 (docenas de queries en
  * bucle). Heuristica honesta: >=3 .await SOBRE PERSISTENCIA en la misma
  * funcion sin join!/try_join/JoinSet en el scope. Sin tipos no se sabe si
- * un await es una query: se cuentan los statements con .await cuyo texto
- * menciona persistencia (db/pool/conn/sql/query/...) — `ejecutar_git().await`
- * o `sleep().await` no cuentan. El mensaje sigue siendo condicional ("si
- * son consultas"). Una violacion por funcion, en la linea del tercer await.
+ * un await es una query: se cuentan los statements con .await cuyo CALLEE
+ * nombra una API de persistencia (db/pool/sqlx/... seguido de `.metodo(`,
+ * `::` o `!(`) — `ejecutar_git().await` o `sleep().await` no cuentan.
+ * [229A-1] Precision: el calle, no los argumentos. `docker_exec(ssh,
+ * postgres_container, &cmd).await` o `ssh.execute(cat ...{db_name}).await`
+ * mencionan postgres/db en ARGUMENTOS pero el callee es exec remoto
+ * (docker/ssh), no persistencia: no cuentan. `postgres`/`db_name`/`pg_db`
+ * como identificadores sueltos tampoco cuentan (solo el callee). El mensaje
+ * sigue siendo condicional ("si son consultas"). Una violacion por funcion,
+ * en la linea del tercer await.
  * Precision H11 (harness 2026-09-14): antes contaba TODO await (git.rs,
  * scheduler, cron daban warning sin tocar persistencia). El statement se
  * acumula hasta ';' para cazar cadenas multilinea (`.persistencia`
@@ -822,7 +828,16 @@ export function detectarPathJoinSinCanonicalize(
 const UMBRAL_AWAITS_SECUENCIALES = 3;
 const PATRON_AWAIT = /\.await\b/;
 const PATRON_JOIN_ASYNC = /\bjoin!|try_join|JoinSet|join_all|futures::/;
-const PATRON_PERSISTENCIA = /persistencia|\bdb\b|_db\b|pool|\bconn\b|connection|sqlite|sqlx|diesel|rusqlite|sea_orm|\bquery\b|query_|stmt|repositor|\bdao\b|mongo|postgres|supabase|surreal/i;
+/* [229A-1] El identificador de persistencia debe ir en posicion de callee:
+ * `nombre ::`, `nombre!(`, `nombre.metodo(` o `nombre(`. Asi `db.x()`,
+ * `sqlx::query(..)`, `pool.acquire()`, `query_as!(..)` o
+ * `comun.persistencia.listar(..)` cuentan, pero `docker_exec(..,
+ * postgres_container, ..)` / `ssh.execute(..{db_name}..)` no: el callee es
+ * docker/ssh aunque los argumentos hablen de postgres. `\b` impide que
+ * `database_manager` o `db_name` matcheen (`_` es word-char). `postgres`
+ * queda fuera a proposito: nombra contenedores, no APIs. */
+const PATRON_PERSISTENCIA_CALLEE =
+  /\b(sqlx|pool|conn|connection|persistencia|sqlite|diesel|rusqlite|sea_orm|mongodb?|supabase|surreal(db)?|database|db|query\w*|stmt|fetch_\w*|dao|repositor\w*)\b\s*(::|!\s*\(|\.\w+\s*\(|\()/;
 
 export function detectarCargaNConsultas(
   lineas: string[],
@@ -844,7 +859,7 @@ export function detectarCargaNConsultas(
     let stmtInicio = inicio;
     let stmtTieneDisable = false;
     const cerrarStmt = (cierre: number): void => {
-      if (!stmtTieneDisable && PATRON_AWAIT.test(stmt) && PATRON_PERSISTENCIA.test(stmt)) {
+      if (!stmtTieneDisable && PATRON_AWAIT.test(stmt) && PATRON_PERSISTENCIA_CALLEE.test(stmt)) {
         /* Linea del ultimo .await del statement. */
         for (let s = cierre; s >= stmtInicio; s--) {
           if (PATRON_AWAIT.test(lineas[s])) {

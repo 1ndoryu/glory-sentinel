@@ -221,6 +221,46 @@ suite('[149A-1] sqlite-carga-N-consultas', () => {
     ].join('\n'));
     assert.strictEqual(contar('sqlite-carga-N-consultas', findings), 0);
   });
+
+  test('[229A-1] no dispara con exec remoto que menciona postgres/db en argumentos', () => {
+    const findings = analyzeRustDoc([
+      'async fn exportar(ssh: &SshClient, postgres_container: &str, db_name: &str) {',
+      '  let r = docker::docker_exec(ssh, postgres_container, &cmd).await?;',
+      '  docker::copy_from_container(ssh, postgres_container, remote, out).await?;',
+      '  let _ = docker::docker_exec(ssh, postgres_container, &rm).await;',
+      '  let e = ssh.execute(&format!("cat {db_name}")).await?;',
+      '  let _ = (r, e);',
+      '}',
+    ].join('\n'));
+    assert.strictEqual(contar('sqlite-carga-N-consultas', findings), 0);
+  });
+
+  test('[229A-1] dispara con sqlx::query y pool como callee', () => {
+    const findings = analyzeRustDoc([
+      'async fn resumen(pool: &PgPool) {',
+      '  let a = sqlx::query("select 1").fetch_all(pool).await?;',
+      '  let b = pool.acquire().await?;',
+      '  let c = query_as!(Todo, "select 2").fetch_one(pool).await?;',
+      '  let _ = (a, b, c);',
+      '}',
+    ].join('\n'));
+    assert.strictEqual(contar('sqlite-carga-N-consultas', findings), 1);
+  });
+
+  test('[229A-1] dispara con cadena multilinea sobre .persistencia (caso real conversaciones.rs)', () => {
+    const findings = analyzeRustDoc([
+      'async fn cargar(comun: &Comun) {',
+      '  let mensajes = comun',
+      '    .persistencia',
+      '    .listar_mensajes(id)',
+      '    .await?;',
+      '  let acciones = comun.persistencia.acciones(id).await?;',
+      '  let ultimo = comun.persistencia.ultimo(id).await?;',
+      '  let _ = (mensajes, acciones, ultimo);',
+      '}',
+    ].join('\n'));
+    assert.strictEqual(contar('sqlite-carga-N-consultas', findings), 1);
+  });
 });
 
 suite('[149A-1] clone-bajo-lock-rs', () => {
