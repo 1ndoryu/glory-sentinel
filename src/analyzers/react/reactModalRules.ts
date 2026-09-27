@@ -9,7 +9,7 @@
 
 import { Violacion } from '../../types';
 import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
-import { esComentario, tieneSentinelDisable } from '../../utils/analisisHelpers';
+import { esComentario, tieneSentinelDisable, tieneSentinelDisableFile } from '../../utils/analisisHelpers';
 
 /*
  * Detecta titulos (<h1-h6>) dentro de bloques <Modal>.
@@ -18,7 +18,7 @@ import { esComentario, tieneSentinelDisable } from '../../utils/analisisHelpers'
  */
 export function verificarModalConTitulo(lineas: string[]): Violacion[] {
   const texto = lineas.join('\n');
-  if (texto.includes('sentinel-disable-file modal-con-titulo')) { return []; }
+  if (tieneSentinelDisableFile(texto, 'modal-con-titulo')) { return []; }
 
   const violaciones: Violacion[] = [];
   let profundidadModal = 0;
@@ -59,7 +59,7 @@ export function verificarModalConTitulo(lineas: string[]): Violacion[] {
  */
 export function verificarModalAccionesNoCanonico(lineas: string[]): Violacion[] {
   const texto = lineas.join('\n');
-  if (texto.includes('sentinel-disable-file modal-acciones-no-canonico')) { return []; }
+  if (tieneSentinelDisableFile(texto, 'modal-acciones-no-canonico')) { return []; }
 
   const violaciones: Violacion[] = [];
   let profundidadModal = 0;
@@ -138,7 +138,7 @@ export function verificarModalEstructuraNoCanonica(
   tieneModalCanonico = true,
 ): Violacion[] {
   const texto = lineas.join('\n');
-  if (texto.includes('sentinel-disable-file modal-estructura-no-canonica')) { return []; }
+  if (tieneSentinelDisableFile(texto, 'modal-estructura-no-canonica')) { return []; }
   if (!tieneModalCanonico) { return []; }
 
   const violaciones: Violacion[] = [];

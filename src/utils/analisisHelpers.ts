@@ -24,27 +24,46 @@ export function esComentario(linea: string): boolean {
   );
 }
 
-/* Retorna true si el bloque de comentario que precede inmediatamente a la linea
- * contiene `sentinel-disable-next-line <reglaId>`. Escanea hacia atras a traves
- * de lineas vacias y lineas de comentario (/* ... * ... *\/  // ...) para soportar
- * comentarios multi-linea como:
- *   /* sentinel-disable-next-line rule
- *    * razon explicativa *\/
- *   codigo-que-dispara-la-regla
- * [25A-SENT-FP] Fix falsos positivos por disable comments de 2+ lineas. */
+/* Retorna true si alguna de las 5 lineas previas a `indice` contiene
+ * `sentinel-disable-next-line <reglaId>`, sin importar que haya lineas de
+ * codigo entre el disable y la linea reportada.
+ * El scan atraviesa lineas vacias, comentarios (/* ... *\/ // ...) y codigo:
+ * en JSX el disable suele colocarse sobre el bloque contenedor mientras la
+ * regla reporta una linea interna (ej: disable sobre <div>, violacion en el
+ * <h3> de dentro — caso SeccionPagos [259A-5]). La ventana de 5 lineas acota
+ * el alcance: un disable a 6+ lineas no suprime nada.
+ * [25A-SENT-FP] Los bloques de comentario multi-linea siguen cubiertos porque
+ * el scan no se detiene en lineas intermedias. */
 export function tieneSentinelDisable(lineas: string[], indice: number, reglaId: string): boolean {
   for (let k = indice - 1; k >= 0 && k >= indice - 5; k--) {
     const linea = lineas[k] ?? '';
     if (linea.includes(`sentinel-disable-next-line ${reglaId}`)) { return true; }
-    const trimmed = linea.trim();
-    /* Si no es parte de un bloque de comentario, parar la busqueda */
-    if (trimmed !== '' &&
-        !trimmed.startsWith('/*') && !trimmed.startsWith('*') &&
-        !trimmed.startsWith('//') && !trimmed.endsWith('*/')) {
-      break;
-    }
   }
   return false;
+}
+
+/* Separadores validos entre ids en un `sentinel-disable-file` multi-regla:
+ * `/* sentinel-disable-file regla-a regla-b: motivo *\/ */
+const SEPARADORES_DISABLE_FILE = /[\s:;,(){}[\]"'`]+/;
+
+/* Retorna true si el texto contiene `sentinel-disable-file <reglaId>` con el
+ * id como token exacto en su misma linea. El match por token evita la
+ * supresion cruzada por substring: deshabilitar `componente-sin-hook-glory`
+ * no debe eximir `componente-sin-hook` ni viceversa (caso DeploymentRow /
+ * PlanFeatureTooltip [259A-5], antes vivos por accidente). Un `sentinel-disable-file`
+ * sin ids (bare) no exime ninguna regla. */
+export function tieneSentinelDisableFile(texto: string, reglaId: string): boolean {
+  const prefijo = 'sentinel-disable-file';
+  let desde = 0;
+  while (true) {
+    const idx = texto.indexOf(prefijo, desde);
+    if (idx < 0) { return false; }
+    const finLinea = texto.indexOf('\n', idx);
+    const segmento = texto.slice(idx + prefijo.length, finLinea < 0 ? undefined : finLinea);
+    const tokens = segmento.split(SEPARADORES_DISABLE_FILE).filter(Boolean);
+    if (tokens.includes(reglaId)) { return true; }
+    desde = idx + prefijo.length;
+  }
 }
 
 /*

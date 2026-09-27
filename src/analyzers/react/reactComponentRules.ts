@@ -10,7 +10,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Violacion } from '../../types';
 import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
-import { esComentario, tieneSentinelDisable } from '../../utils/analisisHelpers';
+import { esComentario, tieneSentinelDisable, tieneSentinelDisableFile } from '../../utils/analisisHelpers';
 
 const cacheComponentesUi = new Map<string, boolean>();
 let workspaceRootsReact: string[] = [];
@@ -83,9 +83,14 @@ export function verificarMutacionDirectaEstado(lineas: string[]): Violacion[] {
 
   if (nombresEstado.size === 0) { return violaciones; }
 
+  /* [259A-5] Contrato disable uniforme: file-level + next-line. */
+  const texto = lineas.join('\n');
+  if (tieneSentinelDisableFile(texto, 'mutacion-directa-estado')) { return []; }
+
   for (let i = 0; i < lineas.length; i++) {
     const linea = lineas[i];
     if (esComentario(linea)) { continue; }
+    if (tieneSentinelDisable(lineas, i, 'mutacion-directa-estado')) { continue; }
 
     for (const nombre of nombresEstado) {
       const regexMutacion = new RegExp(`\\b${nombre}\\s*\\.\\s*(push|splice|pop|shift|unshift|reverse|sort|fill)\\s*\\(`);
@@ -126,6 +131,10 @@ export function verificarMutacionDirectaEstado(lineas: string[]): Violacion[] {
 export function verificarKeyIndexLista(lineas: string[]): Violacion[] {
   const violaciones: Violacion[] = [];
 
+  /* [259A-5] Contrato disable uniforme: file-level + next-line. */
+  const textoPrevio = lineas.join('\n');
+  if (tieneSentinelDisableFile(textoPrevio, 'key-index-lista')) { return []; }
+
   /* [119A-4 S5] Receptores de slots fijos: useState/useMemo inicializados con
    * Array(N).fill(...) tienen longitud fija y orden estable (ej: slots de
    * imagenes): key={index} no causa reconciliacion incorrecta. Se detecta el
@@ -145,6 +154,9 @@ export function verificarKeyIndexLista(lineas: string[]): Violacion[] {
 
   for (let i = 0; i < lineas.length; i++) {
     const linea = lineas[i];
+
+    /* [259A-5] next-line (el disable puede quedar sobre el .map contenedor). */
+    if (tieneSentinelDisable(lineas, i, 'key-index-lista')) { continue; }
 
     const matchMap = /(\w+)\.map\s*\(/.exec(linea);
     if (matchMap) {
@@ -197,9 +209,13 @@ export function verificarComponenteSinHook(lineas: string[], nombreArchivo: stri
     return [];
   }
 
-  /* [104A-4] Soporte sentinel-disable-file para esta regla */
+  /* [104A-4] Soporte sentinel-disable-file para esta regla.
+   * [259A-5] Match por token exacto (ambas grafias en uso: `componente-sin-hook`
+   * historica y `componente-sin-hook-glory` actual): ninguna exime a otra regla,
+   * ambas eximen a esta. */
   const texto = lineas.join('\n');
-  if (texto.includes('sentinel-disable-file componente-sin-hook')) { return []; }
+  if (tieneSentinelDisableFile(texto, 'componente-sin-hook-glory') ||
+      tieneSentinelDisableFile(texto, 'componente-sin-hook')) { return []; }
 
   const nombreComponente = nombreArchivo.replace(/\.(tsx|jsx)$/, '');
   const regexHookDedicado = new RegExp(`\\buse${nombreComponente}\\b`);
@@ -251,6 +267,9 @@ export function verificarComponenteSinHook(lineas: string[], nombreArchivo: stri
   const necesitaHook = (lineasLogicaEstado > 0 && lineasLogicaTotal > 5) || lineasLogicaTotal > 10;
 
   if (necesitaHook) {
+    /* [259A-5] next-line: el disable queda sobre el cuerpo del componente. */
+    if (tieneSentinelDisable(lineas, finImports, 'componente-sin-hook-glory') ||
+        tieneSentinelDisable(lineas, finImports, 'componente-sin-hook')) { return []; }
     violaciones.push({
       reglaId: 'componente-sin-hook-glory',
       mensaje: `Componente con ${lineasLogicaTotal} lineas de logica (${lineasLogicaEstado} con estado/efectos). Extraer a hook dedicado (use${nombreComponente}).`,
@@ -291,9 +310,10 @@ export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArc
 
   const violaciones: Violacion[] = [];
 
-  /* [104A-4] Soporte sentinel-disable-file para esta regla */
+  /* [104A-4] Soporte sentinel-disable-file para esta regla.
+   * [259A-5] Match por token exacto via helper central. */
   const texto = lineas.join('\n');
-  if (texto.includes('sentinel-disable-file html-nativo-en-vez-de-componente')) { return []; }
+  if (tieneSentinelDisableFile(texto, 'html-nativo-en-vez-de-componente')) { return []; }
 
   const tieneBotonUi = existeComponenteUi(['Button', 'Boton', 'BotonBase']);
   const tieneInputUi = existeComponenteUi(['Input', 'CampoTexto']);
@@ -424,7 +444,7 @@ export function verificarButtonClaseEspecifica(lineas: string[], nombreArchivo: 
   }
 
   const texto = lineas.join('\n');
-  if (texto.includes('sentinel-disable-file button-clase-especifica')) { return []; }
+  if (tieneSentinelDisableFile(texto, 'button-clase-especifica')) { return []; }
 
   const violaciones: Violacion[] = [];
 
@@ -488,6 +508,11 @@ export function verificarComponenteArtesanal(lineas: string[], nombreArchivo: st
 
   const violaciones: Violacion[] = [];
 
+  /* [259A-5] File-level: overlays/backdrops intencionales (fase visual con
+   * verificacion en navegador) se eximen por archivo. */
+  const textoArtesanal = lineas.join('\n');
+  if (tieneSentinelDisableFile(textoArtesanal, 'componente-artesanal')) { return []; }
+
   for (let i = 0; i < lineas.length; i++) {
     const linea = lineas[i];
     if (tieneSentinelDisable(lineas, i, 'componente-artesanal')) { continue; }
@@ -542,6 +567,10 @@ export function verificarComponenteArtesanal(lineas: string[], nombreArchivo: st
  */
 export function verificarUpdateOptimistaSinRollback(lineas: string[]): Violacion[] {
   const violaciones: Violacion[] = [];
+
+  /* [259A-5] File-level para coherencia con el resto del contrato disable. */
+  const textoOptimista = lineas.join('\n');
+  if (tieneSentinelDisableFile(textoOptimista, 'update-optimista-sin-rollback')) { return []; }
 
   for (let i = 0; i < lineas.length; i++) {
     const linea = lineas[i];
@@ -605,6 +634,10 @@ export function verificarColaSinLimite(lineas: string[]): Violacion[] {
   const violaciones: Violacion[] = [];
   const patronCola = /\b(\w*(?:cola|queue|buffer|pending|batch|stack))\s*\.\s*push\s*\(/i;
 
+  /* [259A-5] File-level para coherencia con el resto del contrato disable. */
+  const textoCola = lineas.join('\n');
+  if (tieneSentinelDisableFile(textoCola, 'cola-sin-limite')) { return []; }
+
   for (let i = 0; i < lineas.length; i++) {
     if (tieneSentinelDisable(lineas, i, 'cola-sin-limite')) { continue; }
     if (esComentario(lineas[i])) { continue; }
@@ -647,6 +680,10 @@ export function verificarColaSinLimite(lineas: string[]): Violacion[] {
 export function verificarObjetoMutableExportado(lineas: string[]): Violacion[] {
   const violaciones: Violacion[] = [];
   const patronExportMutable = /^export\s+const\s+(\w+)\s*(?::\s*\w[^=]*)?\s*=\s*(\{|\[)/;
+
+  /* [259A-5] File-level para coherencia con el resto del contrato disable. */
+  const textoObjeto = lineas.join('\n');
+  if (tieneSentinelDisableFile(textoObjeto, 'objeto-mutable-exportado')) { return []; }
 
   for (let i = 0; i < lineas.length; i++) {
     if (tieneSentinelDisable(lineas, i, 'objeto-mutable-exportado')) { continue; }
@@ -721,8 +758,13 @@ export function verificarMenuContextualOverride(lineas: string[], nombreArchivo 
   if (/^MenuContextual\.(tsx|jsx)$/.test(base)) { return []; }
 
   const violaciones: Violacion[] = [];
-  const PROPS_OVERRIDE = ['className', 'panelClassName', 'triggerClassName', 'itemClassName'];
-  /* Cadenas entrecomilladas en una linea: para no confundir '>' dentro de
+
+  /* [259A-5] File-level: variantes por instancia via props (API publica del DS)
+   * se eximen por archivo hasta su canonizacion en el sistema. */
+  const textoMenu = lineas.join('\n');
+  if (tieneSentinelDisableFile(textoMenu, 'menu-contextual-override-diseno')) { return []; }
+
+  const PROPS_OVERRIDE = ['className', 'panelClassName', 'triggerClassName', 'itemClassName'];  /* Cadenas entrecomilladas en una linea: para no confundir '>' dentro de
    * strings con el cierre del tag de apertura. */
   const STRIP_STRINGS = /'(?:[^'\\\r\n]|\\.)*'|"(?:[^"\\\r\n]|\\.)*"|`(?:[^`\\]|\\.)*`/g;
 

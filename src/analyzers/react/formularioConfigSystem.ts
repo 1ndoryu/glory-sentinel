@@ -11,7 +11,7 @@
  */
 
 import { Violacion } from '../../types';
-import { esComentario, tieneSentinelDisable } from '../../utils/analisisHelpers';
+import { esComentario, tieneSentinelDisable, tieneSentinelDisableFile } from '../../utils/analisisHelpers';
 import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
 
 export function verificarFormularioConfigSinSistema(lineas: string[], nombreArchivo: string): Violacion[] {
@@ -22,8 +22,8 @@ export function verificarFormularioConfigSinSistema(lineas: string[], nombreArch
   if (nombreArchivo.includes('.test.') || nombreArchivo.includes('.spec.')) { return []; }
 
   const texto = lineas.join('\n');
-  /* Disable-file especifico de la regla o disable-file generico (desactiva todo). */
-  if (texto.includes('sentinel-disable-file formulario-config-sin-sistema-declarativo')) { return []; }
+  /* Disable-file especifico de la regla (token exacto [259A-5]) o disable-file generico (desactiva todo). */
+  if (tieneSentinelDisableFile(texto, 'formulario-config-sin-sistema-declarativo')) { return []; }
   if (/sentinel-disable-file[\s*:]*$/.test(texto)) { return []; }
 
   /* Los archivos del propio sistema declarativo nunca se auto-flaggean. */
