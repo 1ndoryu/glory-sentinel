@@ -208,6 +208,9 @@ const REGISTRO: DefinicionRegla[] = [
 
   /* --- Deteccion de TODOs/pendientes (defaultRules.ts) --- */
   { id: 'todo-pendiente', nombre: 'TODO/FIXME pendiente detectado', severidadDefault: 'hint', categoria: CategoriaRegla.EstructuraNomenclatura },
+  /* [289A-1] Migrada desde VarSense (TodoProsaSinMarcador [149A-1 F3.13]):
+   * complemento de todo-pendiente — marca la mencion informal sin marcador. */
+  { id: 'todo-prosa-sin-marcador', nombre: "Mencion 'todo' sin marcador de tarea", severidadDefault: 'warning', categoria: CategoriaRegla.EstructuraNomenclatura },
 
   /* --- Rust SOLID (rustAnalyzer.ts) --- */
   { id: 'unwrap-produccion-rs', nombre: '.unwrap() en produccion', severidadDefault: 'warning', categoria: CategoriaRegla.RustPatrones },

@@ -55,15 +55,18 @@ const SEPARADORES_DISABLE_FILE = /[\s:;,(){}[\]"'`]+/;
 export function tieneSentinelDisableFile(texto: string, reglaId: string): boolean {
   const prefijo = 'sentinel-disable-file';
   let desde = 0;
-  while (true) {
-    const idx = texto.indexOf(prefijo, desde);
-    if (idx < 0) { return false; }
+  /* [289A-1] Sin while(true): no-constant-condition dejaba lint en rojo y
+   * bloqueaba la certificacion del release. Misma semantica. */
+  let idx = texto.indexOf(prefijo, desde);
+  while (idx >= 0) {
     const finLinea = texto.indexOf('\n', idx);
     const segmento = texto.slice(idx + prefijo.length, finLinea < 0 ? undefined : finLinea);
     const tokens = segmento.split(SEPARADORES_DISABLE_FILE).filter(Boolean);
     if (tokens.includes(reglaId)) { return true; }
     desde = idx + prefijo.length;
+    idx = texto.indexOf(prefijo, desde);
   }
+  return false;
 }
 
 /*

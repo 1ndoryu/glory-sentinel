@@ -6,7 +6,7 @@
 
 import * as fs from 'fs';
 import { Violacion } from '../../types';
-import { CoreTextDocument } from '../../core/types';
+import { CoreTextDocument, positionAtOffset } from '../../core/types';
 import { contarLineasEfectivas, obtenerLimiteArchivo } from '../../utils/lineCounter';
 import { obtenerSeveridadRegla, reglaHabilitada } from '../../config/ruleRegistry';
 
@@ -481,4 +481,162 @@ export function verificarHtmlSinOrigenDeclarado(
     linea: lineaProductora,
     fuente: 'estatico',
   }];
+}
+
+/*
+ * [289A-1] Mencion de tarea sin marcador en comentarios: exige marcador de
+ * tarea (TODO:/TODO(/TODO[/FIXME/XXX). Migrada desde VarSense
+ * (TodoProsaSinMarcador [149A-1 F3.13]): es higiene de codigo, dueno Sentinel.
+ * Complementa a todo-pendiente (que marca los marcadores explicitos): esta
+ * marca la mencion informal que intenta ser tarea sin usar marcador.
+ * Solo inspecciona regiones de comentario real (// y /* ... *\/): enmascara
+ * literales '...' "..." `...` para no marcar prosa dentro de strings.
+ * Guardas 0 FP (paridad VarSense):
+ *   - formas con `:`/`(`/`[` → marcador valido, no marca;
+ *   - prosa con articulo (el|la|los|las|lo) → no marca;
+ *   - cuantificador en ultima posicion del comentario → en minusculas es
+ *     prosa española, no marca; la forma mayuscula sola (TODO) si marca
+ *     porque se exige la forma con dos puntos;
+ *   - compuestos con guion (tipo todo-list) → no marca;
+ *   - `/todo` (URL/ruta dentro del comentario) → no marca.
+ *   - FIXME/XXX nunca marcan (son marcadores validos por si mismos).
+ * Nota de paridad: HACK no exime por si solo (igual que en VarSense); solo
+ * exime si la mencion lleva marcador (`TODO:` etc.).
+ * Honra sentinel-disable-file, sentinel-disable-next-line e inline.
+ */
+const PATRON_TODO_PROSA = /\btodo\b/gi;
+const ARTICULOS_PROSA = new Set(['el', 'la', 'los', 'las', 'lo']);
+
+function extraerRegionesComentarioTodoProsa(texto: string): Array<{ inicio: number; fin: number }> {
+  const regiones: Array<{ inicio: number; fin: number }> = [];
+  let i = 0;
+  let literal: string | null = null;
+
+  while (i < texto.length) {
+    const actual = texto[i];
+    const siguiente = i + 1 < texto.length ? texto[i + 1] : '';
+
+    if (literal !== null) {
+      if (actual === '\\') {
+        i += 2;
+        continue;
+      }
+      if (actual === literal) {
+        literal = null;
+      }
+      i++;
+      continue;
+    }
+
+    if (actual === "'" || actual === '"' || actual === '`') {
+      literal = actual;
+      i++;
+      continue;
+    }
+
+    if (actual === '/' && siguiente === '/') {
+      let fin = texto.indexOf('\n', i + 2);
+      if (fin === -1) {
+        fin = texto.length;
+      }
+      regiones.push({ inicio: i + 2, fin });
+      i = fin;
+      continue;
+    }
+
+    if (actual === '/' && siguiente === '*') {
+      const cierre = texto.indexOf('*/', i + 2);
+      const fin = cierre === -1 ? texto.length : cierre;
+      regiones.push({ inicio: i + 2, fin });
+      i = cierre === -1 ? texto.length : cierre + 2;
+      continue;
+    }
+
+    i++;
+  }
+
+  return regiones;
+}
+
+function esTodoProsaSinMarcador(textoComentario: string, indice: number, forma: string): boolean {
+  const anterior = indice > 0 ? textoComentario[indice - 1] : '';
+  /* URL/ruta dentro del comentario (https://…/todo). */
+  if (anterior === '/') {
+    return false;
+  }
+
+  let j = indice + forma.length;
+  while (j < textoComentario.length && /\s/.test(textoComentario[j])) {
+    j++;
+  }
+  const siguiente = j < textoComentario.length ? textoComentario[j] : '';
+  /* Marcador valido TODO:/TODO(/TODO[. */
+  if (siguiente === ':' || siguiente === '(' || siguiente === '[') {
+    return false;
+  }
+  /* Compuesto tipo todo-list: sustantivo, no tarea. */
+  if (siguiente === '-') {
+    return false;
+  }
+
+  /* Prosa española "todo el|la|los|las|lo …": no es una tarea. */
+  let k = j;
+  let palabra = '';
+  while (k < textoComentario.length && /[A-Za-z]/.test(textoComentario[k])) {
+    palabra += textoComentario[k];
+    k++;
+  }
+  if (ARTICULOS_PROSA.has(palabra.toLowerCase())) {
+    return false;
+  }
+
+  /* Ultima palabra del comentario ("re-parsear todo.", "todo, …"): en
+   * minusculas es el cuantificador español ("todo" = "everything"), no
+   * una tarea; en mayusculas (TODO) es la taquigrafia de tarea y marca
+   * porque se exige TODO: con dos puntos. */
+  const resto = textoComentario.slice(k);
+  if (/^[\s.,;!?…)\]}]*$/.test(resto)) {
+    return forma === 'TODO';
+  }
+
+  return true;
+}
+
+export function verificarTodoProsaSinMarcador(
+  texto: string,
+  documento: CoreTextDocument,
+): Violacion[] {
+  if (texto.includes('sentinel-disable-file todo-prosa-sin-marcador')) { return []; }
+
+  const violaciones: Violacion[] = [];
+  const lineas = texto.split('\n');
+
+  for (const region of extraerRegionesComentarioTodoProsa(texto)) {
+    const comentario = texto.slice(region.inicio, region.fin);
+    PATRON_TODO_PROSA.lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = PATRON_TODO_PROSA.exec(comentario)) !== null) {
+      if (!esTodoProsaSinMarcador(comentario, match.index, match[0])) {
+        continue;
+      }
+      const offset = region.inicio + match.index;
+      const pos = positionAtOffset(documento, offset);
+      const lineaTexto = lineas[pos.line] ?? '';
+      if (lineaTexto.includes('sentinel-disable todo-prosa-sin-marcador')) { continue; }
+      if (pos.line > 0 && (lineas[pos.line - 1] ?? '').includes('sentinel-disable-next-line todo-prosa-sin-marcador')) { continue; }
+
+      violaciones.push({
+        reglaId: 'todo-prosa-sin-marcador',
+        mensaje: `Mencion a 'todo' sin marcador de tarea - usa TODO:, TODO(...), FIXME o XXX`,
+        severidad: obtenerSeveridadRegla('todo-prosa-sin-marcador'),
+        linea: pos.line,
+        columna: pos.character,
+        sugerencia: 'Marca la tarea pendiente con TODO:, FIXME o XXX, o redacta el comentario sin la palabra "todo".',
+        fuente: 'estatico',
+      });
+    }
+  }
+
+  return violaciones;
 }

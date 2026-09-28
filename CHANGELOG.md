@@ -1,6 +1,22 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
+## [0.7.15] - 2026-09-28
+
+### Regla nueva (289A-1): `todo-prosa-sin-marcador` migrada desde VarSense
+
+- Higiene de codigo → dueno Sentinel (una regla, un dueno). Complementa a
+  `todo-pendiente` (que marca los marcadores explicitos): marca la mencion
+  informal a 'todo' en comentarios (`//` y `/* */`) sin marcador
+  (`TODO:`/`TODO(`/`TODO[`/`FIXME`/`XXX`).
+- Porte fiel del algoritmo VarSense (`TodoProsaSinMarcador` [149A-1 F3.13]):
+  enmascara literales, guardas 0 FP (marcador valido, compuesto `todo-list`,
+  articulo `el|la|los|las|lo`, cuantificador final minusculo, `/todo` en URL).
+  Scope = `todo-pendiente` (php/ts/tsx/js/jsx/css/rs). Severidad `warning`.
+- Honra `sentinel-disable-file`, `sentinel-disable-next-line` e inline.
+- Suite nueva `todoProsaSinMarcador.test.ts` (16 tests: registro, positivos,
+  marcadores, guardas, supresiones).
+
 ## [0.7.13] - 2026-09-23
 
 ### Correccion de falsos positivos (229A-1)

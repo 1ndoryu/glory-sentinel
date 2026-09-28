@@ -12,7 +12,7 @@ import { proyectoTieneModalCanonico } from '../utils/analisisHelpers';
 import { obtenerWorkspaceRoots } from '../core/workspaceRoots';
 
 /* Submodulos */
-import {REGLAS_LIMITE_LINEAS, verificarLimiteLineas, verificarUseStateExcesivo, verificarImportsMuertos, verificarAnyType, verificarNonNullAssertion, verificarDirectorioAbarrotado, verificarHtmlSinOrigenDeclarado} from './static/staticCodeRules';
+import {REGLAS_LIMITE_LINEAS, verificarLimiteLineas, verificarUseStateExcesivo, verificarImportsMuertos, verificarAnyType, verificarNonNullAssertion, verificarDirectorioAbarrotado, verificarHtmlSinOrigenDeclarado, verificarTodoProsaSinMarcador} from './static/staticCodeRules';
 import {verificarCardIconoExtiendeBase, verificarCssAdhocButtonStyle, verificarCssEspecificacionDisenoLocal, verificarModalSemanticaNoCanonica, verificarNomenclaturaCssIngles, verificarCssElementoHTMLDirecto, verificarCssHardcoded} from './static/staticCssRules';
 import { PortableBoundaryConfig, verificarReglasPortables } from './static/portableRules';
 
@@ -144,6 +144,12 @@ export function analizarEstatico(
      * hunk S4 (~L156+); solo anade import nominal + bloque aqui. */
     if (['.ts', '.tsx'].includes(extension) && !nombreArchivo.endsWith('.d.ts') && reglaHabilitada('html-sin-origen-declarado')) {
         violaciones.push(...verificarHtmlSinOrigenDeclarado(texto, documento, opciones.htmlProductoresPermitidos ?? []));
+    }
+
+    /* [289A-1] Mencion 'todo' sin marcador (mismo scope que todo-pendiente).
+     * Migrada desde VarSense: higiene de codigo, dueno Sentinel. */
+    if (['.php', '.ts', '.tsx', '.js', '.jsx', '.css', '.rs'].includes(extension) && reglaHabilitada('todo-prosa-sin-marcador')) {
+        violaciones.push(...verificarTodoProsaSinMarcador(texto, documento));
     }
 
     /* [018A-5] Reglas agnósticas de boundaries/lifecycle. La configuración

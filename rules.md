@@ -3,7 +3,7 @@
 Catalogo generado desde src/config/ruleRegistry.ts (fuente unica de verdad).
 Formato: [id] nombre — severidad por defecto (desactivada por defecto).
 
-Total: 105 reglas.
+Total: 106 reglas.
 
 ---
 
@@ -23,6 +23,7 @@ Total: 105 reglas.
 - [nomenclatura-css-ingles] CSS en ingles — hint (desactivada por defecto)
 - [non-null-assertion-excesivo] Non-null assertion excesivo — hint
 - [todo-pendiente] TODO/FIXME pendiente detectado — hint
+- [todo-prosa-sin-marcador] Mencion 'todo' sin marcador de tarea — warning
 
 ---
 
