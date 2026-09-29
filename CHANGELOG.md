@@ -1,6 +1,25 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
+## [0.7.16] - 2026-09-29
+
+### Ampliacion de cobertura (309A-1): `todo-pendiente` ve continuaciones y minuscula con `:`
+
+- La regla ya detectaba los marcadores genuinos (`TODO`/`FIXME`/`HACK`/`XXX`
+  en mayusculas) solo en codigo (`aplicaA` sin `.md`: los `.md` nunca se
+  escanean). Dos formas genuinas quedaban invisibles: (1) continuaciones de
+  bloque `* TODO:` (estilo JSDoc/docblock, especimen real synara
+  `model.ts:560`); (2) minuscula con dos puntos `todo:` (especimen real
+  harness `context.rs:1028`), que ademas `todo-prosa-sin-marcador` exime por
+  el `:` — no la veia ninguna regla.
+- Patron: `(?:^|\s)\*` cubre la estrella de continuacion, `\/\*+` el `/**`, y
+  segunda alternativa para `todo|fixme|hack|xxx` solo con `:` obligatorio (sin
+  `:` la minuscula sigue exenta como cuantificador espanol).
+- Guardas verificadas: multiplicacion (`a * b`), globs (`"*.TODO"`),
+  `import * as`, documentacion de la propia regla (`* - FIXME…`); sin
+  backtracking (linea adversa 10k en 0ms).
+- Suite `batch119A4` S8 (7 tests). `batch119A4`: 27 passing.
+
 ## [0.7.15] - 2026-09-28
 
 ### Regla nueva (289A-1): `todo-prosa-sin-marcador` migrada desde VarSense

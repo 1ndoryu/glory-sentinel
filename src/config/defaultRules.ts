@@ -203,16 +203,26 @@ export const reglasEstaticas: ReglaEstatica[] = [
   /* --- Seccion: Deteccion de TODOs y pendientes ---
    * [044A-20] Detecta marcadores de trabajo pendiente (TODO, FIXME, HACK, XXX)
    * en cualquier archivo de codigo. Severidad hint para no bloquear, pero hacer visible
-   * la deuda tecnica acumulada. Excluye archivos .md y de documentacion.
+   * la deuda tecnica acumulada. Excluye archivos .md y de documentacion
+   * (aplicaA no incluye .md: el loop de staticAnalyzer solo ejecuta la regla
+   * en las extensiones listadas).
    * [119A-4 S1] Case-sensitive y sin PENDIENTE: el flag /i convertia la palabra
    * espanola "todo" (=everything: "todo el historial", "todo en el VPS") en TODO,
    * y PENDIENTE es lenguaje de dominio (ej: estado "Pendiente de validacion" BDP).
-   * Solo tokens explicitos en MAYUSCULAS son marcadores reales. */
+   * Solo tokens explicitos en MAYUSCULAS son marcadores reales.
+   * [309A-1] Dos huecos cerrados: (1) continuaciones de bloque `* TODO:` (estilo
+   * JSDoc/docblock/PHP, ej: synara model.ts:560) no matcheaban porque el patron
+   * exigia el apertura de comentario en la misma linea — ahora `(?:^|\s)\*` cubre
+   * la estrella de continuacion y `\/\*+` el `/**`; (2) minuscula con dos puntos
+   * (`todo:`, ej: harness context.rs:1028) era invisible para AMBAS reglas
+   * (todo-prosa la exime por `:` y esta exigia mayusculas) — ahora matchea solo
+   * con `:` obligatorios, que en prosa espanola es forma rara. Sin `:` la
+   * minuscula sigue exenta (cuantificador "everything"). */
   {
     id: 'todo-pendiente',
     nombre: 'TODO/FIXME pendiente detectado',
     descripcion: 'Marcador de trabajo pendiente encontrado. Resolver o crear tarea en roadmap.',
-    patron: /(?:\/\/|\/\*|#|<!--)\s*(?:TODO|FIXME|HACK|XXX)\b/,
+    patron: /(?:\/\/|\/\*+|#|<!--|(?:^|\s)\*)\s*(?:TODO|FIXME|HACK|XXX)\b|(?:\/\/|\/\*+|#|<!--|(?:^|\s)\*)\s*(?:todo|fixme|hack|xxx)\s*:/,
     severidad: 'hint',
     aplicaA: ['.php', '.ts', '.tsx', '.js', '.jsx', '.css', '.rs'],
     categoria: CategoriaRegla.EstructuraNomenclatura,

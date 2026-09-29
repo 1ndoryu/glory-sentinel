@@ -170,3 +170,37 @@ suite('119A-4 S7 esRutaGlory cubre glory-core', () => {
     assert.strictEqual(esRutaGlory('C:/repo/frontend/src/features/panel.tsx'), false);
   });
 });
+
+suite('309A-1 todo-pendiente: continuaciones de bloque y minuscula con dos puntos', () => {
+  test('detecta `* TODO:` en continuacion de bloque (synara model.ts:560)', () => {
+    assert.ok(patronTodo().test(' * TODO: This should not be a static array, each provider'));
+  });
+
+  test('detecta `* TODO` sin dos puntos en continuacion (_archivo game-curved-island.ts:156)', () => {
+    assert.ok(patronTodo().test('   * TODO el conjunto (incluida agua/lluvia) en vez de solo el grupo'));
+  });
+
+  test('detecta `/** TODO` con doble estrella', () => {
+    assert.ok(patronTodo().test('/** TODO migrar a roadmap */'));
+  });
+
+  test('detecta minuscula con dos puntos (harness context.rs:1028)', () => {
+    assert.ok(patronTodo().test('         * todo: compactar solo añadiría el mensaje de continuación. */'));
+  });
+
+  test('minuscula SIN dos puntos sigue exenta (cuantificador espanol)', () => {
+    assert.strictEqual(patronTodo().test('// todo el historial de mensajes'), false);
+    assert.strictEqual(patronTodo().test('/// todo en el VPS (montaje temporal)'), false);
+  });
+
+  test('no marca codigo con asterisco: multiplicacion, glob ni import', () => {
+    assert.strictEqual(patronTodo().test('const x = a * b;'), false);
+    assert.strictEqual(patronTodo().test('const glob = "*.TODO";'), false);
+    assert.strictEqual(patronTodo().test('import * as foo from "./foo";'), false);
+    assert.strictEqual(patronTodo().test('  * tarea (TODO:/TODO(/TODO[/FIXME/XXX).'), false);
+  });
+
+  test('no marca guion tras estrella (documentacion de la propia regla)', () => {
+    assert.strictEqual(patronTodo().test(' *   - FIXME/XXX nunca marcan (son marcadores validos por si mismos).'), false);
+  });
+});
