@@ -9,6 +9,7 @@ import { lstat, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { physicallyContained, ensureContainedDirectory } from './pathContainment';
 import { redact, truncate } from './redaction';
 import { runProcess, ProcessResult } from './toolRunner';
+import { BUDGET_OVERRIDE_FILE, BUDGET_RUNS_FILE, checkAndRecordHeavyRun, classifyHeavy } from './heavyBudget';
 import { GateFinding } from './gateReport';
 
 const SEVERITIES = new Set(['information', 'hint', 'info', 'critical', 'error', 'warning']);
@@ -176,6 +177,31 @@ export async function runStructuredTool(definition: StructuredToolDefinition, op
   const reportPath = definition.reportPath ?? path.join(options.reportRoot, `${definition.name}.json`);
   await ensureContainedDirectory(options.reportRoot, path.dirname(reportPath), 'reportPath');
   await physicallyContained(options.reportRoot, reportPath, 'reportPath');
+  /* [07AA-6 F2] Tope físico: la etapa pesada agotada NO se ejecuta. El
+   * veredicto 'budget-exhausted' (status error → exit 2 SETUP ERROR) indica
+   * cupo usado/límite y el Next accionable. */
+  const heavyKind = classifyHeavy(definition.executable, definition.args);
+  if (heavyKind) {
+    const budget = await checkAndRecordHeavyRun({
+      projectRoot: options.projectRoot,
+      reportRoot: options.reportRoot,
+      kind: heavyKind,
+      stage: definition.name,
+    });
+    if (!budget.allowed) {
+      const quota = `${budget.used}/${budget.limit + budget.extra}`;
+      const message = `${definition.name} no ejecutado: tope físico de ${heavyKind} agotado (${quota} en esta tarea). Junta los cambios y repite, o amplía con ${BUDGET_OVERRIDE_FILE} (+N). Auditoría en ${BUDGET_RUNS_FILE} del reporte. Next: junta cambios o declara lote-extra y repite sentinel check`;
+      return {
+        stage: definition.name,
+        status: 'error',
+        state: 'budget-exhausted',
+        cached: false,
+        durationMs: 0,
+        findings: [{ ruleId: 'quality-budget-exhausted', severity: 'error', message }],
+        summary: `tope agotado ${quota}`,
+      };
+    }
+  }
   const execution = await runProcess(definition.executable, definition.args, {
     cwd: definition.cwd ?? options.projectRoot,
     timeoutMs: definition.timeoutMs,
