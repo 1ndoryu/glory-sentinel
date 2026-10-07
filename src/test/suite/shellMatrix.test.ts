@@ -16,6 +16,7 @@ import {
   copyFixtureToTmp,
   powershellAvailable,
   pwshAvailable,
+  removeTmpRoots,
   runInShell,
   sandboxEnv,
   shellAvailable,
@@ -50,7 +51,9 @@ const shellSuite = suite('Sentinel guard matrix real de shells (Fase 4)', () => 
   });
 
   suiteTeardown(() => {
-    for (const dir of cleanup) fs.rmSync(dir, { recursive: true, force: true });
+    /* [07AA-10] Borrado resiliente: el rmSync directo fallaba a veces con
+     * EPERM transitorio en Windows y tumbaba la suite tras 735 tests en verde. */
+    removeTmpRoots(cleanup);
   });
 
   test('un probe no cero no declara el shell disponible', () => {

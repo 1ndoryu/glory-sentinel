@@ -1,6 +1,18 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
+## [0.7.19] - 2026-10-07
+
+### Robustez del harness (07AA-10): teardown resiliente en la matriz de shells
+
+- El `suiteTeardown` de `shellMatrix` tumbaba la suite (exit 1) tras todos los
+  tests en verde por EPERM transitorio de Windows al borrar temporales
+  (handles de AV/indexer o hijos recién terminados), y un dir bloqueado
+  filtraba el resto del lote. Nuevo `removeTmpRoots` en `guardMatrixCommon`
+  (reintentos con pausa solo ante EPERM/EBUSY/ENOTEMPTY, continúa con el
+  resto y agrega fallos persistentes al final): solo higiene, no enmascara
+  ninguna aserción.
+
 ## [0.7.18] - 2026-10-07
 
 ### Piloto F5 (07AA-10): el analizador admite la clave `budgets`

@@ -20,6 +20,37 @@ export function copyFixtureToTmp(name: string): string {
   return path.join(tmp, 'project');
 }
 
+/* [07AA-10] Borrado resiliente de temporales de la matriz. En Windows el
+ * rmSync del teardown falla a veces con EPERM/EBUSY/ENOTEMPTY por handles
+ * transitorios (AV/indexer o hijos recién terminados): reintenta con pausa y
+ * continúa con el resto para no filtrar el lote entero por un dir bloqueado.
+ * Solo higiene de tests: no enmascara ninguna aserción (los tests ya
+ * pasaron cuando corre el teardown). */
+export function removeTmpRoots(dirs: string[]): void {
+  const failures: string[] = [];
+  for (const dir of dirs) {
+    let removed = false;
+    for (let attempt = 0; attempt < 3 && !removed; attempt++) {
+      try {
+        fs.rmSync(dir, { recursive: true, force: true });
+        removed = true;
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException)?.code;
+        if (code !== 'EPERM' && code !== 'EBUSY' && code !== 'ENOTEMPTY') {
+          failures.push(`${dir}: ${code ?? error}`);
+          break;
+        }
+        if (attempt === 2) {
+          failures.push(`${dir}: ${code} tras 3 intentos`);
+        } else {
+          Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 250);
+        }
+      }
+    }
+  }
+  if (failures.length > 0) throw new Error(`limpieza de temporales incompleta: ${failures.join('; ')}`);
+}
+
 export function v2Policy(mode: string, directCommands: Record<string, string[]>): string {
   return JSON.stringify({
     schemaVersion: 2,
