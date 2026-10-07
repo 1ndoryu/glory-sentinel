@@ -1,6 +1,21 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
+## [0.7.18] - 2026-10-07
+
+### Piloto F5 (07AA-10): el analizador admite la clave `budgets`
+
+- El piloto e2e reveló que `validateSentinelConfig` rechazaba la clave
+  `budgets` (`clave desconocida`, exit 2), lo que hacía inaplicable el tope
+  F2: ningún consumidor podía declarar su política sin romper el análisis.
+- `budgets` pasa a ser clave conocida con validación estricta de forma
+  (paridad con `readBudgets`: mode observe|enforce, limits con clases
+  conocidas y enteros 0..100; un typo en la clase se rechaza fail-closed con
+  mensaje accionable en vez de fallar abierto en silencio).
+- `HEAVY_BUDGET_CLASSES` como fuente única (la usan `DEFAULT_LIMITS` y el
+  validador). Tests nuevos en `portableConfig.test.ts` (2 tests: aceptación
+  + 5 rechazos fail-closed).
+
 ## [0.7.17] - 2026-10-07
 
 ### Tope fisico cross-proyecto (07AA-6 F2): budget de validaciones pesadas

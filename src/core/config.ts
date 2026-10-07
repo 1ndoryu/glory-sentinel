@@ -1,6 +1,7 @@
 import { ConfigReglaUsuario, obtenerIdsReglas } from '../config/ruleRegistry';
 import { CoreAnalysisConfig } from './types';
 import { isSafeBranch } from './branchValidation';
+import { HEAVY_BUDGET_CLASSES } from './heavyBudget';
 
 export interface SentinelConfigFile {
   includePatterns?: string[];
@@ -29,6 +30,10 @@ export interface SentinelConfigFile {
   guard?: { directCommands?: Record<string, string[]> };
   runtime?: { minimumVersion?: string; protocolVersion?: number; lockFile?: string };
   analyzers?: { sentinel?: { enabled?: boolean; profile?: string; config?: SentinelConfigFile | string } };
+  /* [07AA-10] Política del tope físico F2 (la consume readBudgets, la ignora
+   * el lector del guard). El analizador la admite como clave conocida con
+   * validación estricta de forma para no reintroducir el fallo del piloto. */
+  budgets?: { mode?: string; limits?: Record<string, number> };
 }
 
 export const DEFAULT_INCLUDE_PATTERNS = [
@@ -56,7 +61,7 @@ export const DEFAULT_EXCLUDE_PATTERNS = [
   '**/scripts/**',
 ];
 
-const CONFIG_KEYS = new Set(['includePatterns', 'excludePatterns', 'directoryExceptions', 'rules', 'portableBoundaries', 'project', 'schemaVersion', 'mode', 'gate', 'guard', 'runtime', 'analyzers']);
+const CONFIG_KEYS = new Set(['includePatterns', 'excludePatterns', 'directoryExceptions', 'rules', 'portableBoundaries', 'project', 'schemaVersion', 'mode', 'gate', 'guard', 'runtime', 'analyzers', 'budgets']);
 const PORTABLE_BOUNDARY_KEYS = new Set(['dom', 'window', 'services', 'loggerModules']);
 const RULE_KEYS = new Set(['habilitada', 'severidad']);
 const VALID_SEVERITIES = new Set(['error', 'warning', 'information', 'hint']);
@@ -104,6 +109,32 @@ export function validateSentinelConfig(value: unknown): asserts value is Sentine
   }
   if (config.analyzers !== undefined && (!config.analyzers || typeof config.analyzers !== 'object' || Array.isArray(config.analyzers))) {
     throw new Error("sentinel.config.json: 'analyzers' debe ser un objeto");
+  }
+  /* [07AA-10] 'budgets' es clave conocida con forma estricta (paridad con
+   * readBudgets): mode observe|enforce, limits con clases conocidas y
+   * enteros 0..100. Un typo en la clase fallaría abierto en silencio si se
+   * ignorase; por eso se rechaza con mensaje accionable. */
+  if (config.budgets !== undefined) {
+    if (!config.budgets || typeof config.budgets !== 'object' || Array.isArray(config.budgets)) {
+      throw new Error("sentinel.config.json: 'budgets' debe ser un objeto");
+    }
+    const budgets = config.budgets as { mode?: unknown; limits?: unknown };
+    if (budgets.mode !== undefined && budgets.mode !== 'observe' && budgets.mode !== 'enforce') {
+      throw new Error(`sentinel.config.json: 'budgets.mode' inválido (${String(budgets.mode)})`);
+    }
+    if (budgets.limits !== undefined) {
+      if (!budgets.limits || typeof budgets.limits !== 'object' || Array.isArray(budgets.limits)) {
+        throw new Error("sentinel.config.json: 'budgets.limits' debe ser un objeto");
+      }
+      for (const [kind, amount] of Object.entries(budgets.limits as Record<string, unknown>)) {
+        if (!(HEAVY_BUDGET_CLASSES as readonly string[]).includes(kind)) {
+          throw new Error(`sentinel.config.json: clase de límite desconocida '${kind}' (válidas: ${HEAVY_BUDGET_CLASSES.join(', ')})`);
+        }
+        if (!Number.isInteger(amount) || (amount as number) < 0 || (amount as number) > 100) {
+          throw new Error(`sentinel.config.json: límite inválido para '${kind}' (entero 0..100)`);
+        }
+      }
+    }
   }
   /* [028A-6 Fase 3] En v2, las reglas del analizador viven en
    * analyzers.sentinel.config (objeto); se validan con el mismo contrato de

@@ -14,12 +14,14 @@ export const DEFAULT_BUDGET_LIMIT = 5;
 export const BUDGET_RUNS_FILE = 'runs.jsonl';
 export const BUDGET_OVERRIDE_FILE = 'lote-extra.md';
 
-const DEFAULT_LIMITS: Record<string, number> = {
-  'cargo-check': DEFAULT_BUDGET_LIMIT,
-  'cargo-clippy': DEFAULT_BUDGET_LIMIT,
-  'cargo-test': DEFAULT_BUDGET_LIMIT,
-  'tsc-noemit': DEFAULT_BUDGET_LIMIT,
-};
+/* [07AA-10] Clases pesadas contables. Fuente única: la usa DEFAULT_LIMITS y
+ * el validador de config (validateSentinelConfig rechaza claves de límite
+ * ajenas a esta lista para que un typo no falle abierto en silencio). */
+export const HEAVY_BUDGET_CLASSES = ['cargo-check', 'cargo-clippy', 'cargo-test', 'tsc-noemit'] as const;
+
+const DEFAULT_LIMITS: Record<string, number> = Object.fromEntries(
+  HEAVY_BUDGET_CLASSES.map(kind => [kind, DEFAULT_BUDGET_LIMIT]),
+);
 
 export type BudgetMode = 'observe' | 'enforce';
 
