@@ -1,6 +1,23 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
+## [0.7.17] - 2026-10-07
+
+### Tope fisico cross-proyecto (07AA-6 F2): budget de validaciones pesadas
+
+- Nuevo `src/core/heavyBudget.ts`: `classifyHeavy` (`cargo check/clippy/test`
+  directo + wrapper `cargo-stage.ps1 <report> <stage>` + `tsc --noEmit`;
+  fmt/fmt-write/bench/node/vitest no cuentan, fail open), `readBudgets` (clave
+  `budgets` opcional en `sentinel.config.json`, default observe 5/clase),
+  `checkAndRecordHeavyRun` (contador por tarea en `<reportRoot>/runs.jsonl`,
+  override `<projectRoot>/lote-extra.md`, fail open ante E/S).
+- Hook en `runStructuredTool` antes de `runProcess`: cupo agotado en enforce
+  → la etapa NO se ejecuta (`state 'budget-exhausted'`, exit 2 SETUP ERROR,
+  `Next:` accionable). Cache-hit no consume. Default observe: comportamiento
+  identico al anterior + aviso y registro.
+- Suite nueva `heavyBudget.test.ts` (9 tests). Higiene de release: se poda la
+  version instalada 0.7.12 (via de bypass F1b-5 cerrada en este equipo).
+
 ## [0.7.16] - 2026-09-29
 
 ### Ampliacion de cobertura (309A-1): `todo-pendiente` ve continuaciones y minuscula con `:`
