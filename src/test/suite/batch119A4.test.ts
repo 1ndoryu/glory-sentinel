@@ -139,6 +139,27 @@ suite('119A-4 S5 key-index: slots fijos Array().fill()', () => {
     assert.strictEqual(v.length, 1);
     assert.strictEqual(v[0]?.reglaId, 'key-index-lista');
   });
+
+  test('[08AA-26] ignora key={i} sobre lista derivada de split (MN message-media.tsx:52)', () => {
+    const lineas = [
+      "const lineas = body.split('\\n').map(parseLine);",
+      'return lineas.map((linea, i) => (',
+      '  <p key={i}>{linea.text}</p>',
+      '));',
+    ];
+    assert.strictEqual(verificarKeyIndexLista(lineas).length, 0);
+  });
+
+  test('[08AA-26] sigue marcando key={i} sobre filter inline (lista dinamica)', () => {
+    const lineas = [
+      'return items.filter((x) => x.visible).map((item, i) => (',
+      '  <div key={i}>{item.nombre}</div>',
+      '));',
+    ];
+    const v = verificarKeyIndexLista(lineas);
+    assert.strictEqual(v.length, 1);
+    assert.strictEqual(v[0]?.reglaId, 'key-index-lista');
+  });
 });
 
 suite('119A-4 S6 portable: strings no son referencias', () => {

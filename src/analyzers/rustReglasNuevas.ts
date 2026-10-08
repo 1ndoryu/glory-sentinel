@@ -631,7 +631,11 @@ export function detectarSecretoEnLog(
 /* Caso real: integracion web/mod.rs:457-499 (42 POST sin limite).
  * Supuesto documentado: stack axum + tower_governor. Exenciones (en orden):
  * 1) el fichero menciona governor/RateLimit/rate_limit/tower::limit;
- * 2) el Cargo.toml del proyecto declara governor (cache por directorio).
+ * 2) el Cargo.toml del proyecto declara governor (cache por directorio);
+ * 3) [08AA-26] el directorio del fichero trae un modulo `rate_limit`
+ *    cableado (se usa `rate_limit::` dentro de una capa tower en un
+ *    fichero enrutador hermano): el fichero de rutas no necesita
+ *    mencionar el limite para estar cubierto.
  * Sin evidencia se flaggea: el fallo abierto por defecto es peor que el FP,
  * y el waiver es sentinel-disable-file. */
 const PATRON_POST_ROUTE = /\.route\s*\(\s*"[^"]*"\s*,\s*[^)]*?\bpost\s*\(/;
@@ -661,8 +665,42 @@ function proyectoConRateLimit(texto: string, rutaArchivo?: string): boolean {
     if (padre === dir) { break; }
     dir = padre;
   }
+  /* [08AA-26] (3) modulo rate_limit cableado junto al fichero: el limite
+   * vive como capa del enrutador, no como mencion en cada fichero. */
+  if (!resultado) {
+    resultado = directorioConRateLimitCableado(dirInicio);
+  }
   cacheRateLimitToml.set(dirInicio, resultado);
   return resultado;
+}
+
+/* [08AA-26] Existe `<dir>/rate_limit.rs` (o `rate_limit/mod.rs`) Y un
+ * fichero enrutador hermano (`mod.rs`/`main.rs`/`lib.rs`/`web.rs`) lo usa
+ * (`rate_limit::`) dentro de una capa tower (`from_fn`/`GovernorLayer`).
+ * Exige uso real: un `mod rate_limit;` muerto (declarado pero sin
+ * `rate_limit::` ni capa) NO exime. Caso MN `src/handlers/` 2026-10-08:
+ * 21 rutas POST marcadas con el limite aplicado globalmente via
+ * `from_fn_with_state(capa_limite)` en `mod.rs`. Fail-closed sin
+ * `rutaArchivo` o sin fs legible. */
+function directorioConRateLimitCableado(dir: string): boolean {
+  try {
+    const normalizado = dir.replace(/\\/g, '/');
+    const tieneModulo = fs.existsSync(path.join(normalizado, 'rate_limit.rs')) ||
+      fs.existsSync(path.join(normalizado, 'rate_limit', 'mod.rs'));
+    if (!tieneModulo) { return false; }
+    for (const candidato of ['mod.rs', 'main.rs', 'lib.rs', 'web.rs']) {
+      let contenido = '';
+      try {
+        contenido = fs.readFileSync(path.join(normalizado, candidato), 'utf8');
+      } catch {
+        continue;
+      }
+      if (/rate_limit::/.test(contenido) && /from_fn|GovernorLayer/.test(contenido)) { return true; }
+    }
+  } catch {
+    /* fs ilegible: sin evidencia, sin exencion */
+  }
+  return false;
 }
 
 export function detectarPostSinRateLimit(
@@ -754,16 +792,29 @@ export function detectarPathJoinSinCanonicalize(
 ): Violacion[] {
   if (texto.includes(`sentinel-disable-file ${REGLA_PATH_JOIN}`)) { return []; }
   if (esArchivoSoloTest(texto)) { return []; }
+  /* [08AA-26] PATRON_JOIN es global (/g para el bucle exec con reset en
+   * cada linea): resetear tambien antes de este pre-chequeo. Sin reset,
+   * un scope eximido (canonicalize/guardia lexica) deja lastIndex
+   * avanzado y el siguiente fichero analizado en el mismo proceso puede
+   * dar falso negativo segun longitudes (FP/FN por orden de analisis). */
+  PATRON_JOIN.lastIndex = 0;
   if (!PATRON_JOIN.test(texto)) { return []; }
 
   const violaciones: Violacion[] = [];
 
   for (const [inicio, fin] of rangosFunciones(lineas, rangoTests)) {
     let tieneCanonicalize = false;
+    /* [08AA-26] Guardia lexica: el scope filtra los componentes a
+     * `Component::Normal` antes del join (p.ej. `rel.components().all(|c|
+     * matches!(c, Component::Normal(_)))`): `..`, vacios y absolutos no
+     * llegan al join. Para este patron equivale a canonicalize +
+     * starts_with. Caso MN `turno.rs::ruta_clave` 2026-10-08. */
+    let tieneGuardiaLexica = false;
     for (let j = inicio; j <= fin; j++) {
       if (lineas[j].includes('canonicalize')) { tieneCanonicalize = true; break; }
+      if (/Component::\s*Normal/.test(lineas[j])) { tieneGuardiaLexica = true; }
     }
-    if (tieneCanonicalize) { continue; }
+    if (tieneCanonicalize || tieneGuardiaLexica) { continue; }
 
     for (let i = inicio; i <= fin; i++) {
       const linea = lineas[i];

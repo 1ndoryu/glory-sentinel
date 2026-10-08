@@ -167,6 +167,44 @@ suite('[149A-1] ruta-post-sin-rate-limit', () => {
     ].join('\n'));
     assert.strictEqual(contar('ruta-post-sin-rate-limit', findings), 0);
   });
+
+  test('[08AA-26] no dispara si el directorio trae rate_limit.rs cableado (caso MN handlers/)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-rl-'));
+    try {
+      fs.writeFileSync(path.join(dir, 'rate_limit.rs'), 'pub struct LimitadorTasa;\n');
+      fs.writeFileSync(path.join(dir, 'mod.rs'), [
+        'mod rate_limit;',
+        'use self::rate_limit::{LimitadorTasa, capa_limite};',
+        'fn enrutador() {',
+        '  Router::new().route_layer(from_fn_with_state("x", capa_limite));',
+        '}',
+      ].join('\n'));
+      const findings = analyzeRustDoc([
+        'fn rutas() {',
+        '  app.route("/api/x", post(crear));',
+        '}',
+      ].join('\n'), path.join(dir, 'auth.rs'));
+      assert.strictEqual(contar('ruta-post-sin-rate-limit', findings), 0);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('[08AA-26] sigue disparando con modulo rate_limit muerto (sin uso ni capa)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-rl-'));
+    try {
+      fs.writeFileSync(path.join(dir, 'rate_limit.rs'), 'pub struct LimitadorTasa;\n');
+      fs.writeFileSync(path.join(dir, 'mod.rs'), 'mod rate_limit;\n');
+      const findings = analyzeRustDoc([
+        'fn rutas() {',
+        '  app.route("/api/x", post(crear));',
+        '}',
+      ].join('\n'), path.join(dir, 'auth.rs'));
+      assert.strictEqual(contar('ruta-post-sin-rate-limit', findings), 1);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 suite('[149A-1] path-join-sin-canonicalize', () => {
@@ -191,6 +229,37 @@ suite('[149A-1] path-join-sin-canonicalize', () => {
       '}',
     ].join('\n'));
     assert.strictEqual(contar('path-join-sin-canonicalize', findings), 0);
+  });
+
+  test('[08AA-26] no dispara si el scope filtra Component::Normal (caso MN turno.rs::ruta_clave)', () => {
+    const findings = analyzeRustDoc([
+      'use std::path::{Component, Path, PathBuf};',
+      'fn ruta_clave(directorio: &Path, rel: &str) -> Option<PathBuf> {',
+      '  if !rel.components().all(|c| matches!(c, Component::Normal(_))) { return None; }',
+      '  Some(Path::new(directorio).join(rel))',
+      '}',
+    ].join('\n'));
+    assert.strictEqual(contar('path-join-sin-canonicalize', findings), 0);
+  });
+
+  test('[08AA-26] determinista: un scope eximido antes no oculta un join posterior (lastIndex)', () => {
+    analyzeRustDoc([
+      'use std::path::{Component, Path, PathBuf};',
+      'fn ruta_clave(directorio: &Path, rel: &str) -> Option<PathBuf> {',
+      '  if !rel.components().all(|c| matches!(c, Component::Normal(_))) { return None; }',
+      '  Some(Path::new(directorio).join(rel))',
+      '}',
+    ].join('\n'));
+    const findings = analyzeRustDoc([
+      'use std::path::PathBuf;',
+      'fn f(base: &PathBuf, a: &str, b: &str) -> PathBuf {',
+      '  let p = base.join(a).join(b);',
+      '  let q = base.join("fijo");',
+      '  let _ = q;',
+      '  p',
+      '}',
+    ].join('\n'));
+    assert.strictEqual(contar('path-join-sin-canonicalize', findings), 1);
   });
 });
 

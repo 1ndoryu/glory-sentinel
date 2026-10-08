@@ -148,6 +148,18 @@ export function verificarKeyIndexLista(lineas: string[]): Violacion[] {
     if (nombre) { slotsFijos.add(nombre); }
   }
 
+  /* [08AA-26] Receptores derivados de string (`const xs = s.split(..)`):
+   * lista contenido-derivada, sin reordenamientos ni filtros: el indice es
+   * estable por construccion (misma cadena -> mismos fragmentos) y no hay
+   * identidad estable que usar como key. Caso MN `message-media.tsx`
+   * (`body.split('\n')`) 2026-10-08. NO exime `filter` inline sobre datos
+   * dinamicos: ahi el indice sigue siendo fragil y se sigue marcando. */
+  const regexSplit = /(?:const|let|var)\s+(\w+)\s*=\s*[^;]*?\.split\s*\(/g;
+  let mSplit: RegExpExecArray | null;
+  while ((mSplit = regexSplit.exec(textoCompleto)) !== null) {
+    if (mSplit[1]) { slotsFijos.add(mSplit[1]); }
+  }
+
   let dentroDeMap = false;
   let profundidadMap = 0;
   let receptorEsFijo = false;
