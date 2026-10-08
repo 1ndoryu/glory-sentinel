@@ -117,8 +117,25 @@ export function verificarPromiseSinCatch(lineas: string[]): Violacion[] {
     if (esComentario(linea)) { continue; }
 
     /* [124A-FP3] React.lazy(() => import().then()) no necesita .catch():
-     * Suspense/ErrorBoundary manejan errores de carga lazy. */
+     * Suspense/ErrorBoundary manejan errores de carga lazy.
+     * [08AA-26] El lazy() suele quedar en la linea previa al .then:
+     * `lazy(() =>` + newline + `import().then(...)` (FP en App.tsx:7,12).
+     * Si la linea es un import dinamico, buscar lazy( hasta 5 lineas atras. */
     if (/\blazy\s*\(/.test(linea)) { continue; }
+    if (/\bimport\s*\(/.test(linea)) {
+      let esLazyMultilinea = false;
+      for (let j = Math.max(0, i - 5); j < i; j++) {
+        if (/\blazy\s*\(/.test(lineas[j])) { esLazyMultilinea = true; break; }
+      }
+      if (esLazyMultilinea) { continue; }
+    }
+
+    /* [08AA-26] Escape documentado para catch-interno: si el callee captura
+     * el error y lo expone por estado (hook con try/catch + setError, caso
+     * use-clientes.ts: alta/enviar), el .then() de continuacion de exito
+     * nunca rechaza y .catch() seria codigo muerto. Regla 14 MN: solo con
+     * justificacion en el comentario. */
+    if (tieneSentinelDisable(lineas, i, 'promise-sin-catch')) { continue; }
 
     /* Verificar si estamos dentro de un bloque try */
     let dentroTryCatch = false;

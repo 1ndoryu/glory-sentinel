@@ -141,7 +141,11 @@ export function verificarReglasPortables(
     }
   });
 
-  if (hasExportedLogic(text) && /\bexport\s*\{[^}]+\}\s*from\b/.test(text)) {
+  /* [08AA-26] Un unico re-export es alias de compatibilidad (caso
+   * ficha-ask.ts: `export { calcularCompletitud } from './pasos-ask'`
+   * documentado para no romper imports), no un barrel: exigir ≥2. */
+  const reExports = text.match(/^\s*export\s*(?:\{[^}]*\}|\*)\s*from\s*['"]/gm) ?? [];
+  if (hasExportedLogic(text) && reExports.length >= 2) {
     addFinding(findings, 'mixed-barrel-logic', document, 0,
       'Módulo mezcla re-export y lógica ejecutable.',
       'Separa el barrel del módulo de implementación.');
@@ -149,10 +153,18 @@ export function verificarReglasPortables(
 
   for (const match of text.matchAll(/interface\s+[A-Za-z_$][\w$]*\s*\{([\s\S]*?)\}/g)) {
     const fields = countInterfaceFields(match[1]);
-    if (fields > 10) {
+    const metodos = (match[1].match(/^\s*[A-Za-z_$][\w$]*\s*\([^)]*\)\s*(?::|=>)/gm) ?? []).length;
+    /* [08AA-26] ISP aplica a contratos de comportamiento: una interfaz de
+     * solo datos (DTO espejo de API, 0 metodos — casos ClienteDuena,
+     * SesionCliente, AuditoriaFila en cliente-duena.ts) no impone carga de
+     * implementacion; dividirla rompe el contrato 1:1 con el backend.
+     * Exigir ≥1 firma de metodo. */
+    if (metodos === 0) { continue; }
+    const miembros = fields + metodos;
+    if (miembros > 10) {
       const line = text.slice(0, match.index ?? 0).split(/\r\n|\r|\n/).length - 1;
       addFinding(findings, 'large-interface-isp', document, line,
-        `Interface con ${fields} campos; puede violar ISP.`,
+        `Interface con ${miembros} miembros (${metodos} metodos); puede violar ISP.`,
         'Divide el contrato en subinterfaces cohesivas.');
     }
   }
