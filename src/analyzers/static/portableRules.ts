@@ -65,10 +65,6 @@ function hasExportedLogic(text: string): boolean {
   return /\bexport\s+(?:async\s+)?(?:function|class|const|let|var)\b/.test(text);
 }
 
-function countInterfaceFields(body: string): number {
-  return (body.match(/^\s*[A-Za-z_$][\w$]*\??\s*:/gm) ?? []).length;
-}
-
 /** Ejecuta únicamente sobre JavaScript/TypeScript de aplicación. */
 export function verificarReglasPortables(
   document: CoreTextDocument,
@@ -152,19 +148,15 @@ export function verificarReglasPortables(
   }
 
   for (const match of text.matchAll(/interface\s+[A-Za-z_$][\w$]*\s*\{([\s\S]*?)\}/g)) {
-    const fields = countInterfaceFields(match[1]);
     const metodos = (match[1].match(/^\s*[A-Za-z_$][\w$]*\s*\([^)]*\)\s*(?::|=>)/gm) ?? []).length;
-    /* [08AA-26] ISP aplica a contratos de comportamiento: una interfaz de
-     * solo datos (DTO espejo de API, 0 metodos — casos ClienteDuena,
-     * SesionCliente, AuditoriaFila en cliente-duena.ts) no impone carga de
-     * implementacion; dividirla rompe el contrato 1:1 con el backend.
-     * Exigir ≥1 firma de metodo. */
-    if (metodos === 0) { continue; }
-    const miembros = fields + metodos;
-    if (miembros > 10) {
+    /* [08AA-26] ISP aplica a contratos de comportamiento: solo los metodos
+     * cuentan. Las propiedades de datos (DTO espejo de API, p. ej.
+     * ClienteDuena en cliente-duena.ts) no imponen carga de implementacion;
+     * contarlas daba falsos positivos. */
+    if (metodos > 10) {
       const line = text.slice(0, match.index ?? 0).split(/\r\n|\r|\n/).length - 1;
       addFinding(findings, 'large-interface-isp', document, line,
-        `Interface con ${miembros} miembros (${metodos} metodos); puede violar ISP.`,
+        `Interface con ${metodos} metodos; puede violar ISP.`,
         'Divide el contrato en subinterfaces cohesivas.');
     }
   }

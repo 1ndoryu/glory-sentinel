@@ -28,9 +28,8 @@ suite('Portable architecture rules', () => {
   });
 
   test('detects unsafe shell and large interfaces', () => {
-    const fields = Array.from({ length: 11 }, (_, index) => `field${index}: string;`).join('\n');
-    const methods = Array.from({ length: 2 }, (_, index) => `method${index}(input: string): void;`).join('\n');
-    const source = `const child = exec(command + input);\ninterface Payload {\n${fields}\n${methods}\n}`;
+    const methods = Array.from({ length: 11 }, (_, index) => `method${index}(input: string): void;`).join('\n');
+    const source = `const child = exec(command + input);\ninterface Payload {\n${methods}\n}`;
     const findings = verificarReglasPortables(documentFor('/workspace/src/service.ts', source));
     assert.ok(findings.some(finding => finding.reglaId === 'unsafe-process-shell'));
     assert.ok(findings.some(finding => finding.reglaId === 'large-interface-isp'));
@@ -43,6 +42,15 @@ suite('Portable architecture rules', () => {
     const fields = Array.from({ length: 12 }, (_, index) => `campo${index}: string | null;`).join('\n');
     const source = `/* Fila de GET /api/admin/agent/auditoria. */\nexport interface AuditoriaFila {\n${fields}\n}`;
     const findings = verificarReglasPortables(documentFor('/workspace/src/data/cliente-duena.ts', source));
+    assert.strictEqual(findings.some(finding => finding.reglaId === 'large-interface-isp'), false);
+  });
+
+  /* [08AA-26] Solo los metodos cuentan: 12 propiedades + 2 metodos no marcan. */
+  test('ignores wide interfaces whose members are mostly data fields', () => {
+    const fields = Array.from({ length: 12 }, (_, index) => `campo${index}: string;`).join('\n');
+    const methods = Array.from({ length: 2 }, (_, index) => `metodo${index}(): void;`).join('\n');
+    const source = `export interface Mixto {\n${fields}\n${methods}\n}`;
+    const findings = verificarReglasPortables(documentFor('/workspace/src/data/mixto.ts', source));
     assert.strictEqual(findings.some(finding => finding.reglaId === 'large-interface-isp'), false);
   });
 
