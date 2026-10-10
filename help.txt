@@ -1,4 +1,4 @@
-Glory Sentinel 0.5.0
+Glory Sentinel 0.7.20
 
 Uso:
   sentinel analyze --workspace . --format markdown --output .sentinel-report.md
