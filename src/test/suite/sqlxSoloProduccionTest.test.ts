@@ -27,12 +27,12 @@ function crearDocumento(texto: string, fileName = 'src/repositories/chat.rs') {
   } as never;
 }
 
-function contarSqlx(texto: string): number {
+function contarSqlx(texto: string, fileName?: string): number {
   const reglas = ['sqlx-query-sin-macro', 'sqlx-query-as-sin-macro']
     .map(id => reglasEstaticas.find(r => r.id === id));
   assert.ok(reglas.every(Boolean), 'Las reglas sqlx deben existir');
 
-  return analizarEstatico(crearDocumento(texto), reglas as never[])
+  return analizarEstatico(crearDocumento(texto, fileName), reglas as never[])
     .filter(v => v.reglaId.startsWith('sqlx-query')).length;
 }
 
@@ -69,5 +69,21 @@ suite('sqlx-*-sin-macro ignoran SQL dentro de #[cfg(test)]', () => {
       '}',
     ].join('\n');
     assert.strictEqual(contarSqlx(texto), 1);
+  });
+
+  test('archivo #![cfg(test)] entero no dispara', () => {
+    const texto = '#![cfg(test)]\nasync fn t(pool: PgPool) {\n  sqlx::query("SELECT 1").execute(&pool).await.unwrap();\n}';
+    assert.strictEqual(contarSqlx(texto), 0);
+  });
+
+  test('tests de integracion del crate (tests/*.rs) no disparan, con ruta POSIX o Windows', () => {
+    const texto = 'async fn humo(pool: PgPool) {\n  sqlx::query("SELECT 1").execute(&pool).await.unwrap();\n}';
+    assert.strictEqual(contarSqlx(texto, 'tests/chat_humo.rs'), 0);
+    assert.strictEqual(contarSqlx(texto, 'tests\\chat_humo.rs'), 0);
+  });
+
+  test('un modulo de produccion llamado tests.rs sigue disparando', () => {
+    const texto = 'pub fn listar() {\n  sqlx::query("SELECT 1");\n}';
+    assert.strictEqual(contarSqlx(texto, 'src/repositories/tests.rs'), 1);
   });
 });

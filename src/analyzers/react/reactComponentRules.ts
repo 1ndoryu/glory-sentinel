@@ -295,6 +295,13 @@ export function verificarComponenteSinHook(lineas: string[], nombreArchivo: stri
   return violaciones;
 }
 
+/* [08AA-26] components/ui es el sistema de diseno: sus wrappers construyen el elemento
+ * nativo a proposito (ui/textarea.tsx envuelve <textarea>). La regla vigila el uso en la
+ * app, no la definicion del componente base. Recibe la ruta completa: la regla solo ve el basename. */
+export function esWrapperSistemaDiseno(ruta: string): boolean {
+  return /[\\/]components[\\/]ui[\\/]/.test(ruta);
+}
+
 /*
  * Detecta uso de elementos HTML nativos que deberian ser componentes propios
  * del proyecto (Boton, Input, Select, Textarea, Checkbox, Radio, GloryLink).

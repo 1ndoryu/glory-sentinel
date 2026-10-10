@@ -32,6 +32,7 @@ import {
   verificarMutacionDirectaEstado,
   verificarKeyIndexLista,
   verificarComponenteSinHook,
+  esWrapperSistemaDiseno,
   verificarHtmlNativoEnVezDeComponente,
   verificarButtonClaseEspecifica,
   verificarComponenteArtesanal,
@@ -111,7 +112,7 @@ export function analizarReact(documento: CoreTextDocument, opciones: ReactAnalys
     if (reglaHabilitada('promise-sin-catch')) {
       violaciones.push(...verificarPromiseSinCatch(lineas));
     }
-    if (reglaHabilitada('html-nativo-en-vez-de-componente')) {
+    if (reglaHabilitada('html-nativo-en-vez-de-componente') && !esWrapperSistemaDiseno(documento.fileName)) {
       violaciones.push(...verificarHtmlNativoEnVezDeComponente(lineas, nombreArchivo));
     }
     if (reglaHabilitada('formulario-config-sin-sistema-declarativo')) {
