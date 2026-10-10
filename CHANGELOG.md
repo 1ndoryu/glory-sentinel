@@ -1,6 +1,13 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
+## [0.7.23] - 2026-10-10
+
+### Falsos positivos de ISP (large-interface-isp)
+
+- `large-interface-isp` cuenta solo firmas de metodo para el umbral (>10). Las propiedades de datos ya no cuentan: las interfaces de datos amplias dejan de marcarse (p. ej. 10 avisos en glory-harness).
+- Test de regresion: una interfaz con 12 propiedades y 2 metodos no marca.
+
 ## [0.7.22] - 2026-10-10
 
 ### Exención de rate_limit por enrutador ancestro (10AA-10)
