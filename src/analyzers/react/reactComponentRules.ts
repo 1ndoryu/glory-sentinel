@@ -230,34 +230,47 @@ export function verificarComponenteSinHook(lineas: string[], nombreArchivo: stri
       tieneSentinelDisableFile(texto, 'componente-sin-hook')) { return []; }
 
   const nombreComponente = nombreArchivo.replace(/\.(tsx|jsx)$/, '');
-  const regexHookDedicado = new RegExp(`\\buse${nombreComponente}\\b`);
+  /* [08AA-26] Archivo kebab-case (chats-marketplace.tsx) → hook useChatsMarketplace. */
+  const nombrePascal = nombreComponente.split(/[-_]/).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join('');
+  const regexHookDedicado = new RegExp(`\\buse(?:${nombreComponente}|${nombrePascal})\\b`);
   const tieneHookDedicado = lineas.some(l => regexHookDedicado.test(l));
   if (tieneHookDedicado) { return []; }
 
   const violaciones: Violacion[] = [];
 
   let finImports = 0;
-  let lineaReturn = -1;
-
   for (let i = 0; i < lineas.length; i++) {
-    const lineaTrimmed = lineas[i].trim();
-    if (/^import\s/.test(lineaTrimmed)) {
-      finImports = i + 1;
+    if (/^import\s/.test(lineas[i].trim())) { finImports = i + 1; }
+  }
+
+  /* [08AA-26] La logica del componente empieza en su declaracion PascalCase, no tras los
+   * imports: las funciones auxiliares de modulo (fechaCorta, textoUsos...) con if/await no
+   * son logica del componente. `[A-Z][a-z]` excluye constantes tipo TABS_MARKETPLACE. Sin
+   * declaracion detectable, se mantiene el comportamiento previo (desde los imports). */
+  let inicio = finImports;
+  for (let i = finImports; i < lineas.length; i++) {
+    if (/^(?:export\s+)?(?:default\s+)?(?:function|const)\s+[A-Z][a-z]\w*/.test(lineas[i].trim())) {
+      inicio = i;
+      break;
     }
-    if (/\breturn\s*\(\s*$|\breturn\s*</.test(lineaTrimmed)) {
+  }
+
+  let lineaReturn = -1;
+  for (let i = inicio; i < lineas.length; i++) {
+    if (/\breturn\s*\(\s*$|\breturn\s*</.test(lineas[i].trim())) {
       lineaReturn = i;
       break;
     }
   }
 
-  if (lineaReturn <= finImports) { return violaciones; }
+  if (lineaReturn < inicio) { return violaciones; }
 
   let lineasLogicaTotal = 0;
   let lineasLogicaEstado = 0;
   const regexLogicaTotal = /\b(useEffect|useState|useMemo|useCallback|useRef|fetch\s*\(|await\s|try\s*\{|if\s*\(|for\s*\(|while\s*\(|switch\s*\(|\.then\s*\()/;
   const regexLogicaEstado = /\b(useEffect|useState|useMemo|useCallback|useRef|fetch\s*\(|await\s|\.then\s*\()/;
 
-  for (let i = finImports; i < lineaReturn; i++) {
+  for (let i = inicio; i < lineaReturn; i++) {
     const lineaTrimmed = lineas[i].trim();
 
     if (lineaTrimmed === '' || esComentario(lineaTrimmed)) { continue; }

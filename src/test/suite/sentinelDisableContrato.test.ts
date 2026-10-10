@@ -238,6 +238,28 @@ suite('componente-sin-hook-glory — ambas grafias eximen, sin cruce', () => {
     const lineas = ['/* sentinel-disable-file componente-sin-hook: wiring trivial. */', ...cuerpo];
     assert.strictEqual(verificarComponenteSinHook(lineas, 'Fila.tsx').length, 0);
   });
+
+  test('ignora la logica de helpers de modulo antes del componente', () => {
+    const helper = Array.from({ length: 11 }, (_, i) => `if (x > ${i}) { n++; }`);
+    const lineas = [
+      'import { useState } from "react";',
+      'function textoUsos(x: number): number {',
+      'let n = 0;',
+      ...helper,
+      'return n;',
+      '}',
+      'export function Fila(): JSX.Element {',
+      'return <div />;',
+      '}',
+    ];
+    assert.strictEqual(verificarComponenteSinHook(lineas, 'Fila.tsx').length, 0);
+  });
+
+  test('archivo kebab-case: useChatsMarketplace cuenta como hook dedicado', () => {
+    assert.strictEqual(verificarComponenteSinHook(cuerpo, 'chats-marketplace.tsx').length, 1);
+    const conHook = [cuerpo[0], 'import { useChatsMarketplace } from "./use-chats-marketplace";', ...cuerpo.slice(1)];
+    assert.strictEqual(verificarComponenteSinHook(conHook, 'chats-marketplace.tsx').length, 0);
+  });
 });
 
 suite('mutacion-directa-estado — file-level y next-line', () => {
