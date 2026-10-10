@@ -1,6 +1,15 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
+## [0.7.21] - 2026-10-10
+
+### Hook de archivos kebab-case y helpers de módulo (08AA-26)
+
+- `componente-sin-hook-glory` reconoce el hook dedicado de un archivo kebab-case (`chats-marketplace.tsx` → `useChatsMarketplace`). Corrige el falso positivo reportado en `chats-marketplace.tsx:23` de MN-Inmobiliaria.
+- La lógica de helpers de módulo anterior al componente deja de contar como lógica del componente.
+- Tests de regresión para ambas grafías y para los helpers de módulo.
+- Corrige fallos de los tests bajo carga (3900487).
+
 ## [0.7.20] - 2026-10-10
 
 ### Falsos positivos, rendimiento y SOLID (08AA-26, 10AA-1)
