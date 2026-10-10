@@ -60,6 +60,11 @@ export function analizarEstatico(
 
     const reglas = reglasPersonalizadas || reglasEstaticas;
 
+    /* Una sola particion del texto y una sola busqueda de `sentinel-disable-file`
+     * por documento: antes se repetian por cada regla. */
+    const lineas = texto.split('\n');
+    const deshabilitadasEnArchivo = reglasDeshabilitadasEnArchivo(lineas);
+
     /* Ejecutar reglas regex por linea o por archivo completo */
     for (const regla of reglas) {
         if (!reglaHabilitada(regla.id)) {
@@ -90,9 +95,9 @@ export function analizarEstatico(
         }
 
         if (regla.porLinea) {
-            violaciones.push(...ejecutarReglaPorLinea(texto, regla, documento));
+            violaciones.push(...ejecutarReglaPorLinea(lineas, regla, documento, deshabilitadasEnArchivo));
         } else {
-            violaciones.push(...ejecutarReglaCompleta(texto, regla, documento));
+            violaciones.push(...ejecutarReglaCompleta(texto, regla, documento, deshabilitadasEnArchivo));
         }
     }
 
@@ -188,8 +193,9 @@ export function analizarEstatico(
     return violaciones;
 }
 
-export function tieneSentinelDisableFile(texto: string, reglaId: string): boolean {
-    const lineas = texto.split('\n');
+/* Reglas listadas tras `sentinel-disable-file` en cualquier linea del documento. */
+function reglasDeshabilitadasEnArchivo(lineas: string[]): Set<string> {
+    const reglas = new Set<string>();
 
     for (const linea of lineas) {
         const indice = linea.indexOf('sentinel-disable-file');
@@ -200,17 +206,19 @@ export function tieneSentinelDisableFile(texto: string, reglaId: string): boolea
         const resto = linea
             .slice(indice + 'sentinel-disable-file'.length)
             .replace(/[:*/]/g, ' ');
-        const reglasDeshabilitadas = resto
-            .split(/\s+/)
-            .map(token => token.trim())
-            .filter(Boolean);
-
-        if (reglasDeshabilitadas.includes(reglaId)) {
-            return true;
+        for (const token of resto.split(/\s+/)) {
+            const reglaId = token.trim();
+            if (reglaId) {
+                reglas.add(reglaId);
+            }
         }
     }
 
-    return false;
+    return reglas;
+}
+
+export function tieneSentinelDisableFile(texto: string, reglaId: string): boolean {
+    return reglasDeshabilitadasEnArchivo(texto.split('\n')).has(reglaId);
 }
 
 /* [104A-11] Permite style={{}} cuando solo se inyectan CSS custom properties,
@@ -317,27 +325,36 @@ function enComentario(rangos: Array<[number, number]>, columna: number): boolean
 /*
  * Ejecuta una regla regex linea por linea.
  */
-function ejecutarReglaPorLinea(texto: string, regla: ReglaEstatica, documento: CoreTextDocument): Violacion[] {
+function ejecutarReglaPorLinea(
+    lineas: string[],
+    regla: ReglaEstatica,
+    documento: CoreTextDocument,
+    deshabilitadasEnArchivo: Set<string>,
+): Violacion[] {
     const violaciones: Violacion[] = [];
 
-    if (tieneSentinelDisableFile(texto, regla.id)) {
+    if (deshabilitadasEnArchivo.has(regla.id)) {
         return violaciones;
     }
-
-    const lineas = texto.split('\n');
 
     /* [039A-1 FP-S2] Solo la regla de estilo inline salta comentarios: es la que
      * se reviso y midio. Generalizarlo al resto de reglas es un cambio de
      * comportamiento que necesita su propio caso y su propia medicion. */
     const comentarios = regla.id === 'inline-style-prohibido' ? rangosComentados(lineas) : null;
 
+    /* Se compilan una vez por regla, no por linea. Sin 'g' el RegExp no guarda
+     * estado entre llamadas, asi que reutilizarlo equivale a crearlo en cada linea. */
+    const patron = new RegExp(regla.patron.source, regla.patron.flags.replace('g', ''));
+    const marcaSiguienteLinea = `sentinel-disable-next-line ${regla.id}`;
+    const marcaLinea = `sentinel-disable ${regla.id}`;
+
     for (let i = 0; i < lineas.length; i++) {
         const linea = lineas[i];
 
-        if (i > 0 && lineas[i - 1].includes(`sentinel-disable-next-line ${regla.id}`)) {
+        if (i > 0 && lineas[i - 1].includes(marcaSiguienteLinea)) {
             continue;
         }
-        if (linea.includes(`sentinel-disable ${regla.id}`)) {
+        if (linea.includes(marcaLinea)) {
             continue;
         }
 
@@ -361,13 +378,11 @@ function ejecutarReglaPorLinea(texto: string, regla: ReglaEstatica, documento: C
             const sinStrings = linea.replace(/(['"`])(?:(?!\1|\\).|\\.)*\1/g, '');
             /* Quitar comentarios inline restantes */
             const sinContexto = sinStrings.replace(/\/\*.*?\*\//g, '').replace(/\/\/.*$/g, '');
-            const patronLocal = new RegExp(regla.patron.source, regla.patron.flags.replace('g', ''));
-            if (!patronLocal.test(sinContexto)) {
+            if (!patron.test(sinContexto)) {
                 continue;
             }
         }
 
-        const patron = new RegExp(regla.patron.source, regla.patron.flags.replace('g', ''));
         const match = patron.exec(linea);
 
         if (match) {
@@ -404,10 +419,15 @@ function ejecutarReglaPorLinea(texto: string, regla: ReglaEstatica, documento: C
  * Ejecuta una regla regex contra el archivo completo.
  * Util para patrones multilinea como catch vacio.
  */
-function ejecutarReglaCompleta(texto: string, regla: ReglaEstatica, documento: CoreTextDocument): Violacion[] {
+function ejecutarReglaCompleta(
+    texto: string,
+    regla: ReglaEstatica,
+    documento: CoreTextDocument,
+    deshabilitadasEnArchivo: Set<string>,
+): Violacion[] {
     const violaciones: Violacion[] = [];
 
-    if (tieneSentinelDisableFile(texto, regla.id)) {
+    if (deshabilitadasEnArchivo.has(regla.id)) {
         return violaciones;
     }
 
