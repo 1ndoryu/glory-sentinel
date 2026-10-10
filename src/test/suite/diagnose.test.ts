@@ -61,7 +61,10 @@ suite('Sentinel core diagnose (orquestador agnóstico)', () => {
     }
   });
 
-  test('declara capacidad ausente, dependencias no provisionadas y package-lock sucio antes del gate', async () => {
+  test('declara capacidad ausente, dependencias no provisionadas y package-lock sucio antes del gate', async function () {
+    /* Fixture con git init/commit y spawns: 10 s en reposo, más de 60 s con
+     * carga (fallo del 2026-10-10). Override igual al de taskCoordinator. */
+    this.timeout(180_000);
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-diagnose-capabilities-'));
     const source = path.join(root, 'tools', 'sentinel');
     try {

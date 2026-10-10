@@ -206,10 +206,13 @@ export async function issueLease(options: IssueLeaseOptions): Promise<IssuedLeas
  * el árbol de procesos. Windows: PowerShell CIM (wmic está deprecado);
  * Linux: /proc/<pid>/stat (sin spawn); resto: ps. Devuelve null si no puede
  * resolverse (fail closed en el verificador). Presupuesto: cada salto en
- * Windows cuesta un proceso powershell (~0,3-0,5 s); el verificador solo se
- * invoca para comandos que la política iba a bloquear, y la cadena suele
- * ser de 1-2 saltos (gate → shim → guard), así que el coste por comando
- * eximido es acotado. */
+ * Windows cuesta un proceso powershell (~1,3-1,6 s en reposo, medido el
+ * 2026-10-10); el verificador solo se invoca para comandos que la política
+ * iba a bloquear, y la cadena suele ser de 1-2 saltos (gate → shim → guard).
+ * El límite de Windows debe cubrir el coste bajo carga: con 5 s, un salto
+ * lento devolvía null y un lease legítimo se rechazaba en falso. */
+const WINDOWS_PARENT_LOOKUP_TIMEOUT_MS = 20_000;
+
 async function defaultParentPidOf(pid: number): Promise<number | null> {
   if (process.platform === 'linux') {
     try {
@@ -226,7 +229,7 @@ async function defaultParentPidOf(pid: number): Promise<number | null> {
       const { stdout } = await execFileAsync(
         'powershell.exe',
         ['-NoProfile', '-NonInteractive', '-Command', `(Get-CimInstance Win32_Process -Filter 'ProcessId=${pid}').ParentProcessId`],
-        { windowsHide: true, timeout: 5000 },
+        { windowsHide: true, timeout: WINDOWS_PARENT_LOOKUP_TIMEOUT_MS },
       );
       const value = Number(String(stdout).trim());
       return Number.isInteger(value) && value > 0 ? value : null;

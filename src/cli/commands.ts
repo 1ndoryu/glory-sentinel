@@ -4,7 +4,7 @@
  * el contrato público de '../../cli'. */
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { minimatch } from 'minimatch';
+import { Minimatch } from 'minimatch';
 import { analyzeDocument } from '../core/analyzeDocument';
 import { buildCoreConfig, validateSentinelConfig } from '../core/config';
 import { generarReporteMarkdown, CoreReportEntry } from '../core/report';
@@ -98,16 +98,24 @@ function normalizarRuta(ruta: string): string {
   return ruta.replace(/\\/g, '/');
 }
 
-function matchesAny(relativePath: string, patterns: string[]): boolean {
+/* minimatch(ruta, patron) re-parsea el patron en cada llamada; collectFiles evalua
+ * cada entrada del arbol, asi que los patrones se compilan una vez por lista. */
+function compilarPatrones(patterns: string[]): Minimatch[] {
+  return patterns.map(pattern => new Minimatch(pattern, { dot: true }));
+}
+
+function matchesAny(relativePath: string, matchers: Minimatch[]): boolean {
   const normalized = normalizarRuta(relativePath);
-  return patterns.some(pattern =>
-    minimatch(normalized, pattern, { dot: true }) ||
-    minimatch(`${normalized}/`, pattern, { dot: true })
+  return matchers.some(matcher =>
+    matcher.match(normalized) ||
+    matcher.match(`${normalized}/`)
   );
 }
 
 async function collectFiles(rootPath: string, config: CoreAnalysisConfig): Promise<string[]> {
   const files: string[] = [];
+  const excluir = compilarPatrones(config.excludePatterns);
+  const incluir = compilarPatrones(config.includePatterns);
 
   async function walk(currentPath: string): Promise<void> {
     const entries = await fs.readdir(currentPath, { withFileTypes: true });
@@ -116,7 +124,7 @@ async function collectFiles(rootPath: string, config: CoreAnalysisConfig): Promi
       const absolutePath = path.join(currentPath, entry.name);
       const relativePath = normalizarRuta(path.relative(rootPath, absolutePath));
 
-      if (matchesAny(relativePath, config.excludePatterns)) {
+      if (matchesAny(relativePath, excluir)) {
         continue;
       }
 
@@ -125,7 +133,7 @@ async function collectFiles(rootPath: string, config: CoreAnalysisConfig): Promi
         continue;
       }
 
-      if (entry.isFile() && matchesAny(relativePath, config.includePatterns)) {
+      if (entry.isFile() && matchesAny(relativePath, incluir)) {
         files.push(absolutePath);
       }
     }
@@ -160,6 +168,8 @@ async function collectFilesFromList(
 ): Promise<string[]> {
   const raw = await fs.readFile(path.resolve(listPath), 'utf8');
   const files = new Set<string>();
+  const excluir = compilarPatrones(config.excludePatterns);
+  const incluir = compilarPatrones(config.includePatterns);
 
   for (const line of raw.split(/\r?\n/)) {
     const candidate = line.trim();
@@ -171,7 +181,7 @@ async function collectFilesFromList(
     if (relativePath === '..' || relativePath.startsWith('../') || path.isAbsolute(relativePath)) {
       throw new Error(`--files-from contiene una ruta fuera del workspace: ${candidate}`);
     }
-    if (!matchesAny(relativePath, config.includePatterns) || matchesAny(relativePath, config.excludePatterns)) {
+    if (!matchesAny(relativePath, incluir) || matchesAny(relativePath, excluir)) {
       continue;
     }
     const stat = await fs.stat(absolutePath);

@@ -1,6 +1,23 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
+## [0.7.20] - 2026-10-10
+
+### Falsos positivos, rendimiento y SOLID (08AA-26, 10AA-1)
+
+- Falsos positivos corregidos sin cambiar severidades ni formato de salida:
+  `ruta-post`, `path-join`, `key-index`, `promise-lazy-multilinea`,
+  `mixed-barrel` (alias único) y `large-interface` (DTO), más
+  `sqlite-carga` y `directorio-abarrotado`. Cada corrección lleva tests de
+  regresión.
+- Rendimiento del análisis estático: el texto se parte una vez por documento,
+  `sentinel-disable-file` se cachea por documento, `collectFiles` compila los
+  patrones include/exclude una vez y `ejecutarReglaPorLinea` compila el RegExp
+  y las marcas una vez por regla.
+- SOLID: extraído el catálogo UI de `reactComponentRules` a `reactUiCatalog`.
+- Seguridad: `brace-expansion` 1.1.18→1.1.21 y 5.0.9→5.0.12 (transitivos de
+  eslint/rimraf); `npm audit` pasa de 1 a 0 vulnerabilidades.
+
 ## [0.7.19] - 2026-10-07
 
 ### Robustez del harness (07AA-10): teardown resiliente en la matriz de shells
