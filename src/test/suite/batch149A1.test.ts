@@ -205,6 +205,55 @@ suite('[149A-1] ruta-post-sin-rate-limit', () => {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  test('[10AA-10] no dispara si un enrutador ancestro aplica rate_limit (caso MN handlers/marketplace)', () => {
+    const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-rl-anc-'));
+    try {
+      const handlers = path.join(raiz, 'handlers');
+      fs.mkdirSync(path.join(handlers, 'cuentas'), { recursive: true });
+      fs.mkdirSync(path.join(handlers, 'marketplace'), { recursive: true });
+      fs.writeFileSync(path.join(handlers, 'cuentas', 'rate_limit.rs'), 'pub struct LimitadorTasa;\n');
+      fs.writeFileSync(path.join(handlers, 'mod.rs'), [
+        'pub mod cuentas;',
+        'pub mod marketplace;',
+        'fn enrutador() {',
+        '  Router::new().layer(from_fn_with_state(cuentas::rate_limit::LimitadorTasa::default(), cuentas::rate_limit::capa_limite));',
+        '}',
+      ].join('\n'));
+      const findings = analyzeRustDoc([
+        'fn rutas() {',
+        '  app.route("/api/x", post(crear));',
+        '}',
+      ].join('\n'), path.join(handlers, 'marketplace', 'mod.rs'));
+      assert.strictEqual(contar('ruta-post-sin-rate-limit', findings), 0);
+    } finally {
+      fs.rmSync(raiz, { recursive: true, force: true });
+    }
+  });
+
+  test('[10AA-10] sigue disparando si el enrutador que aplica rate_limit es hermano, no ancestro', () => {
+    const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-rl-hermano-'));
+    try {
+      const handlers = path.join(raiz, 'handlers');
+      fs.mkdirSync(path.join(handlers, 'cuentas'), { recursive: true });
+      fs.mkdirSync(path.join(handlers, 'marketplace'), { recursive: true });
+      fs.writeFileSync(path.join(handlers, 'cuentas', 'rate_limit.rs'), 'pub struct LimitadorTasa;\n');
+      fs.writeFileSync(path.join(handlers, 'cuentas', 'mod.rs'), [
+        'mod rate_limit;',
+        'fn enrutador() {',
+        '  Router::new().layer(from_fn_with_state(rate_limit::LimitadorTasa::default(), rate_limit::capa_limite));',
+        '}',
+      ].join('\n'));
+      const findings = analyzeRustDoc([
+        'fn rutas() {',
+        '  app.route("/api/x", post(crear));',
+        '}',
+      ].join('\n'), path.join(handlers, 'marketplace', 'mod.rs'));
+      assert.strictEqual(contar('ruta-post-sin-rate-limit', findings), 1);
+    } finally {
+      fs.rmSync(raiz, { recursive: true, force: true });
+    }
+  });
 });
 
 suite('[149A-1] path-join-sin-canonicalize', () => {

@@ -632,10 +632,9 @@ export function detectarSecretoEnLog(
  * Supuesto documentado: stack axum + tower_governor. Exenciones (en orden):
  * 1) el fichero menciona governor/RateLimit/rate_limit/tower::limit;
  * 2) el Cargo.toml del proyecto declara governor (cache por directorio);
- * 3) [08AA-26] el directorio del fichero trae un modulo `rate_limit`
- *    cableado (se usa `rate_limit::` dentro de una capa tower en un
- *    fichero enrutador hermano): el fichero de rutas no necesita
- *    mencionar el limite para estar cubierto.
+ * 3) [08AA-26][10AA-10] un enrutador del fichero o de un directorio ancestro
+ *    (hasta la raiz del crate) aplica `rate_limit::` dentro de una capa
+ *    tower: el fichero de rutas no necesita mencionar el limite.
  * Sin evidencia se flaggea: el fallo abierto por defecto es peor que el FP,
  * y el waiver es sentinel-disable-file. */
 const PATRON_POST_ROUTE = /\.route\s*\(\s*"[^"]*"\s*,\s*[^)]*?\bpost\s*\(/;
@@ -665,42 +664,66 @@ function proyectoConRateLimit(texto: string, rutaArchivo?: string): boolean {
     if (padre === dir) { break; }
     dir = padre;
   }
-  /* [08AA-26] (3) modulo rate_limit cableado junto al fichero: el limite
-   * vive como capa del enrutador, no como mencion en cada fichero. */
+  /* [08AA-26] (3) limite cableado como capa de un enrutador ancestro: vive en
+   * el router, no como mencion en cada fichero. */
   if (!resultado) {
-    resultado = directorioConRateLimitCableado(dirInicio);
+    resultado = rateLimitCableadoEnAncestro(dirInicio);
   }
   cacheRateLimitToml.set(dirInicio, resultado);
   return resultado;
 }
 
-/* [08AA-26] Existe `<dir>/rate_limit.rs` (o `rate_limit/mod.rs`) Y un
- * fichero enrutador hermano (`mod.rs`/`main.rs`/`lib.rs`/`web.rs`) lo usa
- * (`rate_limit::`) dentro de una capa tower (`from_fn`/`GovernorLayer`).
- * Exige uso real: un `mod rate_limit;` muerto (declarado pero sin
- * `rate_limit::` ni capa) NO exime. Caso MN `src/handlers/` 2026-10-08:
- * 21 rutas POST marcadas con el limite aplicado globalmente via
- * `from_fn_with_state(capa_limite)` en `mod.rs`. Fail-closed sin
- * `rutaArchivo` o sin fs legible. */
-function directorioConRateLimitCableado(dir: string): boolean {
-  try {
-    const normalizado = dir.replace(/\\/g, '/');
-    const tieneModulo = fs.existsSync(path.join(normalizado, 'rate_limit.rs')) ||
-      fs.existsSync(path.join(normalizado, 'rate_limit', 'mod.rs'));
-    if (!tieneModulo) { return false; }
-    for (const candidato of ['mod.rs', 'main.rs', 'lib.rs', 'web.rs']) {
-      let contenido = '';
-      try {
-        contenido = fs.readFileSync(path.join(normalizado, candidato), 'utf8');
-      } catch {
-        continue;
-      }
-      if (/rate_limit::/.test(contenido) && /from_fn|GovernorLayer/.test(contenido)) { return true; }
-    }
-  } catch {
-    /* fs ilegible: sin evidencia, sin exencion */
+/* [08AA-26][10AA-10] Sube desde el directorio del fichero (hasta 4 niveles y
+ * sin pasar del dir con Cargo.toml) buscando un enrutador que aplique el
+ * limite: `rate_limit::` + `from_fn`/`GovernorLayer` en mod/main/lib/web.rs.
+ * Exige que exista el modulo `rate_limit` en ese ancestro o bajo el: el
+ * limitador puede vivir en un hermano (handlers/cuentas/rate_limit.rs) y
+ * cablearse en handlers/mod.rs. Caso MN src/handlers/ 2026-10-08: 21 rutas
+ * POST marcadas con el limite aplicado globalmente via
+ * from_fn_with_state(capa_limite). Un enrutador hermano NO exime: su capa no
+ * cubre el subarbol ajeno. Un `mod rate_limit;` muerto (sin uso ni capa)
+ * tampoco. Fail-closed sin evidencia. */
+function rateLimitCableadoEnAncestro(dirInicio: string): boolean {
+  let dir = dirInicio.replace(/\\/g, '/');
+  for (let nivel = 0; nivel < 4; nivel++) {
+    if (enrutadorAplicaRateLimit(dir) && existeModuloRateLimit(dir, 3)) { return true; }
+    if (fs.existsSync(path.join(dir, 'Cargo.toml'))) { break; }
+    const padre = path.dirname(dir);
+    if (padre === dir) { break; }
+    dir = padre;
   }
   return false;
+}
+
+function enrutadorAplicaRateLimit(dir: string): boolean {
+  for (const candidato of ['mod.rs', 'main.rs', 'lib.rs', 'web.rs']) {
+    let contenido = '';
+    try {
+      contenido = fs.readFileSync(path.join(dir, candidato), 'utf8');
+    } catch {
+      continue;
+    }
+    if (/rate_limit::/.test(contenido) && /from_fn|GovernorLayer/.test(contenido)) { return true; }
+  }
+  return false;
+}
+
+/* Omite artefactos grandes para no recorrer target/ ni node_modules/ al
+ * buscar el modulo bajo la raiz del crate. */
+const DIRS_OMITIDOS_RL = new Set(['target', 'node_modules', '.git', 'dist', 'out']);
+
+function existeModuloRateLimit(dir: string, profundidad: number): boolean {
+  if (fs.existsSync(path.join(dir, 'rate_limit.rs')) || fs.existsSync(path.join(dir, 'rate_limit', 'mod.rs'))) { return true; }
+  if (profundidad <= 0) { return false; }
+  let entradas: fs.Dirent[] = [];
+  try {
+    entradas = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return false;
+  }
+  return entradas.some(e =>
+    e.isDirectory() && !DIRS_OMITIDOS_RL.has(e.name) &&
+    existeModuloRateLimit(path.join(dir, e.name), profundidad - 1));
 }
 
 export function detectarPostSinRateLimit(
