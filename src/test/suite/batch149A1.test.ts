@@ -330,6 +330,122 @@ suite('[149A-1] sqlite-carga-N-consultas', () => {
     ].join('\n'));
     assert.strictEqual(contar('sqlite-carga-N-consultas', findings), 1);
   });
+
+  test('[sqlite-carga] no suma awaits de ramas excluyentes (if/else y match)', () => {
+    const findings = analyzeRustDoc([
+      'async fn ramas(db: &Db, c: bool, modo: u8) {',
+      '  if c {',
+      '    let a = db.a().await;',
+      '    let _ = a;',
+      '  } else {',
+      '    let b = db.b().await;',
+      '    let _ = b;',
+      '  }',
+      '  match modo {',
+      '    1 => { db.x().await; }',
+      '    _ => { db.y().await; }',
+      '  }',
+      '}',
+    ].join('\n'));
+    /* Cuatro awaits en total, pero el camino mas largo tiene 2 (a + x). */
+    assert.strictEqual(contar('sqlite-carga-N-consultas', findings), 0);
+  });
+
+  test('[sqlite-carga] dos if con condiciones complementarias no suman (caso rest_messages.rs:291)', () => {
+    const findings = analyzeRustDoc([
+      'async fn mensaje(db: &Db, sender: &str, admin: bool) {',
+      '  if admin && !sender.eq("client") {',
+      '    let a = db.a().await;',
+      '    let _ = a;',
+      '  }',
+      '  if sender == "client" {',
+      '    let b = db.b().await;',
+      '    let c = db.c().await;',
+      '    let _ = (b, c);',
+      '  }',
+      '}',
+    ].join('\n'));
+    /* Total 3, pero ningun camino corre a la vez con b y c: maximo 2. */
+    assert.strictEqual(contar('sqlite-carga-N-consultas', findings), 0);
+  });
+
+  test('[sqlite-carga] dos if con condiciones NO complementarias sí suman (control)', () => {
+    const findings = analyzeRustDoc([
+      'async fn mensaje(db: &Db, sender: &str, admin: bool) {',
+      '  if admin && !sender.eq("client") {',
+      '    let a = db.a().await;',
+      '    let _ = a;',
+      '  }',
+      '  if sender == "admin" {',
+      '    let b = db.b().await;',
+      '    let c = db.c().await;',
+      '    let _ = (b, c);',
+      '  }',
+      '}',
+    ].join('\n'));
+    assert.strictEqual(contar('sqlite-carga-N-consultas', findings), 1);
+  });
+
+  test('[sqlite-carga] una rama con 3 awaits sí dispara aunque la otra tenga 1', () => {
+    const findings = analyzeRustDoc([
+      'async fn ramas(db: &Db, c: bool) {',
+      '  if c {',
+      '    let a = db.a().await;',
+      '    let _ = a;',
+      '  } else {',
+      '    let b = db.b().await;',
+      '    let d = db.d().await;',
+      '    let e = db.e().await;',
+      '    let _ = (b, d, e);',
+      '  }',
+      '}',
+    ].join('\n'));
+    assert.strictEqual(contar('sqlite-carga-N-consultas', findings), 1);
+  });
+
+  test('[sqlite-carga] no dispara con awaits que usan el resultado de un await previo', () => {
+    const findings = analyzeRustDoc([
+      'async fn dependientes(db: &Db) {',
+      '  let epoch = db.epoch().await?;',
+      '  let a = db.a(epoch).await?;',
+      '  let b = db.b(epoch).await?;',
+      '  let _ = (a, b);',
+      '}',
+    ].join('\n'));
+    assert.strictEqual(contar('sqlite-carga-N-consultas', findings), 0);
+  });
+
+  test('[sqlite-carga] queries sobre &mut *tx no cuentan (join! no compila sobre una transaccion)', () => {
+    const findings = analyzeRustDoc([
+      'async fn tx(pool: &Pool) {',
+      '  let mut tx = pool.begin().await?;',
+      '  sqlx::query("a").execute(&mut *tx).await?;',
+      '  sqlx::query("b").execute(&mut *tx).await?;',
+      '  sqlx::query("c").execute(&mut *tx).await?;',
+      '  tx.commit().await?;',
+      '}',
+    ].join('\n'));
+    assert.strictEqual(contar('sqlite-carga-N-consultas', findings), 0);
+  });
+
+  test('[sqlite-carga] el await del encabezado if-let cuenta; el aviso de su cuerpo no (caso NAKOMI rest_messages.rs)', () => {
+    const findings = analyzeRustDoc([
+      'async fn enviar(db: &Db, hub: &Hub) {',
+      '  let a = db.a().await?;',
+      '  let b = db.b().await?;',
+      '  if let Ok(ids) = repositories::admin_ids(&db.pool).await {',
+      '    for id in ids {',
+      '      hub.send_unread_count(id).await;',
+      '    }',
+      '  }',
+      '  let _ = (a, b);',
+      '}',
+    ].join('\n'));
+    const v = findings.filter(f => f.reglaId === 'sqlite-carga-N-consultas');
+    assert.strictEqual(v.length, 1, 'la consulta del encabezado es la tercera');
+    assert.strictEqual(v[0].linea, 3, 'el aviso va en el encabezado, no en el send del cuerpo');
+  });
+
 });
 
 suite('[149A-1] clone-bajo-lock-rs', () => {

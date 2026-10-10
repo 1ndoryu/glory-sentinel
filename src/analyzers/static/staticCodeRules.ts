@@ -342,9 +342,10 @@ export function verificarDirectorioAbarrotado(
   const directorio = partes.join('/');
   const nombreDirectorio = partes[partes.length - 1] || '';
 
-  /* Excluir directorios de infraestructura */
+  /* Excluir directorios de infraestructura. [por que] dist-server es la salida de build del backend
+   * (dist-server/server/tareas/...): se mira cualquier segmento ancestro, no solo el directorio inmediato. */
   const dirExcluidos = ['node_modules', 'target', '.git', 'dist', 'build', '.sqlx', 'completados'];
-  if (dirExcluidos.includes(nombreDirectorio)) {
+  if (dirExcluidos.includes(nombreDirectorio) || partes.includes('dist-server')) {
     return [];
   }
 

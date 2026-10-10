@@ -56,6 +56,21 @@ suite('directorioAbarrotado (filtro no-codigo)', () => {
     }
   });
 
+  test('ignora dist-server en cualquier nivel (salida de build, como dist)', () => {
+    /* [por que] Temporal bajo C:/tmp (AGENTS.md §0.2), no %TEMP%. */
+    const base = fs.mkdtempSync('C:/tmp/sentinel-dist-server-');
+    const dir = path.join(base, 'dist-server', 'server', 'tareas');
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      for (let i = 0; i < 12; i++) { fs.writeFileSync(path.join(dir, `mod${i}.js`), 'export {};\n'); }
+      invalidarCacheDirectorios();
+      const doc = crearDocumentoEn(dir, 'mod0.js');
+      assert.strictEqual(verificarDirectorioAbarrotado(doc).length, 0, 'dist-server no debe contar');
+    } finally {
+      fs.rmSync(base, { recursive: true, force: true });
+    }
+  });
+
   test('dispara cuando hay mas de 10 archivos de codigo reales', () => {
     const dir = crearDirTemporal('muchocodigo');
     try {
