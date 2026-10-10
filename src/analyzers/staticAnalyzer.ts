@@ -351,7 +351,7 @@ function ejecutarReglaPorLinea(
     const comentarios = regla.id === 'inline-style-prohibido' ? rangosComentados(lineas) : null;
     /* [08AA-26] Archivo entero de solo-test (#![cfg(test)] o tests/ del crate): no hay produccion que vigilar. */
     if (REGLAS_SQL_SOLO_PRODUCCION.has(regla.id) && documento.fileName.endsWith('.rs')
-        && (esArchivoSoloTest(texto) || RUTA_TESTS_CRATE.test(documento.fileName))) {
+        && (esArchivoSoloTest(lineas.join('\n')) || RUTA_TESTS_CRATE.test(documento.fileName))) {
         return violaciones;
     }
     const enTest = REGLAS_SQL_SOLO_PRODUCCION.has(regla.id) && documento.fileName.endsWith('.rs')
