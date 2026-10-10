@@ -95,8 +95,15 @@ suite('289A-1 todo-prosa-sin-marcador: guardas prosa española', () => {
     assert.strictEqual(verificar('// aceptar todo o nada').length, 0);
   });
 
+  test('todo seguido de verbo cuantificador (queda/va/es) no marca', () => {
+    /* Falso positivo real: services/marketplace.rs "...todo queda `false`". */
+    assert.strictEqual(verificar('/// Si falla, todo queda `false` (el panel jamas se bloquea).').length, 0);
+    assert.strictEqual(verificar('// si no, todo es nulo').length, 0);
+  });
+
   test('TODO en mayusculas seguido de y sigue marcando (taquigrafia de tarea)', () => {
     assert.strictEqual(verificar('// TODO y migrar a roadmap').length, 1);
+    assert.strictEqual(verificar('// TODO queda por revisar').length, 1);
   });
 
   test('compuesto con guion no marca', () => {
