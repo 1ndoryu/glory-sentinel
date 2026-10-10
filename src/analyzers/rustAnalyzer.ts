@@ -64,7 +64,7 @@ export function analizarRust(documento: CoreTextDocument): Violacion[] {
 
   /* Paso 3: Handler accede BD (solo para archivos en handlers/) */
   if (reglaHabilitada('handler-accede-bd-rs') && rutaNorm.includes('/handlers/')) {
-    violaciones.push(...detectarHandlerAccedeBd(lineas, texto));
+    violaciones.push(...detectarHandlerAccedeBd(lineas, rangoTests, texto));
   }
 
   /* Paso 4: Funciones largas y parametros excesivos */
@@ -242,8 +242,12 @@ function detectarPanic(
 }
 
 /* Detecta sqlx::query directo en archivos de handlers/ (viola DIP) */
+/* El DIP aplica a codigo de produccion: el SQL de fixtures dentro de
+ * #[cfg(test)] (p. ej. mod pruebas al final de un handler) no es un handler
+ * accediendo a BD. Mismo criterio que unwrap/panic (rangoTests). */
 function detectarHandlerAccedeBd(
   lineas: string[],
+  rangoTests: Set<number>,
   texto: string,
 ): Violacion[] {
   if (texto.includes('sentinel-disable-file handler-accede-bd-rs')) {
@@ -256,6 +260,10 @@ function detectarHandlerAccedeBd(
   for (let i = 0; i < lineas.length; i++) {
     const linea = lineas[i];
     const trimmed = linea.trim();
+
+    if (rangoTests.has(i)) {
+      continue;
+    }
 
     if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) {
       continue;
