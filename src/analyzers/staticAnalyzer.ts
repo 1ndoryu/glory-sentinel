@@ -342,13 +342,19 @@ function ejecutarReglaPorLinea(
      * comportamiento que necesita su propio caso y su propia medicion. */
     const comentarios = regla.id === 'inline-style-prohibido' ? rangosComentados(lineas) : null;
 
+    /* Se compilan una vez por regla, no por linea. Sin 'g' el RegExp no guarda
+     * estado entre llamadas, asi que reutilizarlo equivale a crearlo en cada linea. */
+    const patron = new RegExp(regla.patron.source, regla.patron.flags.replace('g', ''));
+    const marcaSiguienteLinea = `sentinel-disable-next-line ${regla.id}`;
+    const marcaLinea = `sentinel-disable ${regla.id}`;
+
     for (let i = 0; i < lineas.length; i++) {
         const linea = lineas[i];
 
-        if (i > 0 && lineas[i - 1].includes(`sentinel-disable-next-line ${regla.id}`)) {
+        if (i > 0 && lineas[i - 1].includes(marcaSiguienteLinea)) {
             continue;
         }
-        if (linea.includes(`sentinel-disable ${regla.id}`)) {
+        if (linea.includes(marcaLinea)) {
             continue;
         }
 
@@ -372,13 +378,11 @@ function ejecutarReglaPorLinea(
             const sinStrings = linea.replace(/(['"`])(?:(?!\1|\\).|\\.)*\1/g, '');
             /* Quitar comentarios inline restantes */
             const sinContexto = sinStrings.replace(/\/\*.*?\*\//g, '').replace(/\/\/.*$/g, '');
-            const patronLocal = new RegExp(regla.patron.source, regla.patron.flags.replace('g', ''));
-            if (!patronLocal.test(sinContexto)) {
+            if (!patron.test(sinContexto)) {
                 continue;
             }
         }
 
-        const patron = new RegExp(regla.patron.source, regla.patron.flags.replace('g', ''));
         const match = patron.exec(linea);
 
         if (match) {
