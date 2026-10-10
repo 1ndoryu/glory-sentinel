@@ -23,6 +23,8 @@ let stdout = '';
 let stderr = '';
 let done = false;
 
+// Arranque en frío de node + sentinel-lsp: ~1-2 s en reposo; con carga
+// (suite completa en paralelo) superó 5 s y dio falso fallo (2026-10-10).
 const timeout = setTimeout(() => {
   if (done) {
     return;
@@ -32,7 +34,7 @@ const timeout = setTimeout(() => {
   child.kill();
   console.error(stdout || stderr || '[smoke-lsp-stdio] No output from sentinel-lsp');
   process.exit(1);
-}, 5000);
+}, 20000);
 
 child.stdout.on('data', chunk => {
   stdout += chunk.toString('utf8');

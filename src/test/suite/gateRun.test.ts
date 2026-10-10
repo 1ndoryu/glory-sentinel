@@ -77,8 +77,9 @@ suite('Sentinel core gate run (orquestador agnóstico)', () => {
 
   test('real-run serializa la identidad de política v2 en el reporte', async function () {
     /* Alineado con .mocharc.json: un override por debajo del default del
-     * runner lo endurece en silencio (039A-1). */
-    this.timeout(60_000);
+     * runner lo endurece en silencio (039A-1). Los real-run tardan 10-50 s
+     * con carga (fallo del 2026-10-10); 60 s no daba margen. */
+    this.timeout(180_000);
     const root = gitRepo();
     try {
       fs.writeFileSync(path.join(root, 'sentinel.config.json'), JSON.stringify({
