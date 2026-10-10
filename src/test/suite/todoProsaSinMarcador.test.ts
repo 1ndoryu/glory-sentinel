@@ -89,6 +89,16 @@ suite('289A-1 todo-prosa-sin-marcador: guardas prosa española', () => {
     assert.strictEqual(verificar('// re-parsear todo.').length, 0);
   });
 
+  test('todo seguido de conjuncion y/o (cuantificador) no marca', () => {
+    /* Falso positivo real: services/marketplace.rs "se descarta todo y va el minimo". */
+    assert.strictEqual(verificar('/// P1 trae precio; se descarta todo y va el minimo.').length, 0);
+    assert.strictEqual(verificar('// aceptar todo o nada').length, 0);
+  });
+
+  test('TODO en mayusculas seguido de y sigue marcando (taquigrafia de tarea)', () => {
+    assert.strictEqual(verificar('// TODO y migrar a roadmap').length, 1);
+  });
+
   test('compuesto con guion no marca', () => {
     assert.strictEqual(verificar('// ver el todo-list del sprint').length, 0);
   });

@@ -507,6 +507,9 @@ export function verificarHtmlSinOrigenDeclarado(
  */
 const PATRON_TODO_PROSA = /\btodo\b/gi;
 const ARTICULOS_PROSA = new Set(['el', 'la', 'los', 'las', 'lo']);
+/* "todo y/o …" en minusculas es el cuantificador ("se descarta todo y va el
+ * minimo"); TODO en mayusculas sigue siendo taquigrafia de tarea. */
+const CONJUNCIONES_CUANTIFICADOR = new Set(['y', 'o']);
 
 function extraerRegionesComentarioTodoProsa(texto: string): Array<{ inicio: number; fin: number }> {
   const regiones: Array<{ inicio: number; fin: number }> = [];
@@ -588,6 +591,9 @@ function esTodoProsaSinMarcador(textoComentario: string, indice: number, forma: 
     k++;
   }
   if (ARTICULOS_PROSA.has(palabra.toLowerCase())) {
+    return false;
+  }
+  if (forma !== 'TODO' && CONJUNCIONES_CUANTIFICADOR.has(palabra.toLowerCase())) {
     return false;
   }
 
