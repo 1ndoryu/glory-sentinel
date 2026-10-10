@@ -15,6 +15,7 @@ import { obtenerWorkspaceRoots } from '../core/workspaceRoots';
 import {REGLAS_LIMITE_LINEAS, verificarLimiteLineas, verificarUseStateExcesivo, verificarImportsMuertos, verificarAnyType, verificarNonNullAssertion, verificarDirectorioAbarrotado, verificarHtmlSinOrigenDeclarado, verificarTodoProsaSinMarcador} from './static/staticCodeRules';
 import {verificarCardIconoExtiendeBase, verificarCssAdhocButtonStyle, verificarCssEspecificacionDisenoLocal, verificarModalSemanticaNoCanonica, verificarNomenclaturaCssIngles, verificarCssElementoHTMLDirecto, verificarCssHardcoded} from './static/staticCssRules';
 import { PortableBoundaryConfig, verificarReglasPortables } from './static/portableRules';
+import { calcularRangosTest } from './rustTestScope';
 
 /* [124A-FP1] Deduplicacion de directorio-abarrotado: se reporta 1 vez por
  * directorio por ciclo de analisis, en vez de 1 vez por archivo.
@@ -314,6 +315,11 @@ function enComentario(rangos: Array<[number, number]>, columna: number): boolean
     return rangos.some(([inicio, fin]) => columna >= inicio && columna < fin);
 }
 
+/* [08AA-26] Reglas sqlx que no aplican al SQL de fixtures dentro de #[cfg(test)]:
+ * el sqlx::query runtime es el habitual en tests y la verificacion compile-time
+ * solo importa en produccion. Mismo criterio que handler-accede-bd-rs. */
+const REGLAS_SQL_SOLO_PRODUCCION = new Set(['sqlx-query-sin-macro', 'sqlx-query-as-sin-macro']);
+
 /*
  * Ejecuta una regla regex linea por linea.
  */
@@ -330,6 +336,9 @@ function ejecutarReglaPorLinea(texto: string, regla: ReglaEstatica, documento: C
      * se reviso y midio. Generalizarlo al resto de reglas es un cambio de
      * comportamiento que necesita su propio caso y su propia medicion. */
     const comentarios = regla.id === 'inline-style-prohibido' ? rangosComentados(lineas) : null;
+    const enTest = REGLAS_SQL_SOLO_PRODUCCION.has(regla.id) && documento.fileName.endsWith('.rs')
+        ? calcularRangosTest(lineas)
+        : null;
 
     for (let i = 0; i < lineas.length; i++) {
         const linea = lineas[i];
@@ -338,6 +347,9 @@ function ejecutarReglaPorLinea(texto: string, regla: ReglaEstatica, documento: C
             continue;
         }
         if (linea.includes(`sentinel-disable ${regla.id}`)) {
+            continue;
+        }
+        if (enTest?.has(i)) {
             continue;
         }
 
