@@ -1,6 +1,14 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
+## [0.7.22] - 2026-10-10
+
+### Exención de rate_limit por enrutador ancestro (10AA-10)
+
+- `ruta-post-sin-rate-limit` reconoce el `rate_limit` aplicado en la capa de un enrutador ancestro (p. ej. `handlers/mod.rs` para `handlers/marketplace/*`). Corrige 21 falsos positivos de MN-Inmobiliaria tras reorganizar los handlers.
+- La exención no acepta un enrutador hermano sin limitador: la regla sigue disparando.
+- Tests de regresión para ambos casos.
+
 ## [0.7.21] - 2026-10-10
 
 ### Hook de archivos kebab-case y helpers de módulo (08AA-26)
