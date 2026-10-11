@@ -76,6 +76,27 @@ suite('Sentinel core runtimeInstall (contrato de actualización)', () => {
     }
   });
 
+  test('reinstalar la misma versión con otro artefacto actualiza el sha en current.json', async () => {
+    const source = makeSource('1.6.0');
+    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-runtime-resha-'));
+    try {
+      const first = await installRuntime({ sourceRoot: source, targetRoot: target });
+      /* [10AA-2] Regresión: current.json conservaba el sha antiguo si la versión
+       * no cambiaba, aunque el artefacto instalado sí. */
+      fs.writeFileSync(path.join(source, 'out', 'cli', 'index.js'), `console.log('rebuilt');\n`, 'utf8');
+      const refresh = await installRuntime({ sourceRoot: source, targetRoot: target });
+      assert.notStrictEqual(refresh.artifactSha256, first.artifactSha256, 'el artefacto cambió');
+      assert.strictEqual(refresh.changedCurrent, true);
+      const current = JSON.parse(fs.readFileSync(path.join(target, 'current.json'), 'utf8')) as { version?: string; artifactSha256?: string };
+      assert.strictEqual(current.version, '1.6.0');
+      assert.strictEqual(current.artifactSha256, refresh.artifactSha256);
+      assert.strictEqual((await runtimeStatus({ targetRoot: target })).activeVerified, true);
+    } finally {
+      fs.rmSync(source, { recursive: true, force: true });
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+  });
+
   test('update a nueva versión conserva la anterior para rollback', async () => {
     const sourceV1 = makeSource('1.0.0');
     const sourceV2 = makeSource('1.1.0');
