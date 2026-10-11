@@ -12,6 +12,7 @@ import { readV2GuardPolicy, GuardPolicy } from './guardCommand';
 import { runtimeStatus, RuntimeStatusResult } from './runtimeInstall';
 import { keyPresent, listLeases } from './lease';
 import { resolveShimWinners, formatShims, DiagnoseShimEntry } from './shimDiagnostics';
+import { avisosDeCobertura, avisosDeRuntime } from './diagnoseAvisos';
 
 const execFileAsync = promisify(execFile);
 
@@ -72,6 +73,12 @@ export interface DiagnoseIssue {
   tool?: string;
 }
 
+/* [10AA-2 F11.2] Aviso: informa sin bloquear el preflight (a diferencia de issues). */
+export interface DiagnoseAviso {
+  code: string;
+  message: string;
+}
+
 export interface DiagnoseScheduler {
   targetBase: string;
   guardRoot: string;
@@ -99,6 +106,7 @@ export interface DiagnoseResult {
   tools: Record<string, DiagnoseTool>;
   shims: Record<string, DiagnoseShimEntry>;
   issues: DiagnoseIssue[];
+  avisos: DiagnoseAviso[];
   ready: boolean;
   /* [108A-1 Fase 1] Readiness separada: readyForAnalyze (el analizador puede
    * correr en esta carpeta) vs readyForGate (el quality gate puede ejecutarse:
@@ -449,8 +457,10 @@ export async function diagnoseWorkspace(workspace: string): Promise<DiagnoseResu
   const foundRoot = await findQualityRoot(workspace);
   const root = foundRoot && hasQualityMarker(foundRoot) ? foundRoot : null;
   let policy: DiagnosePolicy = { status: 'no-policy', mode: null, policyPath: null, policyHash: null };
+  let guardPolicy: GuardPolicy = { status: 'no-policy' };
   if (root) {
     const discovered = readV2GuardPolicy(root);
+    guardPolicy = discovered;
     policy = {
       status: discovered.status,
       mode: discovered.mode ?? null,
@@ -512,6 +522,7 @@ export async function diagnoseWorkspace(workspace: string): Promise<DiagnoseResu
     tools,
     shims: resolveShimWinners(),
     issues,
+    avisos: [...avisosDeCobertura(guardPolicy), ...avisosDeRuntime(runtime)],
     ready: readyForAnalyze,
     readyForAnalyze,
     readyForGate,
@@ -557,6 +568,7 @@ export function formatDiagnose(result: DiagnoseResult): string {
     lines.push(`  ${tool.name}: source ${tool.sourcePresent ? 'ok' : 'missing'} - cli ${tool.cliPresent ? 'ok' : 'missing'} - version ${tool.cliVersion ?? 'failed'} - checkout ${tool.checkoutCommit?.slice(0, 8) ?? 'n/a'}${tool.checkoutDirty ? ' - DIRTY' : ''}${gitlinkText}${dependencyText}${capabilityText}${releaseText}`);
   }
   for (const issue of result.issues) lines.push(`ERROR ${issue.code}: ${issue.message}`);
+  for (const aviso of result.avisos) lines.push(`AVISO ${aviso.code}: ${aviso.message}`);
   lines.push('');
   lines.push(formatShims(result.shims));
   return lines.join('\n');
