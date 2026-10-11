@@ -10,11 +10,7 @@ import { buildCoreConfig, validateSentinelConfig } from '../core/config';
 import { generarReporteMarkdown, CoreReportEntry } from '../core/report';
 import { CoreAnalysisConfig, createCoreDocument } from '../core/types';
 import { languageIdForFile } from '../core/language';
-import {
-  formatBlockMessage,
-  inspectDirectCommand,
-  QUALITY_GUARD_EXIT_CODE,
-} from '../core/guardCommand';
+import { runGuardCommand } from '../core/guardEntry';
 import { diagnoseWorkspace, formatDiagnose, formatStatus } from '../core/diagnose';
 import { formatShims } from '../core/shimDiagnostics';
 import { runCheck, CheckRunResult } from '../core/gateRun';
@@ -290,18 +286,13 @@ export async function checkCliTarget(args: ParsedCliArgs): Promise<CheckRunResul
 }
 
 export async function guardCliTarget(args: ParsedCliArgs): Promise<number> {
-  const decision = await inspectDirectCommand({
+  return runGuardCommand({
     executable: args.guardExecutable ?? '',
     args: args.guardArgs ?? [],
     cwd: args.workspacePath ?? process.cwd(),
     projectRoot: args.guardProjectRoot,
+    json: args.json,
   });
-  if (args.json) {
-    process.stdout.write(`${JSON.stringify(decision, null, 2)}\n`);
-  } else if (decision.blocked) {
-    process.stderr.write(`${formatBlockMessage(decision)}\n`);
-  }
-  return decision.blocked ? (decision.exitCode ?? QUALITY_GUARD_EXIT_CODE) : 0;
 }
 
 export async function installCliTarget(args: ParsedCliArgs): Promise<RuntimeInstallResult> {
