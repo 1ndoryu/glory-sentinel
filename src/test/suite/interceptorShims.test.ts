@@ -8,6 +8,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { spawnSync } from 'node:child_process';
 import {
   installPathEntry,
   shimsPathFor,
@@ -76,6 +77,31 @@ suite('Sentinel core interceptorShims (shims y perfiles)', () => {
     assert.ok(bash.includes('type -P "$name"'));
     assert.ok(bash.includes('BASH_ENV'));
     assert.ok(bash.includes('C:/Glory/Runtime') || bash.includes('C:\\\\Glory\\\\Runtime'));
+  });
+
+  test('guard bash sourceado con ruta Windows deriva el directorio sin error (regresión 10AA-2)', function () {
+    /* [10AA-2] `. 'C:\…'` deja BASH_SOURCE con \. Antes el directorio quedaba
+     * como el propio archivo y BASH_ENV apuntaba a "<archivo>/global-quality-guard.sh":
+     * "Not a directory" en cada shell. Git Bash explícito: el bash de WSL no sirve. */
+    const bashExe = 'C:\\Program Files\\Git\\bin\\bash.exe';
+    if (!fs.existsSync(bashExe)) {
+      this.skip();
+    }
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-src-'));
+    try {
+      const file = path.join(dir, 'global-quality-guard.sh');
+      fs.writeFileSync(file, generateBashGuard('C:\\Glory\\Runtime'));
+      const env = { ...process.env };
+      delete env.BASH_ENV;
+      const result = spawnSync(bashExe, ['-c', `. '${file.replace(/\//g, '\\')}' && printf '%s' "$GLORY_SENTINEL_GUARD_DIR"`], { encoding: 'utf8', env, windowsHide: true });
+      assert.strictEqual(result.stderr, '');
+      assert.strictEqual(result.stdout, dir.replace(/\\/g, '/'));
+      /* BASH_ENV heredado roto (ruta de archivo + /archivo): el shim lo reemplaza. */
+      const stale = spawnSync(bashExe, ['-c', `. '${file.replace(/\//g, '\\')}' && printf '%s' "$BASH_ENV"`], { encoding: 'utf8', env: { ...process.env, BASH_ENV: `${file}/global-quality-guard.sh` }, windowsHide: true });
+      assert.strictEqual(stale.stdout, file.replace(/\\/g, '/'));
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   test('guard PowerShell define funciones y llama al guard del runtime', () => {

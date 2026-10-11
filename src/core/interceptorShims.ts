@@ -166,8 +166,8 @@ export function generateBashGuard(targetRoot: string): string {
     '',
     'export GLORY_SENTINEL_GUARD_LOADED=1',
     '# [10AA-2] Sin subshells en el camino caliente: cada $(…) es un fork (~0,17 s en Git Bash).',
-    '# Con ruta absoluta el directorio se deriva sin cd.',
-    'glory_sentinel_src="${BASH_SOURCE[0]}"',
+    '# Con ruta absoluta el directorio se deriva sin cd; \ se pasa a / (`. \'C:\\…\'` deja BASH_SOURCE con \\).',
+    'glory_sentinel_src=${BASH_SOURCE[0]//\\\\//}',
     'GLORY_SENTINEL_GUARD_DIR="${glory_sentinel_src%/*}"',
     'case "$GLORY_SENTINEL_GUARD_DIR" in',
     '  /*|[A-Za-z]:*) ;;',
@@ -273,7 +273,7 @@ export function generateBashGuard(targetRoot: string): string {
     '# (sentinel doctor lo declara en SHIM_COVERAGE).',
     '',
     '# Los procesos bash hijos (no interactivos) cargan este guard vía BASH_ENV.',
-    'export BASH_ENV="${BASH_ENV:-${GLORY_SENTINEL_GUARD_DIR}/global-quality-guard.sh}"',
+    '[[ -f "${BASH_ENV:-}" ]] || export BASH_ENV="${GLORY_SENTINEL_GUARD_DIR}/global-quality-guard.sh"',
     '',
   ].join('\n');
 }
