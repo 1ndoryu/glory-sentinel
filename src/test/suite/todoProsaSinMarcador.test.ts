@@ -124,6 +124,12 @@ suite('289A-1 todo-prosa-sin-marcador: guardas prosa española', () => {
   });
 });
 
+suite('todo-prosa-sin-marcador: identificadores compuestos', () => {
+  test('no marca todo dentro de un kebab-case (evento regenerar-todo)', () => {
+    assert.strictEqual(verificar('// evento regenerar-todo registrado en el log').length, 0);
+  });
+});
+
 suite('289A-1 todo-prosa-sin-marcador: supresiones sentinel', () => {
   test('sentinel-disable-file silencia el archivo', () => {
     const v = verificar('// sentinel-disable-file todo-prosa-sin-marcador\n// todo revisar esto');

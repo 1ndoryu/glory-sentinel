@@ -568,8 +568,9 @@ function extraerRegionesComentarioTodoProsa(texto: string): Array<{ inicio: numb
 
 function esTodoProsaSinMarcador(textoComentario: string, indice: number, forma: string): boolean {
   const anterior = indice > 0 ? textoComentario[indice - 1] : '';
-  /* URL/ruta dentro del comentario (https://…/todo). */
-  if (anterior === '/') {
+  /* URL/ruta dentro del comentario (https://…/todo) o parte de un
+   * identificador kebab-case (evento regenerar-todo): no es prosa. */
+  if (anterior === '/' || anterior === '-') {
     return false;
   }
 
