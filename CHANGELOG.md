@@ -1,6 +1,13 @@
 # Changelog
 <!-- test de deteccion: 2026-02-20 -->
 
+## [Unreleased]
+
+### Supresiones de large-interface-isp
+
+- `large-interface-isp` ahora honra `// sentinel-disable-next-line large-interface-isp` y `sentinel-disable-file`. Antes la regla (portable) no comprobaba supresiones, así que el hint volvía en cada escaneo aunque el consumidor lo hubiera silenciado.
+- Test de regresión: la supresión inline y file-level callan el hint; la supresión de otra regla no.
+
 ## [0.7.23] - 2026-10-10
 
 ### Falsos positivos de ISP (large-interface-isp)

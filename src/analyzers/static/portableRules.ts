@@ -10,6 +10,7 @@
 import { CoreTextDocument } from '../../core/types';
 import { obtenerSeveridadRegla, reglaHabilitada } from '../../config/ruleRegistry';
 import { Violacion } from '../../types';
+import { tieneSentinelDisable, tieneSentinelDisableFile } from '../../utils/analisisHelpers';
 
 export interface PortableBoundaryConfig {
   dom?: string[];
@@ -154,7 +155,12 @@ export function verificarReglasPortables(
      * ClienteDuena en cliente-duena.ts) no imponen carga de implementacion;
      * contarlas daba falsos positivos. */
     if (metodos > 10) {
+      const lineas = text.split(/\r\n|\r|\n/);
       const line = text.slice(0, match.index ?? 0).split(/\r\n|\r|\n/).length - 1;
+      /* Honra `sentinel-disable-file` y `sentinel-disable-next-line` (contrato
+       * de CHANGELOG 0.7.x). Sin esto la supresion del consumidor no surtia
+       * efecto y el hint volvia en cada escaneo. */
+      if (tieneSentinelDisableFile(text, 'large-interface-isp') || tieneSentinelDisable(lineas, line, 'large-interface-isp')) continue;
       addFinding(findings, 'large-interface-isp', document, line,
         `Interface con ${metodos} metodos; puede violar ISP.`,
         'Divide el contrato en subinterfaces cohesivas.');

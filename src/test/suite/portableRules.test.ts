@@ -45,6 +45,18 @@ suite('Portable architecture rules', () => {
     assert.strictEqual(findings.some(finding => finding.reglaId === 'large-interface-isp'), false);
   });
 
+  /* La supresion documentada (inline en la linea anterior o file-level) debe
+   * callar el hint de ISP; una supresion de otra regla no. */
+  test('honors inline and file-level suppression of large-interface-isp', () => {
+    const methods = Array.from({ length: 11 }, (_, index) => `method${index}(input: string): void;`).join('\n');
+    const isp = (cabecera: string) => verificarReglasPortables(
+      documentFor('/workspace/src/service.ts', `${cabecera}\nexport interface Payload {\n${methods}\n}`),
+    ).some(finding => finding.reglaId === 'large-interface-isp');
+    assert.strictEqual(isp('// sentinel-disable-next-line large-interface-isp - motivo'), false);
+    assert.strictEqual(isp('/* sentinel-disable-file large-interface-isp: motivo */'), false);
+    assert.strictEqual(isp('// sentinel-disable-next-line otra-regla - motivo'), true);
+  });
+
   /* [08AA-26] Solo los metodos cuentan: 12 propiedades + 2 metodos no marcan. */
   test('ignores wide interfaces whose members are mostly data fields', () => {
     const fields = Array.from({ length: 12 }, (_, index) => `campo${index}: string;`).join('\n');
