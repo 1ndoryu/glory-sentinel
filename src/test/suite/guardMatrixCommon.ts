@@ -83,14 +83,19 @@ export async function writeSandboxRuntime(targetRoot: string, repoRoot: string):
 
 /* [028A-6] Env del hijo de la matriz: PATH con los shims al frente y sin
  * GlorySentinel ni scripts/quality del repo (la resolución del real debe ser
- * determinista: `where`/`type -P` excluye solo el shim del sandbox). */
+ * determinista: `where`/`type -P` excluye solo el shim del sandbox).
+ * [10AA-2] Sin BASH_ENV/ENV: el de la sesión apunta al guardián global y haría
+ * que el caso «bypass sin perfil» dependa del entorno del que ejecuta el test. */
 export function sandboxEnv(shimDir: string, base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   const clean = (base.PATH ?? '')
     .split(path.delimiter)
     .map(value => value.trim())
     .filter(Boolean)
     .filter(value => !/GlorySentinel/iu.test(value) && !/scripts[\\/]quality/iu.test(value));
-  return { ...base, PATH: [shimDir, ...clean].join(path.delimiter) };
+  const env: NodeJS.ProcessEnv = { ...base, PATH: [shimDir, ...clean].join(path.delimiter) };
+  delete env.BASH_ENV;
+  delete env.ENV;
+  return env;
 }
 
 export interface ShellRun {

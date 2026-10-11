@@ -30,7 +30,7 @@ suite('Sentinel core interceptorShims (shims y perfiles)', () => {
   test('shim cmd resuelve el ejecutable real excluyendo su propio path (sin recursión)', () => {
     const npm = generateCmdShim('npm', 'C:\\Glory\\Runtime');
     assert.ok(npm.includes('where node.exe 2^>nul'));
-    assert.ok(npm.includes('if not "%%~fI"=="%~dp0node.cmd"'));
+    assert.ok(!npm.includes('node.cmd'), 'el shim no referencia node.cmd: node no se envuelve');
     assert.ok(npm.includes('where npm.cmd 2^>nul'));
     assert.ok(npm.includes('if /I not "%%~fI"=="%~f0"'));
     assert.ok(npm.includes('GLORY_REAL_NPM'));
@@ -49,15 +49,6 @@ suite('Sentinel core interceptorShims (shims y perfiles)', () => {
     assert.ok(cargo.includes('\r\n'));
   });
 
-  test('shim cmd de node excluye el node.cmd propio y usa GLORY_REAL_NODE', () => {
-    const node = generateCmdShim('node', 'C:\\Glory\\Runtime');
-    assert.ok(node.includes('GLORY_REAL_NODE'));
-    assert.ok(node.includes('node.exe 2^>nul'));
-    assert.ok(node.includes('"%GLORY_REAL_NODE%" %*'));
-    /* node no se resuelve a sí mismo: sin where npm.cmd */
-    assert.ok(!node.includes('where npm.cmd'));
-  });
-
   test('el guard del runtime queda fuera del cwd anidado', () => {
     const runtime = 'C:\\Users\\Owner\\AppData\\Local\\GlorySentinel';
     const npm = generateCmdShim('npm', runtime);
@@ -72,14 +63,17 @@ suite('Sentinel core interceptorShims (shims y perfiles)', () => {
 
   test('guard bash define funciones y resuelve el real sin caer a la función node()', () => {
     const bash = generateBashGuard('C:\\Glory\\Runtime');
-    for (const name of ['cargo', 'npm', 'npx', 'node', 'vitest', 'tsc', 'eslint', 'prettier']) {
+    for (const name of ['cargo', 'npm', 'npx', 'vitest', 'tsc', 'eslint', 'prettier']) {
       assert.ok(bash.includes(`${name}() { glory_sentinel_dispatch ${name} "$@"; }`));
     }
+    /* [10AA-2] node no se envuelve: solo se usa como intérprete del guard. */
+    assert.ok(!bash.includes('node() {'));
     assert.ok(bash.includes('GLORY_REAL_NODE'));
-    assert.ok(bash.includes('"$node_bin" "$runtime_host/current.js" guard'));
-    /* La resolución del real excluye el directorio del guard (sin recursión). */
-    assert.ok(bash.includes('"$candidate" != "$GLORY_SENTINEL_GUARD_DIR/$name"'));
-    assert.ok(bash.includes('type -P "${name}.exe"'));
+    assert.ok(bash.includes('"$node_bin" "$GLORY_SENTINEL_RUNTIME/current.js" guard'));
+    /* [10AA-2] El real se ejecuta con `command`, que salta las funciones del guard (sin recursión). */
+    assert.ok(bash.includes('command "$name" "$@"'));
+    assert.ok(!bash.includes('glory_sentinel_real_command'));
+    assert.ok(bash.includes('type -P "$name"'));
     assert.ok(bash.includes('BASH_ENV'));
     assert.ok(bash.includes('C:/Glory/Runtime') || bash.includes('C:\\\\Glory\\\\Runtime'));
   });
@@ -89,23 +83,34 @@ suite('Sentinel core interceptorShims (shims y perfiles)', () => {
       ? 'C:\\Glory\\Runtime'
       : path.join(os.tmpdir(), 'Glory', 'Runtime');
     const pwsh = generatePowerShellGuard(runtimeRoot);
-    for (const name of ['cargo', 'npm', 'npx', 'node', 'vitest', 'tsc']) {
+    for (const name of ['cargo', 'npm', 'npx', 'vitest', 'tsc']) {
       assert.ok(pwsh.includes(`function ${name} {`));
     }
+    assert.ok(!pwsh.includes('function node {'), '[10AA-2] node no se envuelve');
     assert.ok(pwsh.includes(`'${path.resolve(runtimeRoot)}'`));
     assert.ok(pwsh.includes('current.js') && pwsh.includes('guard --project-root $qualityRoot'));
     assert.ok(pwsh.includes('-CommandType Application'));
   });
 
-  test('writeInterceptorShims escribe los seis artefactos en <target>/shims', async () => {
+  test('writeInterceptorShims escribe los cinco artefactos en <target>/shims', async () => {
     const root = target();
     const result = await writeInterceptorShims(root);
-    assert.strictEqual(result.files.length, 6);
-    for (const name of ['npm.cmd', 'npx.cmd', 'cargo.cmd', 'node.cmd', 'global-quality-guard.sh', 'global-cargo-guard.ps1']) {
+    assert.strictEqual(result.files.length, 5);
+    for (const name of ['npm.cmd', 'npx.cmd', 'cargo.cmd', 'global-quality-guard.sh', 'global-cargo-guard.ps1']) {
       assert.ok(result.files.includes(path.join(result.shimDir, name)), `falta ${name}`);
       assert.ok(fs.existsSync(path.join(result.shimDir, name)));
     }
+    assert.ok(!fs.existsSync(path.join(result.shimDir, 'node.cmd')), '[10AA-2] node.cmd no se genera');
     assert.ok(fs.readFileSync(path.join(result.shimDir, 'npm.cmd'), 'utf8').includes('GLORY_SENTINEL_RUNTIME'));
+  });
+
+  test('writeInterceptorShims retira el node.cmd de instalaciones previas', async () => {
+    const root = target();
+    const shimDir = path.join(root, 'shims');
+    fs.mkdirSync(shimDir, { recursive: true });
+    fs.writeFileSync(path.join(shimDir, 'node.cmd'), '@echo off\r\n', 'utf8');
+    await writeInterceptorShims(root, shimDir);
+    assert.ok(!fs.existsSync(path.join(shimDir, 'node.cmd')));
   });
 
   test('installProfiles crea backup del original y es idempotente', async () => {

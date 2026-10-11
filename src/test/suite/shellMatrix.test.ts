@@ -138,6 +138,26 @@ const shellSuite = suite('Sentinel guard matrix real de shells (Fase 4)', () => 
     assert.match(bypass.stdout, /real-npm-ran/);
   });
 
+  test('bash: buscar el marcador desde la raíz responde rápido (sin rutas UNC //x)', () => {
+    if (!bashAvailable()) return;
+    const shim = shimDir.replace(/'/g, "''");
+    /* [10AA-2] En "/" la ruta "//sentinel.config.json" es UNC para Windows: cada
+     * comprobación tardaba ~20 s. Sin marcador en "/" debe devolver 1 de inmediato. */
+    const started = Date.now();
+    const run = runInShell('bash', ['-c', `. '${shim}/global-quality-guard.sh'; cd /; glory_sentinel_has_marker; echo "RC:$?"`], nodeRoot, env);
+    const elapsed = Date.now() - started;
+    assert.match(run.stdout, /RC:1/, run.stdout + run.stderr);
+    assert.ok(elapsed < 5000, `glory_sentinel_has_marker tardó ${elapsed} ms desde la raíz`);
+  });
+
+  test('bash: /c/… se convierte a C:\\… sin subshell (regresión de rutas del guard)', () => {
+    if (!bashAvailable()) return;
+    const shim = shimDir.replace(/'/g, "''");
+    /* [10AA-2] La conversión de PWD usa expansión de bash; cygpath solo para rutas sin unidad. */
+    const run = runInShell('bash', ['-c', `. '${shim}/global-quality-guard.sh'; glory_sentinel_host_path /c/Users/x; printf '%s' "$GLORY_SENTINEL_HOST"; glory_sentinel_host_path /c; printf ' %s' "$GLORY_SENTINEL_HOST"`], nodeRoot, env);
+    assert.strictEqual(run.stdout, 'C:\\Users\\x C:\\', run.stdout + run.stderr);
+  });
+
   test('bash: npm --version pasa con el guard dot-sourceado', () => {
     if (!bashAvailable()) return;
     const shim = shimDir.replace(/'/g, "''");

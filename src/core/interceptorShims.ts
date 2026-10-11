@@ -88,14 +88,17 @@ export function defaultProfilePaths(env: NodeJS.ProcessEnv = process.env): Profi
   };
 }
 
-/* [028A-6] Shim .cmd para npm/npx/cargo/node. Estructura: (1) resuelve el
- * node real excluyendo su propio node.cmd; (2) resuelve el ejecutable real
- * del comando (env var GLORY_REAL_* primero, `where` excluyendo el propio
- * shim); (3) invoca el guard del runtime (current.js guard); (4) si pasa,
- * reenvía al ejecutable real conservando %* y el exit code. Nunca invoca su
- * propio path: la exclusión de ~f0/~dp0<name>.cmd rompería la recursión. */
+/* [028A-6] Shim .cmd para npm/npx/cargo. Estructura: (1) sube desde %CD%
+ * buscando un marcador de política (sentinel.config.json o quality.config.json);
+ * sin marcador va directo al ejecutable real sin arrancar node: no hay nada que
+ * decidir (camino rápido, [10AA-2]); (2) con marcador resuelve el node real y
+ * llama al guard del runtime (current.js guard); (3) si no bloquea, resuelve el
+ * ejecutable real (env var GLORY_REAL_* primero, `where` excluyendo el propio
+ * shim) y reenvía conservando %* y el exit code. Nunca invoca su propio path.
+ * Limitación: la subida usa la ruta lógica de %CD%; un cwd dentro de un
+ * junction hacia un proyecto con marcador no pasa por el guard (node usa realpath). */
 export function generateCmdShim(
-  name: 'npm' | 'npx' | 'cargo' | 'node',
+  name: 'npm' | 'npx' | 'cargo',
   targetRoot: string,
   shimDir?: string,
 ): string {
@@ -110,30 +113,37 @@ export function generateCmdShim(
     ? '%~dp0..\\current.js'
     : '%GLORY_SENTINEL_RUNTIME%\\current.js';
   const realEnvVar = `GLORY_REAL_${name.toUpperCase()}`;
-  const realExe = name === 'cargo' ? 'cargo.exe' : name === 'node' ? 'node.exe' : `${name}.cmd`;
-  const selfExclusion = name === 'node'
-    ? 'if not "%%~fI"=="%~dp0node.cmd"'
-    : `if /I not "%%~fI"=="%~f0"`;
+  const realExe = name === 'cargo' ? 'cargo.exe' : `${name}.cmd`;
   return [
     '@echo off',
     'setlocal',
     'set "GLORY_SENTINEL_RUNTIME=' + runtime + '"',
+    'set "GLORY_SENTINEL_DIR=%CD%"',
+    ':glory_up',
+    'if exist "%GLORY_SENTINEL_DIR%\\sentinel.config.json" goto glory_guard',
+    'if exist "%GLORY_SENTINEL_DIR%\\quality.config.json" goto glory_guard',
+    'for %%P in ("%GLORY_SENTINEL_DIR%\\..") do set "GLORY_SENTINEL_PARENT=%%~fP"',
+    'if "%GLORY_SENTINEL_PARENT%"=="%GLORY_SENTINEL_DIR%" goto glory_real',
+    'set "GLORY_SENTINEL_DIR=%GLORY_SENTINEL_PARENT%"',
+    'goto glory_up',
+    ':glory_guard',
     'if not defined GLORY_REAL_NODE (',
-    '  for /f "delims=" %%I in (\'where node.exe 2^>nul\') do if not "%%~fI"=="%~dp0node.cmd" if not defined GLORY_REAL_NODE set "GLORY_REAL_NODE=%%~fI"',
+    '  for /f "delims=" %%I in (\'where node.exe 2^>nul\') do if not defined GLORY_REAL_NODE set "GLORY_REAL_NODE=%%~fI"',
     ')',
     'if not defined GLORY_REAL_NODE (',
     '  echo [glory-sentinel] No se encontro el node real fuera del shim. 1>&2',
     '  exit /b 127',
     ')',
+    `"%GLORY_REAL_NODE%" "${currentScript}" guard --project-root "%CD%" --executable ${name} -- %*`,
+    'if errorlevel 1 exit /b %ERRORLEVEL%',
+    ':glory_real',
     `if not defined ${realEnvVar} (`,
-    `  for /f "delims=" %%I in ('where ${realExe} 2^>nul') do ${selfExclusion} if not defined ${realEnvVar} set "${realEnvVar}=%%~fI"`,
+    `  for /f "delims=" %%I in ('where ${realExe} 2^>nul') do if /I not "%%~fI"=="%~f0" if not defined ${realEnvVar} set "${realEnvVar}=%%~fI"`,
     ')',
     `if not defined ${realEnvVar} (`,
     `  echo [glory-sentinel] No se encontro el ${name} real fuera del shim. 1>&2`,
     '  exit /b 127',
     ')',
-    `"%GLORY_REAL_NODE%" "${currentScript}" guard --project-root "%CD%" --executable ${name} -- %*`,
-    'if errorlevel 1 exit /b %ERRORLEVEL%',
     `"%${realEnvVar}%" %*`,
     'exit /b %ERRORLEVEL%',
     '',
@@ -141,10 +151,12 @@ export function generateCmdShim(
 }
 
 /* [028A-6] Guard de bash generado por el runtime. Dot-source en
- * .bashrc/.bash_profile y BASH_ENV; define funciones npm/npx/cargo/node y
+ * .bashrc/.bash_profile y BASH_ENV; define funciones npm/npx/cargo y
  * herramientas que llaman al guard del runtime y reenvían al ejecutable
  * real. La resolución del real nunca cae a la función (usa GLORY_REAL_* y
- * type -P excluyendo el propio directorio), por lo que no hay recursión. */
+ * type -P excluyendo el propio directorio), por lo que no hay recursión.
+ * [10AA-2] Sin marcador de política hacia arriba no se arranca node: el
+ * comando va directo al real. `node` no está envuelto (ver nota en el cuerpo). */
 export function generateBashGuard(targetRoot: string): string {
   return [
     '#!/usr/bin/env bash',
@@ -153,39 +165,73 @@ export function generateBashGuard(targetRoot: string): string {
     '# non-interactive shells use the same project-aware command policy.',
     '',
     'export GLORY_SENTINEL_GUARD_LOADED=1',
-    'GLORY_SENTINEL_GUARD_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"',
+    '# [10AA-2] Sin subshells en el camino caliente: cada $(…) es un fork (~0,17 s en Git Bash).',
+    '# Con ruta absoluta el directorio se deriva sin cd.',
+    'glory_sentinel_src="${BASH_SOURCE[0]}"',
+    'GLORY_SENTINEL_GUARD_DIR="${glory_sentinel_src%/*}"',
+    'case "$GLORY_SENTINEL_GUARD_DIR" in',
+    '  /*|[A-Za-z]:*) ;;',
+    '  *) GLORY_SENTINEL_GUARD_DIR="$(cd -- "$(dirname -- "$glory_sentinel_src")" && pwd -P)" ;;',
+    'esac',
     'export GLORY_SENTINEL_GUARD_DIR',
+    'unset glory_sentinel_src',
     /* [028A-6] En bash la ruta se emite con / (la \ es escape y
-     * corrompería la ruta Windows al asignarla). cygpath -w la convierte
-     * de vuelta cuando el guard la pasa al node. */
+     * corrompería la ruta Windows al asignarla). Node acepta C:/… tal cual,
+     * así que el guard no la convierte (sin fork). */
     `GLORY_SENTINEL_RUNTIME="${assertSafeRuntimePath(targetRoot).replace(/\\/g, '/')}"`,
     'export GLORY_SENTINEL_RUNTIME',
     '',
-    '# [028A-6] Sin GLORY_REAL_NODE el guard invocaría la FUNCIÓN node() de',
-    '# forma recursiva. Se resuelve el node real una vez al cargar y se',
-    '# exporta; node.cmd del directorio del guard no es ejecutable para bash.',
-    'if [[ -z "${GLORY_REAL_NODE:-}" ]]; then',
-    '  export GLORY_REAL_NODE="$(type -P node.exe 2>/dev/null || type -P node 2>/dev/null || true)"',
-    'fi',
+    '# [10AA-2] node se ejecuta por nombre (PATH, sin subshell). El node.cmd del',
+    '# directorio del guard no es ejecutable para bash y no se usa.',
+    'GLORY_REAL_NODE="${GLORY_REAL_NODE:-node}"',
+    'export GLORY_REAL_NODE',
     '',
+    '# Deja en GLORY_SENTINEL_HOST la ruta $1 en formato Windows, sin subshell:',
+    '# /c/… pasa a C:\\…; solo las rutas sin unidad montada llaman a cygpath.',
     'glory_sentinel_host_path() {',
-    '  if command -v cygpath >/dev/null 2>&1; then cygpath -w "$1"; else printf \'%s\\n\' "$1"; fi',
+    '  local p="$1"',
+    '  if [[ "$p" =~ ^/([A-Za-z])(/.*)?$ ]]; then',
+    '    p="${BASH_REMATCH[1]^^}:${BASH_REMATCH[2]:-/}"',
+    '  elif command -v cygpath >/dev/null 2>&1; then',
+    '    p="$(cygpath -w "$p")"',
+    '  fi',
+    '  GLORY_SENTINEL_HOST="${p//\\//\\\\}"',
     '}',
     '',
     'glory_sentinel_guard() {',
     '  local executable="$1"',
     '  shift',
-    '  local node_bin="${GLORY_REAL_NODE:-}"',
-    '  [[ -n "$node_bin" ]] || return 0',
-    '  local runtime_host',
-    '  runtime_host="$(glory_sentinel_host_path "$GLORY_SENTINEL_RUNTIME")"',
-    '  local cwd_host',
-    '  cwd_host="$(glory_sentinel_host_path "${PWD:-.}")"',
-    '  "$node_bin" "$runtime_host/current.js" guard --project-root "$cwd_host" --executable "$executable" -- "$@"',
+    '  local node_bin="${GLORY_REAL_NODE:-node}"',
+    '  type -P "$node_bin" >/dev/null 2>&1 || return 0',
+    '  glory_sentinel_host_path "${PWD:-.}"',
+    '  "$node_bin" "$GLORY_SENTINEL_RUNTIME/current.js" guard --project-root "$GLORY_SENTINEL_HOST" --executable "$executable" -- "$@"',
     '}',
     '',
-    'glory_sentinel_real_command() {',
+    '# [10AA-2] Camino rápido: sin sentinel.config.json/quality.config.json hacia',
+    '# arriba desde $PWD no hay política que aplicar y no se arranca node.',
+    '# La base se normaliza sin barra final: en "/" una ruta "//x" es UNC en',
+    '# Windows y su comprobación de existencia tarda segundos por resolución de red.',
+    'glory_sentinel_has_marker() {',
+    '  local dir="${PWD:-.}"',
+    '  local base',
+    '  while :; do',
+    '    base="${dir%/}"',
+    '    [[ -f "$base/sentinel.config.json" || -f "$base/quality.config.json" ]] && return 0',
+    '    local parent="${dir%/*}"',
+    '    [[ -n "$parent" ]] || parent="/"',
+    '    [[ "$parent" != "$dir" ]] || return 1',
+    '    dir="$parent"',
+    '  done',
+    '}',
+    '',
+    'glory_sentinel_dispatch() {',
     '  local name="$1"',
+    '  shift',
+    '  if glory_sentinel_has_marker; then',
+    '    glory_sentinel_guard "$name" "$@"',
+    '    local guard_exit=$?',
+    '    [[ $guard_exit -eq 0 ]] || return "$guard_exit"',
+    '  fi',
     '  local configured=""',
     '  case "$name" in',
     '    cargo) configured="${GLORY_REAL_CARGO:-}" ;;',
@@ -196,32 +242,15 @@ export function generateBashGuard(targetRoot: string): string {
     '    if command -v cygpath >/dev/null 2>&1; then',
     '      configured="$(cygpath -u "$configured" 2>/dev/null || printf \'%s\' "$configured")"',
     '    fi',
-    '    printf \'%s\\n\' "$configured"',
-    '    return 0',
+    '    "$configured" "$@"',
+    '    return',
     '  fi',
-    '  local candidate',
-    '  candidate="$(type -P "${name}.exe" 2>/dev/null || true)"',
-    '  [[ -n "$candidate" ]] && { printf \'%s\\n\' "$candidate"; return 0; }',
-    '  candidate="$(type -P "$name" 2>/dev/null || true)"',
-    '  if [[ -n "$candidate" && "$candidate" != "$GLORY_SENTINEL_GUARD_DIR/$name" && "$candidate" != "$GLORY_SENTINEL_GUARD_DIR/$name.cmd" ]]; then',
-    '    printf \'%s\\n\' "$candidate"',
-    '    return 0',
-    '  fi',
-    '  return 1',
-    '}',
-    '',
-    'glory_sentinel_dispatch() {',
-    '  local name="$1"',
-    '  shift',
-    '  glory_sentinel_guard "$name" "$@"',
-    '  local guard_exit=$?',
-    '  [[ $guard_exit -eq 0 ]] || return "$guard_exit"',
-    '  local real_command',
-    '  real_command="$(glory_sentinel_real_command "$name" 2>/dev/null)" || {',
+    '  # command salta las funciones de este guard: el real se ejecuta sin recursión.',
+    '  type -P "$name" >/dev/null 2>&1 || {',
     '    printf \'[glory-sentinel] No se encontro el ejecutable real de %s.\\n\' "$name" >&2',
     '    return 127',
     '  }',
-    '  "$real_command" "$@"',
+    '  command "$name" "$@"',
     '}',
     '',
     'cargo() { glory_sentinel_dispatch cargo "$@"; }',
@@ -232,10 +261,8 @@ export function generateBashGuard(targetRoot: string): string {
     'tsc() { glory_sentinel_dispatch tsc "$@"; }',
     'eslint() { glory_sentinel_dispatch eslint "$@"; }',
     'prettier() { glory_sentinel_dispatch prettier "$@"; }',
-    '# [028A-6] node() cubre el bypass por runtime (`node .../vitest.mjs`):',
-    '# el guard decide entrypoints de herramientas y cualquier otro uso de',
-    '# node se reenvía intacto al node real vía GLORY_REAL_NODE.',
-    'node() { glory_sentinel_dispatch node "$@"; }',
+    '# [10AA-2] node no se envuelve: el guard no decide sobre node y envolverlo',
+    '# sólo añadía coste. El bypass `node .../vitest.mjs` queda abierto hasta F11.2.',
     '',
     '# Los procesos bash hijos (no interactivos) cargan este guard vía BASH_ENV.',
     'export BASH_ENV="${BASH_ENV:-${GLORY_SENTINEL_GUARD_DIR}/global-quality-guard.sh}"',
@@ -246,7 +273,9 @@ export function generateBashGuard(targetRoot: string): string {
 /* [028A-6] Guard de PowerShell generado por el runtime. Dot-source en el
  * perfil; define funciones que llaman al guard del runtime y reenvían al
  * ejecutable real. Get-Command -CommandType Application no devuelve
- * funciones, por lo que node() resuelve el binario real sin recursión. */
+ * funciones, por lo que la resolución del binario real no entra en recursión.
+ * [10AA-2] Sin marcador (Find-GlorySentinelQualityRoot) retorna sin arrancar
+ * node. `node` no está envuelto: el guard no decide sobre él. */
 export function generatePowerShellGuard(targetRoot: string): string {
   const runtime = assertSafeRuntimePath(targetRoot).replace(/'/g, "''");
   return [
@@ -341,18 +370,6 @@ export function generatePowerShellGuard(targetRoot: string): string {
     '    return $LASTEXITCODE',
     '}',
     '',
-    'function node {',
-    '    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$NodeArguments)',
-    '    $qualityExit = Invoke-GlorySentinelCommandGuard -Executable \'node\' -Arguments $NodeArguments',
-    '    if ($qualityExit -ne 0) { return $qualityExit }',
-    '    $realNodeCommand = Get-Command node.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1',
-    '    if (-not $realNodeCommand) { $realNodeCommand = Get-Command node -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1 }',
-    '    $realNode = $realNodeCommand.Source',
-    '    if (-not $realNode) { return 127 }',
-    '    & $realNode @NodeArguments',
-    '    return $LASTEXITCODE',
-    '}',
-    '',
     'function vitest {',
     '    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$VitestArguments)',
     '    $qualityExit = Invoke-GlorySentinelCommandGuard -Executable \'vitest\' -Arguments $VitestArguments',
@@ -374,8 +391,9 @@ export function generatePowerShellGuard(targetRoot: string): string {
   ].join('\r\n');
 }
 
-/* [028A-6] Escribe los shims en <targetRoot>/shims: npm/npx/cargo/node.cmd
- * (cmd), global-quality-guard.sh (bash) y global-cargo-guard.ps1 (pwsh). */
+/* [028A-6] Escribe los shims en <targetRoot>/shims: npm/npx/cargo.cmd (cmd),
+ * global-quality-guard.sh (bash) y global-cargo-guard.ps1 (pwsh).
+ * [10AA-2] node.cmd ya no se genera; las instalaciones previas lo retiran. */
 export async function writeInterceptorShims(
   targetRoot: string,
   shimDir?: string,
@@ -388,7 +406,6 @@ export async function writeInterceptorShims(
     ['npm.cmd', generateCmdShim('npm', resolvedRoot, resolvedShimDir)],
     ['npx.cmd', generateCmdShim('npx', resolvedRoot, resolvedShimDir)],
     ['cargo.cmd', generateCmdShim('cargo', resolvedRoot, resolvedShimDir)],
-    ['node.cmd', generateCmdShim('node', resolvedRoot, resolvedShimDir)],
     ['global-quality-guard.sh', generateBashGuard(resolvedRoot)],
     ['global-cargo-guard.ps1', generatePowerShellGuard(resolvedRoot)],
   ];
@@ -397,6 +414,9 @@ export async function writeInterceptorShims(
     await writeAtomic(file, body);
     files.push(file);
   }
+  /* [10AA-2] Instalaciones previas: node.cmd retirado. Sin él, `node` resuelve
+   * al binario real y no pasa por el guard. */
+  await fs.rm(path.join(resolvedShimDir, 'node.cmd'), { force: true });
   return { shimDir: resolvedShimDir, files };
 }
 
