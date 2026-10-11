@@ -138,6 +138,27 @@ const shellSuite = suite('Sentinel guard matrix real de shells (Fase 4)', () => 
     assert.match(bypass.stdout, /real-npm-ran/);
   });
 
+  /* [10AA-2 F11.2] Sin node real válido el guard no puede decidir: debe fallar
+   * cerrado (127) y no ejecutar el comando, ni siquiera con npm --version. */
+  test('bash: sin node real válido el guard falla cerrado (127) y no ejecuta npm', () => {
+    if (!bashAvailable()) return;
+    const shim = shimDir.replace(/'/g, "''");
+    const fixture = nodeRoot.replace(/'/g, "''");
+    const run = runInShell('bash', ['-c', `. '${shim}/global-quality-guard.sh'; cd '${fixture}'; npm --version; echo "EXIT:$?"`], nodeRoot, { ...env, GLORY_REAL_NODE: '/nope/node' });
+    assert.match(run.stdout, /EXIT:127/, run.stdout + run.stderr);
+    assert.match(run.stderr, /No se encontro node/);
+    assert.doesNotMatch(run.stdout, /\d+\.\d+\.\d+/);
+  });
+
+  /* [10AA-2 F11.2] cargo.exe explícito también pasa por el guard en bash. */
+  test('bash: cargo.exe test bloqueado (78) con el guard dot-sourceado', () => {
+    if (!bashAvailable()) return;
+    const shim = shimDir.replace(/'/g, "''");
+    const fixture = rustRoot.replace(/'/g, "''");
+    const run = runInShell('bash', ['-c', `. '${shim}/global-quality-guard.sh'; cd '${fixture}'; cargo.exe test; echo "EXIT:$?"`], rustRoot, env);
+    assert.match(run.stdout, /EXIT:78/, run.stdout + run.stderr);
+  });
+
   test('bash: buscar el marcador desde la raíz responde rápido (sin rutas UNC //x)', () => {
     if (!bashAvailable()) return;
     const shim = shimDir.replace(/'/g, "''");

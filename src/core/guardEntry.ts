@@ -3,6 +3,7 @@
  * CLI). Parseo y salida idénticos a `sentinel guard` (args.ts / commands.ts):
  * guardCliTarget delega aquí, así hay una sola implementación. */
 import { formatBlockMessage, inspectDirectCommand, QUALITY_GUARD_EXIT_CODE } from './guardCommand';
+import { registrarDecision } from './guardLog';
 
 export interface GuardArgv {
   executable: string;
@@ -59,6 +60,8 @@ export async function runGuardCommand(options: GuardCommandOptions): Promise<num
     cwd: options.cwd ?? process.cwd(),
     projectRoot: options.projectRoot,
   });
+  /* [10AA-2 F11.2] Registro antes de escribir: best-effort, nunca lanza. */
+  await registrarDecision(decision, options.executable, options.args ?? []);
   if (options.json) {
     process.stdout.write(`${JSON.stringify(decision, null, 2)}\n`);
   } else if (decision.blocked) {

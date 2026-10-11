@@ -27,8 +27,23 @@ function normalizeExecutable(value = ''): string {
   return path.basename(String(value)).toLowerCase().replace(/\.(cmd|exe)$/u, '');
 }
 
-function firstNonOption(args: string[] = []): string | undefined {
-  return args.find(value => !String(value).startsWith('-'));
+/* [10AA-2 F11.2] Opciones globales de cargo que llevan valor en el siguiente
+ * token (`cargo --color never check`). Sin esta lista el valor se tomaba por
+ * subcomando y `check` pasaba sin bloquear. */
+const CARGO_OPTIONS_WITH_VALUE = Object.freeze(['--color', '--config', '-C', '-Z', '--explain']);
+
+/* Subcomando real de `cargo [+toolchain] [opciones globales] <subcomando>`.
+ * Opciones con valor separado saltan dos tokens; `--opt=valor`, `-Cvalor` y
+ * `-Zflag` ocupan uno. Un `+toolchain` solo es válido en la primera posición. */
+export function cargoSubcommand(args: string[] = []): string | undefined {
+  const values = args.map(String);
+  for (let index = 0; index < values.length; index++) {
+    const value = values[index];
+    if (index === 0 && value.startsWith('+')) continue;
+    if (!value.startsWith('-')) return value.toLowerCase();
+    if (CARGO_OPTIONS_WITH_VALUE.includes(value)) index++;
+  }
+  return undefined;
 }
 
 export interface GuardPolicy {
@@ -38,6 +53,9 @@ export interface GuardPolicy {
   npxTools?: Set<string>;
   cargoSubcommands?: Set<string>;
   tools?: Set<string>;
+  /* [10AA-2 F11.2] gate.command de la política: alternativa que se muestra
+   * al bloquear, en vez de un texto fijo. */
+  gateCommand?: string[];
 }
 
 /* [028A-6] La política v2 es sentinel.config.json (schemaVersion 2 con
@@ -60,7 +78,7 @@ export function readV2GuardPolicy(root: string): GuardPolicy {
   } catch {
     return { status: 'invalid-policy' };
   }
-  const parsed = raw as { schemaVersion?: unknown; mode?: unknown; guard?: { directCommands?: Record<string, unknown> } };
+  const parsed = raw as { schemaVersion?: unknown; mode?: unknown; gate?: { command?: unknown }; guard?: { directCommands?: Record<string, unknown> } };
   if (parsed?.schemaVersion !== 2) return { status: 'legacy-v1' };
   const mode = parsed.mode;
   const directCommands = parsed.guard?.directCommands;
@@ -71,6 +89,9 @@ export function readV2GuardPolicy(root: string): GuardPolicy {
   if (!lists.every(key => Array.isArray(directCommands[key]) && (directCommands[key] as unknown[]).every(value => typeof value === 'string'))) {
     return { status: 'invalid-policy' };
   }
+  const gateCommand = Array.isArray(parsed.gate?.command) && (parsed.gate.command as unknown[]).every(value => typeof value === 'string')
+    ? (parsed.gate.command as string[])
+    : undefined;
   return {
     status: 'policy',
     mode: String(mode),
@@ -78,6 +99,7 @@ export function readV2GuardPolicy(root: string): GuardPolicy {
     npxTools: new Set((directCommands.npxTools as string[]).map(normalizeExecutable)),
     cargoSubcommands: new Set((directCommands.cargoSubcommands as string[]).map(value => value.toLowerCase())),
     tools: new Set((directCommands.tools as string[]).map(normalizeExecutable)),
+    gateCommand,
   };
 }
 
@@ -126,6 +148,8 @@ export interface GuardDecision {
    * que el JSON del guard muestre la vía sancionada usada. */
   leaseId?: string | null;
   leaseVerified?: boolean;
+  /* [10AA-2 F11.2] Vía sancionada que se muestra al bloquear (gate.command). */
+  alternativa?: string;
 }
 
 export async function inspectDirectCommand(options: GuardInspectOptions = {}): Promise<GuardDecision> {
@@ -135,7 +159,7 @@ export async function inspectDirectCommand(options: GuardInspectOptions = {}): P
    * con un valor aleatorio por ejecución. [028A-6 Fase 2] Con lease presente
    * la exención pasa por el lease firmado (más abajo); el token solo aplica
    * cuando no hay lease (migración del orquestador anterior). */
-  if (!leasePath && env.GLORY_QUALITY_GATE_TOKEN) return { blocked: false, root: null };
+  if (!leasePath && env.GLORY_QUALITY_GATE_TOKEN) return { blocked: false, root: null, reason: 'legacy-token' };
   const candidate = await findQualityRoot(projectRoot ? path.resolve(projectRoot) : cwd);
   /* [028A-6] El fallback de findQualityRoot es el startPath; sin marcador
    * declarativo real no hay política que aplicar y el comando pasa. */
@@ -176,7 +200,7 @@ export async function inspectDirectCommand(options: GuardInspectOptions = {}): P
     reason = command;
     category = 'tool';
   } else if (command === 'cargo') {
-    const cargoCommand = firstNonOption(values)?.toLowerCase();
+    const cargoCommand = cargoSubcommand(values);
     if (cargoCommand && matchesPolicyName(cargoCommand, cargoCommands)) {
       reason = `cargo ${cargoCommand}`;
       category = 'cargo';
@@ -225,7 +249,15 @@ export async function inspectDirectCommand(options: GuardInspectOptions = {}): P
     root,
     exitCode: decision.blocked ? QUALITY_GUARD_EXIT_CODE : undefined,
     policyStatus: policy.status,
+    alternativa: decision.blocked ? gateAlternativa(policy.gateCommand) : undefined,
   };
+}
+
+/* [10AA-2 F11.2] Vía sancionada al bloquear: el gate declarado por el proyecto
+ * (sin el `--` final, que solo separa argumentos) o el texto genérico. */
+function gateAlternativa(gateCommand?: string[]): string {
+  const base = gateCommand && gateCommand[gateCommand.length - 1] === '--' ? gateCommand.slice(0, -1) : gateCommand;
+  return base?.length ? `${base.join(' ')} <TareaId>` : 'sentinel check <TareaId>';
 }
 
 export function formatBlockMessage(decision: GuardDecision): string {
@@ -233,7 +265,7 @@ export function formatBlockMessage(decision: GuardDecision): string {
     '[glory-quality] BLOQUEADO: esta validación directa no está permitida.',
     `  Comando detectado: ${String(decision.command)}`,
     '  Ejecuta el gate del proyecto para usar alcance incremental y límites:',
-    '  sentinel check <TareaId>',
+    `  ${decision.alternativa ?? 'sentinel check <TareaId>'}`,
     '  El gate decide type-check/tests/build según la tarea y el modo CI.',
   ].join('\n');
 }

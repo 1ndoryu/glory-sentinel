@@ -5,8 +5,16 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { formatBlockMessage, inspectDirectCommand, QUALITY_GUARD_EXIT_CODE } from '../../core/guardCommand';
+import { cargoSubcommand, formatBlockMessage, inspectDirectCommand, QUALITY_GUARD_EXIT_CODE } from '../../core/guardCommand';
 import { LEASE_ENV_VAR, issueLease } from '../../core/lease';
+
+/* [10AA-2] Los temporales van a C:\tmp, no a %TEMP% (AGENTS.md §0.2). */
+const TMP_BASE = fs.existsSync('C:/tmp') ? 'C:/tmp' : os.tmpdir();
+
+function mkTmp(prefix: string): string {
+  fs.mkdirSync(TMP_BASE, { recursive: true });
+  return fs.mkdtempSync(path.join(TMP_BASE, prefix));
+}
 
 function writeV2Policy(root: string, mode: string, directCommands: Record<string, string[]>): void {
   fs.writeFileSync(path.join(root, 'sentinel.config.json'), JSON.stringify({
@@ -206,6 +214,55 @@ suite('Sentinel core guard command (orquestador agnóstico)', () => {
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
       fs.rmSync(guardRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('cargo con toolchain, opciones globales o mayúsculas no esquiva el bloqueo', async () => {
+    const root = mkTmp('sentinel-guard-cargo-');
+    try {
+      writeV2Policy(root, 'enforce', { npmScripts: [], npxTools: [], cargoSubcommands: ['check', 'clippy', 'test', 'bench', 'fmt'], tools: [] });
+      const casos = [
+        ['+nightly', 'check'],
+        ['--color', 'never', 'check'],
+        ['--color=never', 'check'],
+        ['-q', 'check'],
+        ['-C', 'otro-dir', 'check'],
+        ['-Zunstable-options', 'check'],
+        ['CHECK'],
+      ];
+      for (const args of casos) {
+        const decision = await inspectDirectCommand({ executable: 'cargo', args, projectRoot: root });
+        assert.strictEqual(decision.blocked, true, `cargo ${args.join(' ')} debe bloquearse`);
+        assert.strictEqual(decision.category, 'cargo');
+      }
+      const exe = await inspectDirectCommand({ executable: 'cargo.exe', args: ['check'], projectRoot: root });
+      assert.strictEqual(exe.blocked, true, 'cargo.exe check debe bloquearse');
+      const build = await inspectDirectCommand({ executable: 'cargo', args: ['build'], projectRoot: root });
+      assert.strictEqual(build.blocked, false, 'cargo build no está declarado');
+      const version = await inspectDirectCommand({ executable: 'cargo', args: ['--version'], projectRoot: root });
+      assert.strictEqual(version.blocked, false, 'sin subcomando no hay nada que bloquear');
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('cargoSubcommand salta el toolchain y las opciones globales con valor', () => {
+    assert.strictEqual(cargoSubcommand(['+nightly', 'check']), 'check');
+    assert.strictEqual(cargoSubcommand(['--color', 'never', 'check']), 'check');
+    assert.strictEqual(cargoSubcommand(['--color=never', 'check']), 'check');
+    assert.strictEqual(cargoSubcommand(['-C', 'dir', 'Clippy']), 'clippy');
+    assert.strictEqual(cargoSubcommand(['--version']), undefined);
+  });
+
+  test('el bloqueo recomienda el gate declarado por el proyecto', async () => {
+    const root = mkTmp('sentinel-guard-alt-');
+    try {
+      writeV2Policy(root, 'enforce', { npmScripts: ['test'], npxTools: [], cargoSubcommands: [], tools: [] });
+      const decision = await inspectDirectCommand({ executable: 'npm', args: ['run', 'test'], projectRoot: root });
+      assert.strictEqual(decision.alternativa, 'sentinel check <TareaId>');
+      assert.match(formatBlockMessage(decision), /sentinel check <TareaId>/);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
     }
   });
 

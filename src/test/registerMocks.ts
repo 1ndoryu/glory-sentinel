@@ -9,6 +9,10 @@
  */
 
 import * as path from 'path';
+import * as os from 'os';
+
+/* [10AA-2 F11.2] Los tests no escriben el registro real de C:\tmp. */
+process.env.GLORY_GUARD_LOG_DIR ??= path.join(os.tmpdir(), 'glory-guard-log-tests');
 
 /* Acceso al modulo interno de Node.js para interceptar resolucion */
 // eslint-disable-next-line @typescript-eslint/no-require-imports
