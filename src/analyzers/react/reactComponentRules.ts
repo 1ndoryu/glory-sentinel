@@ -262,6 +262,12 @@ export function esWrapperSistemaDiseno(ruta: string): boolean {
   return /[\\/]components[\\/]ui[\\/]/.test(ruta);
 }
 
+/* [11AA-1] Mira el tag de apertura (ventana de 6 lineas, como el <input> de abajo)
+ * buscando aria-expanded. */
+export function esDisparadorDisclosure(lineas: string[], i: number): boolean {
+  return /\baria-expanded\s*=/.test(lineas.slice(i, Math.min(i + 6, lineas.length)).join(' '));
+}
+
 /*
  * Detecta uso de elementos HTML nativos que deberian ser componentes propios
  * del proyecto (Boton, Input, Select, Textarea, Checkbox, Radio, GloryLink).
@@ -309,7 +315,10 @@ export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArc
     /* Tambien skip inline sentinel-disable */
     if (linea.includes('sentinel-disable html-nativo-en-vez-de-componente')) { continue; }
 
-    if (tieneBotonUi && /<button[\s>]/.test(linea)) {
+    /* [11AA-1] Un <button> con aria-expanded es disparador de disclosure (fila plegable
+     * con layout propio): el patron nativo es el correcto y el Boton del DS no encaja
+     * sin cambiar el layout. Limite: el atributo basta, no se verifica el contenido. */
+    if (tieneBotonUi && /<button[\s>]/.test(linea) && !esDisparadorDisclosure(lineas, i)) {
       violaciones.push({
         reglaId: 'html-nativo-en-vez-de-componente',
         mensaje: 'Usar componente <Boton> en vez de <button> nativo. Import desde components/ui.',
