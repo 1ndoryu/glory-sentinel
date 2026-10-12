@@ -103,6 +103,22 @@ suite('Sentinel core scheduler (orquestador agnóstico)', () => {
     assert.strictEqual(isHeavyCargoCommand(['fmt', '--check']), false);
   });
 
+  test('un test filtrado no es pesado; la suite completa sí', () => {
+    assert.strictEqual(isHeavyCargoCommand(['test', 'article_soft']), false);
+    assert.strictEqual(isHeavyCargoCommand(['test', '-p', 'glory-backend', 'article_soft']), false);
+    assert.strictEqual(isHeavyCargoCommand(['test', '--test', 'article_soft_delete']), false);
+    assert.strictEqual(isHeavyCargoCommand(['test']), true);
+    assert.strictEqual(isHeavyCargoCommand(['test', '-p', 'glory-backend']), true);
+    assert.strictEqual(isHeavyCargoCommand(['test', '--lib']), true);
+    assert.strictEqual(isHeavyCargoCommand(['test', '--', 'article']), true);
+  });
+
+  test('+toolchain y --color no esquivan el guard', () => {
+    assert.strictEqual(isHeavyCargoCommand(['+nightly', 'test']), true);
+    assert.strictEqual(isHeavyCargoCommand(['--color', 'never', 'test']), true);
+    assert.strictEqual(isHeavyCargoCommand(['--color=never', 'test']), true);
+  });
+
   test('el cooldown de full no se comparte entre proyectos con el mismo targetBase', async () => {
     const rootA = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-heavy-project-a-'));
     const rootB = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-heavy-project-b-'));

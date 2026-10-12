@@ -176,9 +176,55 @@ export async function findQualityRoot(startPath: string = process.cwd()): Promis
   return path.resolve(startPath);
 }
 
+/* Opciones de cargo que consumen el argumento siguiente. Sin esta lista, el
+ * valor (`always` en `--color always`) se tomaba por subcomando y el `test`
+ * real pasaba sin cooldown; también cierra `cargo +toolchain test`. */
+const CARGO_VALUE_OPTIONS = new Set([
+  '-C', '--color', '--config', '-Z', '--manifest-path', '--target-dir',
+  '-p', '--package', '--exclude', '--test', '--bin', '--example', '--bench',
+  '-F', '--features', '--target', '--profile', '-j', '--jobs', '--message-format',
+]);
+
+function cargoSubcommand(args: string[]): { command?: string; index: number } {
+  for (let index = 0; index < args.length; index++) {
+    const arg = String(args[index]);
+    if (arg.startsWith('+')) continue;
+    if (arg.startsWith('-')) {
+      if (CARGO_VALUE_OPTIONS.has(arg)) index++;
+      continue;
+    }
+    return { command: arg.toLowerCase(), index };
+  }
+  return { index: args.length };
+}
+
+/* Un test filtrado (nombre posicional o `--test <archivo>`) ejecuta pocos casos
+ * y no espera al cooldown. `cargo test` sin filtro, con solo `-p` o con `--lib`
+ * sigue siendo la suite completa. Ante la duda, pesado: solo se libera lo
+ * reconocido como filtro. */
+export function isFilteredTestRun(args: string[]): boolean {
+  const { command, index } = cargoSubcommand(args);
+  if (command !== 'test') return false;
+  for (let i = index + 1; i < args.length; i++) {
+    const arg = String(args[i]);
+    if (arg === '--') break;
+    if (arg === '--test') {
+      const next = args[i + 1];
+      return next !== undefined && !String(next).startsWith('-');
+    }
+    if (arg.startsWith('-')) {
+      if (CARGO_VALUE_OPTIONS.has(arg)) i++;
+      continue;
+    }
+    return true;
+  }
+  return false;
+}
+
 export function isHeavyCargoCommand(args: string[]): boolean {
-  const command = args.find(value => !String(value).startsWith('-'))?.toLowerCase();
-  return command === 'test' || command === 'clippy' || command === 'bench';
+  const { command } = cargoSubcommand(args);
+  if (command === 'clippy' || command === 'bench') return true;
+  return command === 'test' && !isFilteredTestRun(args);
 }
 
 export function isHeavyOverride(options: { allowHeavy?: boolean; ci?: boolean } = {}): boolean {
