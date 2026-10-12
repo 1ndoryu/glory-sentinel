@@ -19,13 +19,13 @@ function guardRootFor(targetBase: string): string {
 }
 
 suite('Sentinel core scheduler (orquestador agnóstico)', () => {
-  test('el guard limita full a una ejecución cada tres horas y permite override explícito', async () => {
+  test('el guard limita full a una ejecución cada 20 minutos y permite override explícito', async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-heavy-guard-'));
     const targetBase = path.join(root, 'target');
     try {
       fs.writeFileSync(
         path.join(root, 'quality.config.json'),
-        JSON.stringify({ heavyRun: { cooldownMinutes: 180 } }),
+        JSON.stringify({ heavyRun: { cooldownMinutes: 20 } }),
         'utf8',
       );
       const first = (await acquireHeavyRun({ projectRoot: root, targetBase, mode: 'full', taskId: '028A-3' }));
@@ -127,7 +127,7 @@ suite('Sentinel core scheduler (orquestador agnóstico)', () => {
       for (const root of [rootA, rootB]) {
         fs.writeFileSync(
           path.join(root, 'quality.config.json'),
-          JSON.stringify({ heavyRun: { cooldownMinutes: 180 } }),
+          JSON.stringify({ heavyRun: { cooldownMinutes: 20 } }),
           'utf8',
         );
       }
@@ -177,7 +177,7 @@ suite('Sentinel core scheduler (orquestador agnóstico)', () => {
     try {
       fs.writeFileSync(
         path.join(root, 'quality.config.json'),
-        JSON.stringify({ heavyRun: { cooldownMinutes: 180 } }),
+        JSON.stringify({ heavyRun: { cooldownMinutes: 20 } }),
         'utf8',
       );
       assert.strictEqual(isHeavyCargoCommand(['check']), false);

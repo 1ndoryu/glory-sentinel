@@ -10,7 +10,7 @@ import crypto from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 
-const DEFAULT_COOLDOWN_MS = 3 * 60 * 60 * 1000;
+const DEFAULT_COOLDOWN_MS = 20 * 60 * 1000;
 const DEFAULT_TARGET_BASE = process.platform === 'win32'
   ? 'C:\\tmp\\glory-target'
   : path.join(os.tmpdir(), 'glory-target');
