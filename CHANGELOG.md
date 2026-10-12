@@ -3,6 +3,11 @@
 
 ## [Unreleased]
 
+### Cooldown del guard: sin cooldown por defecto
+
+- `DEFAULT_COOLDOWN_MS` pasa de 20 min a 0 (decisión de la usuaria, 2026-10-12). Un proyecto sin `heavyRun.cooldownMinutes` ya no bloquea la suite completa; con un valor > 0 mantiene su cooldown.
+- Test de regresión: sin `cooldownMinutes`, una segunda ejecución `full` queda permitida.
+
 ### Supresiones de large-interface-isp
 
 - `large-interface-isp` ahora honra `// sentinel-disable-next-line large-interface-isp` y `sentinel-disable-file`. Antes la regla (portable) no comprobaba supresiones, así que el hint volvía en cada escaneo aunque el consumidor lo hubiera silenciado.

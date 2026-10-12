@@ -191,4 +191,20 @@ suite('Sentinel core scheduler (orquestador agnóstico)', () => {
       fs.rmSync(guardRootFor(targetBase), { recursive: true, force: true });
     }
   });
+
+  test('sin cooldownMinutes no hay cooldown por defecto (decisión 2026-10-12)', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-heavy-default-'));
+    const targetBase = path.join(root, 'target');
+    try {
+      const first = await acquireHeavyRun({ projectRoot: root, targetBase, mode: 'full' });
+      assert.strictEqual(first.allowed, true);
+      await (first as HeavyRunLease).release({ status: 'pass' });
+
+      const second = await inspectHeavyRun({ projectRoot: root, targetBase, mode: 'full' });
+      assert.strictEqual(second.allowed, true, 'el defecto no bloquea una segunda suite completa');
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+      fs.rmSync(guardRootFor(targetBase), { recursive: true, force: true });
+    }
+  });
 });
