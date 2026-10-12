@@ -41,6 +41,7 @@ export const DEFAULT_INCLUDE_PATTERNS = [
   '**/*.ts',
   '**/*.tsx',
   '**/*.js',
+  '**/*.mjs',
   '**/*.jsx',
   '**/*.css',
   '**/*.scss',
@@ -58,7 +59,6 @@ export const DEFAULT_EXCLUDE_PATTERNS = [
   '**/build/**',
   '**/.agent/**',
   '**/target/**',
-  '**/scripts/**',
 ];
 
 const CONFIG_KEYS = new Set(['includePatterns', 'excludePatterns', 'directoryExceptions', 'rules', 'portableBoundaries', 'project', 'schemaVersion', 'mode', 'gate', 'guard', 'runtime', 'analyzers', 'budgets']);

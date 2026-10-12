@@ -176,5 +176,11 @@ export function obtenerLimiteArchivo(nombreArchivo: string, rutaArchivo: string)
     return { tipo: 'servicio', limite: 500 };
   }
 
+  /* Scripts JS/MJS (CLI, tooling, dev): techo de componente. Antes no tenían
+   * límite y un script de 1800 líneas (doctor.mjs) pasaba sin aviso. */
+  if (nombreLower.endsWith('.mjs') || nombreLower.endsWith('.js')) {
+    return { tipo: 'componente', limite: 300 };
+  }
+
   return null;
 }
