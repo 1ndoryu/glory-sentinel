@@ -12,6 +12,17 @@ suite('Sentinel core tool runner (orquestador agnóstico)', () => {
     if (process.env.PATH !== undefined) assert.strictEqual(env.PATH, process.env.PATH);
   });
 
+  test('env allowlist transmite el motivo del override pesado', () => {
+    const previous = process.env.GLORY_HEAVY_RUN_REASON;
+    process.env.GLORY_HEAVY_RUN_REASON = 'prueba de allowlist';
+    try {
+      assert.strictEqual(safeEnvironment().GLORY_HEAVY_RUN_REASON, 'prueba de allowlist');
+    } finally {
+      if (previous === undefined) delete process.env.GLORY_HEAVY_RUN_REASON;
+      else process.env.GLORY_HEAVY_RUN_REASON = previous;
+    }
+  });
+
   test('runProcess captura salida y código', async () => {
     const result = await runProcess(process.execPath, ['-e', 'process.stdout.write("ok")']);
     assert.strictEqual(result.code, 0);

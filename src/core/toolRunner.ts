@@ -16,6 +16,11 @@ const ENV_ALLOWLIST = [
    * guard de comandos directos (solo lo conoce el árbol de procesos del
    * gate). */
   'GLORY_HEAVY_RUN_TOKEN', 'GLORY_QUALITY_ALLOW_HEAVY', 'GLORY_QUALITY_GATE_TOKEN',
+  /* El motivo de un override pesado (--heavy-reason) debe llegar al guard del
+   * subcomando; sin él el guard lo registra como `reason: null` y rechaza el
+   * override. Sin esta clave, la sanción del gate se pierde en la frontera de
+   * Sentinel. */
+  'GLORY_HEAVY_RUN_REASON',
   /* [028A-6 Fase 2] El lease firmado del gate llega a los subcomandos por
    * env; los shims lo verifican (firma/proyecto/PID/expiración) para eximir
    * solo las herramientas pesadas de la ejecución actual. */
