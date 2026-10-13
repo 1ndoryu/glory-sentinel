@@ -53,7 +53,7 @@ export const STACK_PRESETS: Record<StackPreset, PresetDefinition> = {
     directCommands: {
       npmScripts: [],
       npxTools: [],
-      cargoSubcommands: ['check', 'test', 'clippy', 'fmt'],
+      cargoSubcommands: ['check', 'test', 'nextest', 'clippy', 'fmt'],
       tools: ['git'],
     },
   },
@@ -79,7 +79,7 @@ export const STACK_PRESETS: Record<StackPreset, PresetDefinition> = {
     directCommands: {
       npmScripts: ['lint', 'test', 'build', 'check'],
       npxTools: ['eslint', 'tsc', 'typescript'],
-      cargoSubcommands: ['check', 'test', 'clippy', 'fmt'],
+      cargoSubcommands: ['check', 'test', 'nextest', 'clippy', 'fmt'],
       tools: ['git', 'python', 'pip'],
     },
   },
