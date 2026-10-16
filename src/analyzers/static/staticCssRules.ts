@@ -96,8 +96,10 @@ function claseTieneRolInteractivoLocal(nombreClase: string): boolean {
 /* [15A-25] Familias cuyo nombre ya implica una superficie flotante o un
  * disparador: la receta la posee el sistema (contextmenu.css, dropdownPanel.css)
  * aunque el bloque no declare ningun gesto, porque el gesto esta en la superficie
- * — que se abre, se cierra y se posiciona. Una fila de lista, en cambio, no es un
- * control por llamarse `...Item`: eso hay que verlo. */
+ * — que se abre, se cierra y se posiciona. [15A-27] El nombre solo abre la
+ * puerta: el bloque tiene que pintarse como superficie (bloquePintaSuperficie).
+ * Una fila de lista, en cambio, no es un control por llamarse `...Item`: eso hay
+ * que verlo. */
 const PATRONES_ROL_SUPERFICIE = /(?:Trigger|Dropdown|Desplegable|SubMenu|Submenu|Menu|Panel)$/;
 
 /* [15A-25] Si el selector ya lleva una clase del sistema interactivo
@@ -129,6 +131,21 @@ const FIRMA_SUPERFICIE = [
 function bloqueDeclaraFirmaSuperficie(cuerpo: string): boolean {
   const limpio = cuerpo.replace(/\/\*[\s\S]*?\*\//g, ' ');
   return FIRMA_SUPERFICIE.every(patron => patron.test(limpio));
+}
+
+/* [15A-27] Firma MINIMA de superficie: fondo propio y un limite (borde o radio).
+ * Es lo que basta para saber que el bloque se PINTA como superficie. No se exige
+ * la sombra porque hay superficies flotantes legitimas sin elevacion (un dropdown
+ * embebido, un panel dentro de un modal): exigirla convertiria la regla en ciega
+ * justo donde mas falta hace. */
+const FIRMA_MINIMA_SUPERFICIE = [
+  /\bbackground(?:-color|-image)?\s*:/i,
+  /\bborder(?:-(?:top|right|bottom|left|color|style|width))?\s*:|\bborder-radius\s*:/i,
+];
+
+function bloquePintaSuperficie(cuerpo: string): boolean {
+  const limpio = cuerpo.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  return FIRMA_MINIMA_SUPERFICIE.every(patron => patron.test(limpio));
 }
 
 /* [15A-26] Propiedades que son LAYOUT contextual y no receta visual: son justo las
@@ -167,8 +184,13 @@ function recetaAplicable(
   cuerpo: string,
   indice: IndiceProyecto,
 ): boolean {
+  /* [15A-27] El nombre de familia abre la puerta, pero no decide: exige que el
+   * bloque se pinte como superficie. Un contenedor de layout llamado `...Panel`
+   * (padding, flex, tipografia, sin fondo ni borde) no declara superficie ninguna,
+   * asi que no hay receta a la que plegarlo: mismo criterio de ruido que el resto.
+   * Si el bloque si se pinta, sigue el veredicto de siempre. */
   if (PATRONES_ROL_SUPERFICIE.test(clase)) {
-    return true;
+    return bloquePintaSuperficie(cuerpo);
   }
 
   if (indice.control.has(clase)) {
