@@ -187,6 +187,16 @@ export function verificarCssAdhocButtonStyle(
       continue;
     }
 
+    /* [15A-27] Un bloque que compone con una clase base del sistema
+     * (`.botonBase.pageBuilderTipoBoton`) hereda esa base: es una variante, no
+     * un boton hecho a mano. El filtro de abajo solo mira el nombre
+     * problematico, asi que el mismo patron salia o no salia segun si el
+     * modificador contenia 'boton': `.botonBase.controlBloque` no se reportaba
+     * y `.botonBase.pageBuilderTipoBoton` si, con el mismo cuerpo. */
+    if (clasesSelector.some(nombreClase => CLASES_BOTON_SISTEMA.has(nombreClase))) {
+      continue;
+    }
+
     const claseProblematica = clasesSelector.find(nombreClase => {
       if (!/(?:boton|button)/i.test(nombreClase)) {
         return false;

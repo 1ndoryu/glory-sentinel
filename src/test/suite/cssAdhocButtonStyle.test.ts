@@ -47,4 +47,21 @@ suite('css-adhoc-button-style', () => {
     assert.strictEqual(pequeno.length, 0);
     assert.strictEqual(grande.length, 0);
   });
+
+  /* [15A-27] La exencion de arriba solo miraba el nombre problematico, no la
+   * composicion: `.botonBase.controlBloque` no se reportaba y
+   * `.botonBase.pageBuilderTipoBoton` si, con el mismo cuerpo. Si el selector
+   * compone con una clase base del sistema, el bloque es una variante de esa
+   * base. */
+  test('ignora un modificador que compone con la clase base del sistema', () => {
+    const texto = '.botonBase.pageBuilderTipoBoton { cursor: pointer; background: #1a1a1a; }';
+    const violaciones = verificarCssAdhocButtonStyle(texto, crearDocumento('/repo/frontend/src/glory-core/pageBuilder/styles/constructorPaginas.css'), 'constructorPaginas.css');
+    assert.strictEqual(violaciones.length, 0);
+  });
+
+  test('sigue reportando el boton ad-hoc que no compone con la base', () => {
+    const texto = '.pageBuilderTipoBoton { cursor: pointer; background: #1a1a1a; }';
+    const violaciones = verificarCssAdhocButtonStyle(texto, crearDocumento('/repo/frontend/src/glory-core/pageBuilder/styles/constructorPaginas.css'), 'constructorPaginas.css');
+    assert.strictEqual(violaciones.length, 1);
+  });
 });
