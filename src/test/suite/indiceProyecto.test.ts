@@ -141,6 +141,75 @@ suite('css-adhoc-button-style — veredicto por elemento', () => {
     assert.strictEqual(violaciones.length, 1);
   });
 
+  /* [15A-27] La variante de tamano sale de una plantilla: el literal dice
+   * `botonFollow-` y el sufijo es el valor de una variable, asi que
+   * `.botonFollow-sm` no aparece escrito en ningun sitio. El prefijo si es
+   * literal y nombra la familia. */
+  test('[15A-27] la variante armada con plantilla cuenta por su prefijo', () => {
+    const raiz = crearProyecto({
+      'src/boton/useBotonFollow.ts': [
+        'export function useBotonFollow(tamano: string) {',
+        "  const clases = ['botonFollow', `botonFollow-${tamano}`].join(' ');",
+        '  return { clases };',
+        '}',
+      ].join('\n'),
+      'src/boton/BotonFollow.tsx': [
+        'export function BotonFollow() {',
+        '  const { clases } = useBotonFollow(tamano);',
+        '  return <BotonBase variante="ghost" className={clases}>Seguir</BotonBase>;',
+        '}',
+      ].join('\n'),
+    });
+    const violaciones = verificarCssAdhocButtonStyle(
+      '.botonFollow-sm { cursor: pointer; padding: 4px 12px; }',
+      crearDocumento(path.join(raiz, 'src/boton/BotonFollow.css')),
+      'BotonFollow.css',
+      [raiz],
+    );
+
+    assert.strictEqual(violaciones.length, 0);
+  });
+
+  test('[15A-27] testigo: el mismo prefijo sobre un <button> nativo sigue siendo un hallazgo', () => {
+    const raiz = crearProyecto({
+      'src/panel/Panel.tsx': [
+        'export function Panel() {',
+        "  const clases = `panelBoton-${tamano}`;",
+        '  return <button className={clases} onClick={abrir}>Abrir</button>;',
+        '}',
+      ].join('\n'),
+    });
+    const violaciones = verificarCssAdhocButtonStyle(
+      '.panelBoton-sm { cursor: pointer; padding: 4px 12px; }',
+      crearDocumento(path.join(raiz, 'src/panel/Panel.css')),
+      'Panel.css',
+      [raiz],
+    );
+
+    assert.strictEqual(violaciones.length, 1);
+  });
+
+  test('[15A-27] testigo: sin separador no hay prefijo que valga', () => {
+    /* `` `filtroBoton${x}` `` daria el prefijo `filtroBoton`, que eximiria
+     * cualquier clase que empezara igual. Se exige que el literal acabe en
+     * separador para que el prefijo nombre una familia y no un comodin. */
+    const raiz = crearProyecto({
+      'src/panel/Panel.tsx': [
+        'export function Panel() {',
+        '  return <BotonBase className={`filtroBoton${tamano}`}>Abrir</BotonBase>;',
+        '}',
+      ].join('\n'),
+    });
+    const violaciones = verificarCssAdhocButtonStyle(
+      '.filtroBotonRaro { cursor: pointer; padding: 4px 12px; }',
+      crearDocumento(path.join(raiz, 'src/panel/Panel.css')),
+      'Panel.css',
+      [raiz],
+    );
+
+    assert.strictEqual(violaciones.length, 1);
+  });
+
   test('sin roots conserva el veredicto anterior (fail-closed)', () => {
     const texto = '.botonFollow { cursor: pointer; }';
     const violaciones = verificarCssAdhocButtonStyle(

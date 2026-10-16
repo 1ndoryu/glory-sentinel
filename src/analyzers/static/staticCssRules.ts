@@ -8,6 +8,7 @@ import { Violacion } from '../../types';
 import { CoreTextDocument } from '../../core/types';
 import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
 import {
+  claseAplicada,
   indiceProyecto,
   IndiceProyecto,
   tieneSentinelDisable,
@@ -202,7 +203,8 @@ export function verificarCssAdhocButtonStyle(
      * clase se aplica a un componente y a ningun elemento nativo, es una variante
      * del boton del sistema (su className viaja al <BotonBase>), no un boton hecho
      * a mano. Un bloque CSS no puede ser un boton por si mismo. */
-    if (aplicadas.componente.has(claseProblematica) && !aplicadas.nativo.has(claseProblematica)) {
+    if (claseAplicada(claseProblematica, aplicadas.componente, aplicadas.prefijosComponente)
+        && !claseAplicada(claseProblematica, aplicadas.nativo, aplicadas.prefijosNativo)) {
       continue;
     }
 

@@ -182,7 +182,39 @@ export interface IndiceProyecto {
   /* [15A-27] Enlaces del PROPIO fichero, que mandan sobre la union global: el
    * identificador `clases` se repite en medio centenar de ficheros, asi que la
    * union sola resolveria unos con los fragmentos de otros. */
-  enlacesPorFichero: Map<string, Map<string, string[]>>;
+  enlacesPorFichero: Map<string, Map<string, EnlaceClases>>;
+  /* [15A-27] La misma union, para los prefijos de plantilla que viajan dentro
+   * de un enlace (`['botonFollow', \`botonFollow-${tamano}\`]`). */
+  aliasPrefijos: Map<string, Set<string>>;
+  /* [15A-27] Prefijos de clase que el JSX arma con plantilla:
+   * `` `botonFollow-${tamano}` `` produce `.botonFollow-sm` o `.botonFollow-md`
+   * segun el valor, que no esta en el literal. El sufijo es dinamico y no se
+   * puede enumerar, pero el prefijo si es literal, asi que la clase cuenta como
+   * aplicada si empieza por el. Uno por cajon: el prefijo solo exime donde el
+   * elemento que lo lleva es de ese tipo. */
+  prefijosComponente: Set<string>;
+  prefijosNativo: Set<string>;
+  prefijosControl: Set<string>;
+  prefijosOperado: Set<string>;
+}
+
+/* [15A-27] Lo que un enlace (`const clases = ...`) aporta: las clases literales
+ * y los prefijos de las plantillas que arma. */
+interface EnlaceClases {
+  clases: string[];
+  prefijos: string[];
+}
+
+/* [15A-27] Pertenencia al indice con prefijos: `clase` cuenta si esta aplicada
+ * tal cual o si empieza por un prefijo que el proyecto arma con plantilla. */
+export function claseAplicada(clase: string, aplicadas: Set<string>, prefijos: Set<string>): boolean {
+  if (aplicadas.has(clase)) { return true; }
+
+  for (const prefijo of prefijos) {
+    if (clase.startsWith(prefijo)) { return true; }
+  }
+
+  return false;
 }
 
 const DIRS_FUENTES_SKIP = new Set([
@@ -223,6 +255,24 @@ function fragmentosDeClases(valor: string): string[] {
   return valor.split(/[^A-Za-z0-9_-]+/).filter(Boolean);
 }
 
+/* [15A-27] Prefijo literal de una plantilla con interpolacion. Se exige que el
+ * literal acabe en separador (`-` o `_`): `` `boton${x}` `` daria el prefijo
+ * `boton`, que eximiria medio proyecto, mientras que `` `botonFollow-${x}` ``
+ * nombra una familia concreta. */
+const RE_PREFIJO_PLANTILLA = /`([A-Za-z][\w-]*[-_])\$\{/g;
+
+function prefijosDeClases(valor: string): string[] {
+  const prefijos: string[] = [];
+
+  RE_PREFIJO_PLANTILLA.lastIndex = 0;
+  let plantilla: RegExpExecArray | null;
+  while ((plantilla = RE_PREFIJO_PLANTILLA.exec(valor)) !== null) {
+    prefijos.push(plantilla[1]);
+  }
+
+  return prefijos;
+}
+
 /* [15A-27] Recoge los enlaces del fichero. Se aplica tambien a `.ts`/`.js`, que
  * no llevan JSX pero si los arrays de clases que devuelven los hooks. Se guardan
  * en dos sitios: el mapa del fichero, que resuelve con exactitud, y la union del
@@ -238,14 +288,22 @@ function indexarEnlaces(ruta: string, indice: IndiceProyecto): void {
   RE_ENLACE_CLASES.lastIndex = 0;
   let enlace: RegExpExecArray | null;
   while ((enlace = RE_ENLACE_CLASES.exec(texto)) !== null) {
-    const fragmentos = fragmentosDeClases(enlace[2]);
-    const propios = indice.enlacesPorFichero.get(ruta) ?? new Map<string, string[]>();
-    propios.set(enlace[1], fragmentos);
+    const aporta: EnlaceClases = {
+      clases: fragmentosDeClases(enlace[2]),
+      prefijos: prefijosDeClases(enlace[2]),
+    };
+
+    const propios = indice.enlacesPorFichero.get(ruta) ?? new Map<string, EnlaceClases>();
+    propios.set(enlace[1], aporta);
     indice.enlacesPorFichero.set(ruta, propios);
 
     const union = indice.aliasClases.get(enlace[1]) ?? new Set<string>();
-    for (const fragmento of fragmentos) { union.add(fragmento); }
+    for (const fragmento of aporta.clases) { union.add(fragmento); }
     indice.aliasClases.set(enlace[1], union);
+
+    const unionPrefijos = indice.aliasPrefijos.get(enlace[1]) ?? new Set<string>();
+    for (const prefijo of aporta.prefijos) { unionPrefijos.add(prefijo); }
+    indice.aliasPrefijos.set(enlace[1], unionPrefijos);
   }
 }
 
@@ -265,11 +323,15 @@ function indexarJsx(ruta: string, indice: IndiceProyecto): void {
    * para los identificadores que no se declaran aqui (el array que devuelve un
    * hook importado). */
   const propios = indice.enlacesPorFichero.get(ruta);
-  const resolver = (token: string): string[] => {
+  const resolver = (token: string): EnlaceClases => {
     const local = propios?.get(token);
     if (local) { return local; }
-    const union = indice.aliasClases.get(token);
-    return union ? Array.from(union) : [];
+
+    const clases = indice.aliasClases.get(token);
+    const prefijos = indice.aliasPrefijos.get(token);
+    if (!clases && !prefijos) { return { clases: [], prefijos: [] }; }
+
+    return { clases: Array.from(clases ?? []), prefijos: Array.from(prefijos ?? []) };
   };
 
   RE_TAG_JSX.lastIndex = 0;
@@ -287,16 +349,32 @@ function indexarJsx(ruta: string, indice: IndiceProyecto): void {
        * se toman todos los identificadores con pinta de clase. Sobra alguna palabra
        * suelta, pero el veredicto queda del lado conservador. */
       const valor = atributo[1] ?? atributo[2] ?? atributo[3] ?? '';
+      /* Los prefijos de plantilla viajan con el enlace: `botonFollow-` puede
+       * estar escrito aqui o dentro del array al que apunta `clases`. */
+      const prefijos = prefijosDeClases(valor);
+
       for (const token of valor.split(/[^A-Za-z0-9_-]+/)) {
         if (!token) { continue; }
-        /* [15A-27] Si el token es un enlace (`clases`), valen tambien los
-         * fragmentos a los que apunta: la clase esta aplicada a ESTE elemento
-         * aunque su nombre no se escriba aqui. */
-        for (const clase of [token, ...resolver(token)]) {
+        /* [15A-27] Si el token es un enlace (`clases`), valen tambien las clases
+         * y los prefijos a los que apunta: estan aplicados a ESTE elemento
+         * aunque no se escriban aqui. */
+        const enlace = resolver(token);
+        for (const clase of [token, ...enlace.clases]) {
           destino.add(clase);
           if (esControl) { indice.control.add(clase); }
           if (seOpera) { indice.operado.add(clase); }
         }
+        prefijos.push(...enlace.prefijos);
+      }
+
+      /* [15A-27] Los prefijos van al cajon del elemento que los lleva: un
+       * `` `botonFollow-${tamano}` `` sobre un <BotonBase> exime
+       * `.botonFollow-sm`; el mismo literal sobre un <button> nativo, no. */
+      for (const prefijo of prefijos) {
+        if (destino === indice.componente) { indice.prefijosComponente.add(prefijo); }
+        else { indice.prefijosNativo.add(prefijo); }
+        if (esControl) { indice.prefijosControl.add(prefijo); }
+        if (seOpera) { indice.prefijosOperado.add(prefijo); }
       }
     }
   }
@@ -373,7 +451,12 @@ export function indiceProyecto(roots: string[]): IndiceProyecto {
     cuerposCss: new Map(),
     modalFusionaClassName: false,
     aliasClases: new Map(),
+    aliasPrefijos: new Map(),
     enlacesPorFichero: new Map(),
+    prefijosComponente: new Set(),
+    prefijosNativo: new Set(),
+    prefijosControl: new Set(),
+    prefijosOperado: new Set(),
   };
   for (const root of normalizados) {
     recorrerFuentes(root, indice);

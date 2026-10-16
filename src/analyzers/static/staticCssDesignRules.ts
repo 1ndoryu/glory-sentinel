@@ -8,6 +8,7 @@ import { Violacion } from '../../types';
 import { CoreTextDocument } from '../../core/types';
 import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
 import {
+  claseAplicada,
   indiceProyecto,
   IndiceProyecto,
   tieneSentinelDisable,
@@ -189,7 +190,7 @@ function recetaAplicable(
     return bloquePintaSuperficie(cuerpo);
   }
 
-  if (indice.control.has(clase)) {
+  if (claseAplicada(clase, indice.control, indice.prefijosControl)) {
     return true;
   }
 
@@ -198,11 +199,12 @@ function recetaAplicable(
    * layout, es literalmente lo que el mensaje pide conservar ("deja aqui solo layout
    * contextual"), asi que marcarlo deja al autor sin salida: cualquier padding lo
    * volveria a marcar. */
-  if (indice.componente.has(clase) || indice.operado.has(clase)) {
+  if (claseAplicada(clase, indice.componente, indice.prefijosComponente)
+      || claseAplicada(clase, indice.operado, indice.prefijosOperado)) {
     return !bloqueSoloAjustaLayout(cuerpo);
   }
 
-  if (indice.nativo.has(clase)) {
+  if (claseAplicada(clase, indice.nativo, indice.prefijosNativo)) {
     return bloqueDeclaraFirmaSuperficie(cuerpo);
   }
 
