@@ -15,7 +15,7 @@ import { obtenerWorkspaceRoots } from '../core/workspaceRoots';
 import {REGLAS_LIMITE_LINEAS, verificarLimiteLineas, verificarUseStateExcesivo, verificarImportsMuertos, verificarAnyType, verificarNonNullAssertion, verificarDirectorioAbarrotado, verificarHtmlSinOrigenDeclarado, verificarTodoProsaSinMarcador} from './static/staticCodeRules';
 import {verificarCardIconoExtiendeBase, verificarCssAdhocButtonStyle, verificarCssEspecificacionDisenoLocal, verificarModalSemanticaNoCanonica, verificarNomenclaturaCssIngles, verificarCssElementoHTMLDirecto, verificarCssHardcoded} from './static/staticCssRules';
 import { PortableBoundaryConfig, verificarReglasPortables } from './static/portableRules';
-import { calcularRangosTest, esArchivoSoloTest } from './rustTestScope';
+import { calcularRangosTest, esArchivoSoloTest, esRutaDeTestRust } from './rustTestScope';
 
 /* [124A-FP1] Deduplicacion de directorio-abarrotado: se reporta 1 vez por
  * directorio por ciclo de analisis, en vez de 1 vez por archivo.
@@ -356,8 +356,6 @@ function enComentario(rangos: Array<[number, number]>, columna: number): boolean
  * el sqlx::query runtime es el habitual en tests y la verificacion compile-time
  * solo importa en produccion. Mismo criterio que handler-accede-bd-rs. */
 const REGLAS_SQL_SOLO_PRODUCCION = new Set(['sqlx-query-sin-macro', 'sqlx-query-as-sin-macro']);
-/* Tests de integracion del crate (tests/<x>.rs): solo compilan con cargo test. */
-const RUTA_TESTS_CRATE = /(^|[\\/])tests[\\/][^\\/]+\.rs$/;
 
 /*
  * Ejecuta una regla regex linea por linea.
@@ -378,9 +376,10 @@ function ejecutarReglaPorLinea(
      * se reviso y midio. Generalizarlo al resto de reglas es un cambio de
      * comportamiento que necesita su propio caso y su propia medicion. */
     const comentarios = regla.id === 'inline-style-prohibido' ? rangosComentados(lineas) : null;
-    /* [08AA-26] Archivo entero de solo-test (#![cfg(test)] o tests/ del crate): no hay produccion que vigilar. */
+    /* [08AA-26] Archivo entero de solo-test (#![cfg(test)], tests/ del crate o
+     * <mod>/tests.rs): no hay produccion que vigilar. */
     if (REGLAS_SQL_SOLO_PRODUCCION.has(regla.id) && documento.fileName.endsWith('.rs')
-        && (esArchivoSoloTest(lineas.join('\n')) || RUTA_TESTS_CRATE.test(documento.fileName))) {
+        && (esArchivoSoloTest(lineas.join('\n')) || esRutaDeTestRust(documento.fileName))) {
         return violaciones;
     }
     const enTest = REGLAS_SQL_SOLO_PRODUCCION.has(regla.id) && documento.fileName.endsWith('.rs')

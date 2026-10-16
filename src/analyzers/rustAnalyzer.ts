@@ -18,7 +18,7 @@ import { Violacion } from '../types';
 import { CoreTextDocument } from '../core/types';
 import { reglaHabilitada, obtenerSeveridadRegla } from '../config/ruleRegistry';
 import { detectarStackAxum } from './rustAxumStack';
-import { calcularRangosTest, esArchivoSoloTest } from './rustTestScope';
+import { calcularRangosTest, esArchivoSoloTest, esRutaDeTestRust } from './rustTestScope';
 import { analizarReglasNuevas } from './rustReglasNuevas';
 
 /* Limite de lineas efectivas por funcion (clippy tambien lo verifica,
@@ -37,8 +37,14 @@ export function analizarRust(documento: CoreTextDocument): Violacion[] {
   const lineas = texto.split('\n');
   const rutaNorm = documento.fileName.replace(/\\/g, '/');
 
-  /* Excluir archivos de tests dedicados y examples */
-  if (rutaNorm.includes('/examples/') || rutaNorm.includes('/tests/')) {
+  /* Excluir archivos de tests dedicados y examples.
+   * [16A-8] `esRutaDeTestRust` cubre las DOS convenciones por ruta: `tests/`
+   * (integracion del crate) y `<mod>/tests.rs` (modulo de tests partido a
+   * fichero, que era el hueco: 103 de los 109 `expect` reportados en KAMPLES
+   * salian de ahi). Antes solo se miraba `'/tests/'`, que no casa con
+   * `.../bpm/tests.rs` porque el nombre es `tests.rs`, no un fichero DENTRO de
+   * un directorio `tests`. */
+  if (rutaNorm.includes('/examples/') || esRutaDeTestRust(rutaNorm)) {
     return [];
   }
 
