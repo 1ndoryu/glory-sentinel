@@ -12,6 +12,7 @@ import {
   indiceProyecto,
   IndiceProyecto,
   tieneSentinelDisable,
+  tieneSentinelDisableFile,
 } from '../../utils/analisisHelpers';
 
 export const CLASES_BOTON_SISTEMA = new Set([
@@ -315,7 +316,7 @@ export function verificarCssEspecificacionDisenoLocal(
     return [];
   }
 
-  if (texto.includes(`sentinel-disable-file ${REGLA_ESPECIFICACION_DISENO_LOCAL}`)) {
+  if (tieneSentinelDisableFile(texto, REGLA_ESPECIFICACION_DISENO_LOCAL)) {
     return [];
   }
 

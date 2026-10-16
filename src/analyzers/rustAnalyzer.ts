@@ -20,6 +20,7 @@ import { reglaHabilitada, obtenerSeveridadRegla } from '../config/ruleRegistry';
 import { detectarStackAxum } from './rustAxumStack';
 import { calcularRangosTest, esArchivoSoloTest, esRutaDeTestRust } from './rustTestScope';
 import { analizarReglasNuevas } from './rustReglasNuevas';
+import { tieneSentinelDisableFile } from '../utils/analisisHelpers';
 
 /* Limite de lineas efectivas por funcion (clippy tambien lo verifica,
  * pero Sentinel lo muestra inline sin necesidad de compilar) */
@@ -49,7 +50,7 @@ export function analizarRust(documento: CoreTextDocument): Violacion[] {
   }
 
   /* Soporte sentinel-disable-file global para todo el analyzer */
-  if (texto.includes('sentinel-disable-file rust-analyzer')) {
+  if (tieneSentinelDisableFile(texto, 'rust-analyzer')) {
     return [];
   }
 
@@ -107,7 +108,7 @@ function detectarUnwrap(
   rangoTests: Set<number>,
   texto: string,
 ): Violacion[] {
-  if (texto.includes('sentinel-disable-file unwrap-produccion-rs') || esArchivoSoloTest(texto)) {
+  if (tieneSentinelDisableFile(texto, 'unwrap-produccion-rs') || esArchivoSoloTest(texto)) {
     return [];
   }
 
@@ -157,7 +158,7 @@ function detectarPanic(
   rangoTests: Set<number>,
   texto: string,
 ): Violacion[] {
-  if (texto.includes('sentinel-disable-file panic-produccion-rs') || esArchivoSoloTest(texto)) {
+  if (tieneSentinelDisableFile(texto, 'panic-produccion-rs') || esArchivoSoloTest(texto)) {
     return [];
   }
 
@@ -209,7 +210,7 @@ function detectarHandlerAccedeBd(
   rangoTests: Set<number>,
   texto: string,
 ): Violacion[] {
-  if (texto.includes('sentinel-disable-file handler-accede-bd-rs')) {
+  if (tieneSentinelDisableFile(texto, 'handler-accede-bd-rs')) {
     return [];
   }
 
@@ -261,8 +262,8 @@ function analizarFunciones(
   texto: string,
 ): Violacion[] {
   const violaciones: Violacion[] = [];
-  const disableFnLarga = texto.includes('sentinel-disable-file funcion-larga-rs');
-  const disableParams = texto.includes('sentinel-disable-file parametros-excesivos-rs');
+  const disableFnLarga = tieneSentinelDisableFile(texto, 'funcion-larga-rs');
+  const disableParams = tieneSentinelDisableFile(texto, 'parametros-excesivos-rs');
 
   /* Regex para detectar inicio de funcion Rust (pub/pub(crate)/async etc) */
   const patronFn = /^(\s*)(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?(?:unsafe\s+)?fn\s+(\w+)\s*(?:<[^>]*>)?\s*\(/;
@@ -456,7 +457,7 @@ function detectarBroadcastMutex(
   rangoTests: Set<number>,
   texto: string,
 ): Violacion[] {
-  if (texto.includes('sentinel-disable-file broadcast-mutex-riesgo-rs')) {
+  if (tieneSentinelDisableFile(texto, 'broadcast-mutex-riesgo-rs')) {
     return [];
   }
 
@@ -537,7 +538,7 @@ function detectarRutaParametroSintaxis(
   texto: string,
   rutaArchivo: string,
 ): Violacion[] {
-  if (texto.includes('sentinel-disable-file axum-ruta-sintaxis-rs')) {
+  if (tieneSentinelDisableFile(texto, 'axum-ruta-sintaxis-rs')) {
     return [];
   }
 

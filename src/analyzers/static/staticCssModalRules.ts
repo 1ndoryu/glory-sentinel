@@ -16,6 +16,7 @@ import {
   claseCanonicaModal,
   sufijoSemanticoModal,
   tieneSentinelDisable,
+  tieneSentinelDisableFile,
 } from '../../utils/analisisHelpers';
 
 const REGLA_MODAL_SEMANTICA = 'modal-semantica-no-canonica';
@@ -47,7 +48,7 @@ export function verificarModalSemanticaNoCanonica(
     return [];
   }
 
-  if (texto.includes(`sentinel-disable-file ${REGLA_MODAL_SEMANTICA}`)) {
+  if (tieneSentinelDisableFile(texto, REGLA_MODAL_SEMANTICA)) {
     return [];
   }
 

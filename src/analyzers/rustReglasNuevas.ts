@@ -28,6 +28,7 @@ import { Violacion } from '../types';
 import { obtenerSeveridadRegla, reglaHabilitada } from '../config/ruleRegistry';
 import { obtenerWorkspaceRoots, resolverWorkspaceRoot } from '../core/workspaceRoots';
 import { contarLineasEfectivas } from '../utils/lineCounter';
+import { tieneSentinelDisableFile } from '../utils/analisisHelpers';
 import { esArchivoSoloTest } from './rustTestScope';
 
 const REGLA_EXPECT = 'expect-produccion-rs';
@@ -136,7 +137,7 @@ export function detectarExpect(
   rangoTests: Set<number>,
   texto: string,
 ): Violacion[] {
-  if (texto.includes(`sentinel-disable-file ${REGLA_EXPECT}`)) { return []; }
+  if (tieneSentinelDisableFile(texto, REGLA_EXPECT)) { return []; }
   if (esArchivoSoloTest(texto)) { return []; }
 
   const violaciones: Violacion[] = [];
@@ -265,7 +266,7 @@ export function detectarBlockEnAsync(
   rangoTests: Set<number>,
   texto: string,
 ): Violacion[] {
-  if (texto.includes(`sentinel-disable-file ${REGLA_BLOCK}`)) { return []; }
+  if (tieneSentinelDisableFile(texto, REGLA_BLOCK)) { return []; }
   if (esArchivoSoloTest(texto)) { return []; }
 
   const rangosAsync = calcularRangosAsync(lineas);
@@ -348,7 +349,7 @@ export function detectarLockATravesAwait(
   rangoTests: Set<number>,
   texto: string,
 ): Violacion[] {
-  if (texto.includes(`sentinel-disable-file ${REGLA_LOCK_AWAIT}`)) { return []; }
+  if (tieneSentinelDisableFile(texto, REGLA_LOCK_AWAIT)) { return []; }
   if (esArchivoSoloTest(texto)) { return []; }
 
   const violaciones: Violacion[] = [];
@@ -434,7 +435,7 @@ export function detectarMutexSqliteEnAsync(
   rangoTests: Set<number>,
   texto: string,
 ): Violacion[] {
-  if (texto.includes(`sentinel-disable-file ${REGLA_SQLITE_MUTEX}`)) { return []; }
+  if (tieneSentinelDisableFile(texto, REGLA_SQLITE_MUTEX)) { return []; }
   if (esArchivoSoloTest(texto)) { return []; }
   if (!PATRON_MUTEX_CONNECTION.test(texto)) { return []; }
 
@@ -516,7 +517,7 @@ export function detectarShellSinAllowlist(
   rangoTests: Set<number>,
   texto: string,
 ): Violacion[] {
-  if (texto.includes(`sentinel-disable-file ${REGLA_SHELL}`)) { return []; }
+  if (tieneSentinelDisableFile(texto, REGLA_SHELL)) { return []; }
   if (esArchivoSoloTest(texto)) { return []; }
 
   const violaciones: Violacion[] = [];
@@ -594,7 +595,7 @@ export function detectarSecretoEnLog(
   rangoTests: Set<number>,
   texto: string,
 ): Violacion[] {
-  if (texto.includes(`sentinel-disable-file ${REGLA_SECRETO_LOG}`)) { return []; }
+  if (tieneSentinelDisableFile(texto, REGLA_SECRETO_LOG)) { return []; }
   if (esArchivoSoloTest(texto)) { return []; }
 
   const violaciones: Violacion[] = [];
@@ -732,7 +733,7 @@ export function detectarPostSinRateLimit(
   texto: string,
   rutaArchivo?: string,
 ): Violacion[] {
-  if (texto.includes(`sentinel-disable-file ${REGLA_POST_SIN_RL}`)) { return []; }
+  if (tieneSentinelDisableFile(texto, REGLA_POST_SIN_RL)) { return []; }
   if (esArchivoSoloTest(texto)) { return []; }
   if (!/\.route\s*\(/.test(texto)) { return []; }
   if (proyectoConRateLimit(texto, rutaArchivo)) { return []; }
@@ -813,7 +814,7 @@ export function detectarPathJoinSinCanonicalize(
   rangoTests: Set<number>,
   texto: string,
 ): Violacion[] {
-  if (texto.includes(`sentinel-disable-file ${REGLA_PATH_JOIN}`)) { return []; }
+  if (tieneSentinelDisableFile(texto, REGLA_PATH_JOIN)) { return []; }
   if (esArchivoSoloTest(texto)) { return []; }
   /* [08AA-26] PATRON_JOIN es global (/g para el bucle exec con reset en
    * cada linea): resetear tambien antes de este pre-chequeo. Sin reset,
@@ -1041,7 +1042,7 @@ export function detectarCargaNConsultas(
   rangoTests: Set<number>,
   texto: string,
 ): Violacion[] {
-  if (texto.includes(`sentinel-disable-file ${REGLA_N_CONSULTAS}`)) { return []; }
+  if (tieneSentinelDisableFile(texto, REGLA_N_CONSULTAS)) { return []; }
   if (esArchivoSoloTest(texto)) { return []; }
   if (!PATRON_AWAIT.test(texto)) { return []; }
 
@@ -1174,7 +1175,7 @@ export function detectarCloneBajoLock(
   rangoTests: Set<number>,
   texto: string,
 ): Violacion[] {
-  if (texto.includes(`sentinel-disable-file ${REGLA_CLONE_LOCK}`)) { return []; }
+  if (tieneSentinelDisableFile(texto, REGLA_CLONE_LOCK)) { return []; }
   if (esArchivoSoloTest(texto)) { return []; }
   if (!/\.clone\s*\(/.test(texto)) { return []; }
 
@@ -1255,7 +1256,7 @@ export function detectarGodObject(
   _rangoTests: Set<number>,
   texto: string,
 ): Violacion[] {
-  if (texto.includes(`sentinel-disable-file ${REGLA_GOD_OBJECT}`)) { return []; }
+  if (tieneSentinelDisableFile(texto, REGLA_GOD_OBJECT)) { return []; }
   if (esArchivoSoloTest(texto)) { return []; }
 
   let tieneCodigo = false;
@@ -1351,7 +1352,7 @@ export function detectarPortFsDuplicado(
   texto: string,
   rutaArchivo?: string,
 ): Violacion[] {
-  if (texto.includes(`sentinel-disable-file ${REGLA_PORT_FS}`)) { return []; }
+  if (tieneSentinelDisableFile(texto, REGLA_PORT_FS)) { return []; }
   if (/\bdiverge de\b/i.test(texto)) { return []; }
   if (esArchivoSoloTest(texto)) { return []; }
   if (!rutaArchivo) { return []; }

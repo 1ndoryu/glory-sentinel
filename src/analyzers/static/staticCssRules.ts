@@ -12,6 +12,7 @@ import {
   indiceProyecto,
   IndiceProyecto,
   tieneSentinelDisable,
+  tieneSentinelDisableFile,
 } from '../../utils/analisisHelpers';
 import { CLASES_BOTON_SISTEMA } from './staticCssDesignRules';
 
@@ -84,7 +85,7 @@ export function verificarCardIconoExtiendeBase(
     return [];
   }
 
-  if (texto.includes('sentinel-disable-file card-icono-debe-extender-base')) {
+  if (tieneSentinelDisableFile(texto, 'card-icono-debe-extender-base')) {
     return [];
   }
 
@@ -160,7 +161,7 @@ export function verificarCssAdhocButtonStyle(
     return [];
   }
 
-  if (texto.includes('sentinel-disable-file css-adhoc-button-style')) {
+  if (tieneSentinelDisableFile(texto, 'css-adhoc-button-style')) {
     return [];
   }
 
@@ -339,7 +340,7 @@ export function verificarCssElementoHTMLDirecto(
     return [];
   }
 
-  if (texto.includes('sentinel-disable-file css-elemento-html-directo')) {
+  if (tieneSentinelDisableFile(texto, 'css-elemento-html-directo')) {
     return [];
   }
 

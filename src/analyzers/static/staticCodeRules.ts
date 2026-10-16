@@ -8,6 +8,7 @@ import * as fs from 'fs';
 import { Violacion } from '../../types';
 import { CoreTextDocument, positionAtOffset } from '../../core/types';
 import { contarLineasEfectivas, obtenerLimiteArchivo } from '../../utils/lineCounter';
+import { tieneSentinelDisableFile } from '../../utils/analisisHelpers';
 import { obtenerSeveridadRegla, reglaHabilitada } from '../../config/ruleRegistry';
 
 interface EscalaLimiteLineas {
@@ -106,7 +107,7 @@ export function verificarUseStateExcesivo(
   documento: CoreTextDocument,
 ): Violacion[] {
   /* [104A-4] Soporte sentinel-disable-file para esta regla */
-  if (texto.includes('sentinel-disable-file usestate-excesivo')) { return []; }
+  if (tieneSentinelDisableFile(texto, 'usestate-excesivo')) { return []; }
 
   const componentDeclarations = texto.match(/(?:const|function)\s+[A-Z][A-Za-z]*\s*(?:=|\()/g) || [];
   const numComponentes = Math.max(1, componentDeclarations.length);
@@ -330,7 +331,7 @@ export function verificarDirectorioAbarrotado(
   excepciones: string[] = [],
 ): Violacion[] {
   const texto = documento.getText();
-  if (texto.includes('sentinel-disable-file directorio-abarrotado')) {
+  if (tieneSentinelDisableFile(texto, 'directorio-abarrotado')) {
     return [];
   }
 
@@ -458,7 +459,7 @@ export function verificarHtmlSinOrigenDeclarado(
   documento: CoreTextDocument,
   productoresPermitidos: string[] = [],
 ): Violacion[] {
-  if (texto.includes('sentinel-disable-file html-sin-origen-declarado')) { return []; }
+  if (tieneSentinelDisableFile(texto, 'html-sin-origen-declarado')) { return []; }
   if (!PATRON_EXPORT_TS.test(texto)) { return []; }
 
   const lineas = texto.split('\n');
@@ -637,7 +638,7 @@ export function verificarTodoProsaSinMarcador(
   texto: string,
   documento: CoreTextDocument,
 ): Violacion[] {
-  if (texto.includes('sentinel-disable-file todo-prosa-sin-marcador')) { return []; }
+  if (tieneSentinelDisableFile(texto, 'todo-prosa-sin-marcador')) { return []; }
 
   const violaciones: Violacion[] = [];
   const lineas = texto.split('\n');

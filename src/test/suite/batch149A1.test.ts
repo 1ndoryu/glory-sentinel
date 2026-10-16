@@ -560,6 +560,17 @@ suite('[149A-1] god-object-rs', () => {
     assert.strictEqual(mias[0].severidad, 'error');
   });
 
+  /* [16A-8] Cada regla comprobaba `texto.includes('sentinel-disable-file ' + id)`,
+   * asi que en `sentinel-disable-file a b` solo `a` quedaba eximido: el id tenia
+   * que ir pegado al prefijo. Un consumidor que ya habia eximido el archivo
+   * seguia en rojo. Ahora todas pasan por `tieneSentinelDisableFile`. */
+  test('exime aunque el id no vaya primero en la lista', () => {
+    const texto = `/* sentinel-disable-file limite-lineas god-object-rs */
+${cuerpoGrande(900)}`;
+    const findings = analyzeRustDoc(texto);
+    assert.strictEqual(contar('god-object-rs', findings), 0);
+  });
+
   test('mod.rs solo-reexport exento aunque sea largo', () => {
     const cuerpo = Array.from({ length: 600 }, (_, i) => `pub mod modulo${i};`).join('\n');
     const findings = analyzeRustDoc(cuerpo, '/src/mod.rs');

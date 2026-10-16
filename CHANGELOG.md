@@ -3,6 +3,13 @@
 
 ## [Unreleased]
 
+### `sentinel-disable-file` con varios ids: solo eximía el primero
+
+- Cada regla comprobaba la exención con `texto.includes('sentinel-disable-file ' + id)`, así que el id tenía que ir **pegado al prefijo**: en `/* sentinel-disable-file limite-lineas god-object-rs */` solo `limite-lineas` eximía, y `god-object-rs` seguía reportando un archivo que el consumidor ya había eximido. El helper que sí parsea la lista (`tieneSentinelDisableFile`, match por token en la misma línea) ya existía en `utils/analisisHelpers.ts`, pero **28 sitios de 6 analizadores lo esquivaban** con el `includes` directo. Ahora todos pasan por el helper.
+- Efecto medido: la exención `sentinel-disable-file limite-lineas directory-size` de `KAMPLES/src/handlers/mod.rs` nunca eximió `directory-size` — el segundo id era decorativo. Igual en cualquier consumidor con waiver multi-id.
+- Sitios enrutados: `rustAnalyzer.ts` (8), `rustReglasNuevas.ts` (12), `static/staticCodeRules.ts` (4), `static/staticCssDesignRules.ts`, `static/staticCssModalRules.ts` y `static/staticCssRules.ts` (1+1+3).
+- Test de regresión: `batch149A1.test.ts` — `god-object-rs` exime con el id en segunda posición.
+
 ### `todo-prosa-sin-marcador`: el cuantificador español a mitad de frase ya no es una tarea
 
 - Las guardas miraban solo la palabra **siguiente** a `todo` (artículo, cuantificador). Quedaba fuera la prosa donde `todo` va dentro de la oración y le sigue cualquier otra palabra: `KAMPLES/frontend/src/legacy/components/ui/modal/CabeceraModal.tsx:4` — «Variantes: … (icono encima del título, **todo** centrado).» — se reportaba como tarea sin marcador.
