@@ -5,7 +5,7 @@
 
 /* Devuelve el offset del `#[cfg(test)]` que introduce el modulo de tests
  * —aquel cuyo codigo siguiente es un `mod`—, o -1 si no hay ninguno.
- * [16AA-5] No vale el primero del archivo: un `#[cfg(test)] use ...` en la
+ * [16AA-8] No vale el primero del archivo: un `#[cfg(test)] use ...` en la
  * cabecera (import que solo usan los tests) truncaba el archivo entero y el
  * limite de lineas no saltaba nunca. Se toma el ultimo `mod` para no cortar
  * por un `#[cfg(test)] mod` de un submodulo intermedio. */
