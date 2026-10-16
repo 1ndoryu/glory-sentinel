@@ -97,12 +97,15 @@ suite('disable-next-line — ventana de 5 lineas con codigo intermedio', () => {
   });
 });
 
-suite('modal-con-titulo — next-line sobre contenedor (SeccionPagos:117)', () => {
+suite('modal-con-titulo — next-line sobre guarda (SeccionPagos:117)', () => {
+  /* [15A-25] La regla solo mira el PRIMER elemento del <Modal>: el fixture anterior
+   * ponia un <div> delante del <h3> y ya no dispara (era el falso positivo que se
+   * corrigio). Se conserva el contrato que esta suite protege — el disable alcanza
+   * una linea reportada 2 lineas mas abajo — con una forma que si dispara. */
   const base = [
     '<Modal abierto={abierto} onCerrar={onCerrar}>',
-    '<div className="pagosFacturaServicio">',
     '{/* sentinel-disable-next-line modal-con-titulo -- [259A-5] factura */}',
-    '<div className="pagosFacturaServicioInfo">',
+    '{hayServicio && (',
     '<h3 className="modalTitulo">Servicio</h3>',
   ];
 
@@ -111,17 +114,21 @@ suite('modal-con-titulo — next-line sobre contenedor (SeccionPagos:117)', () =
     assert.strictEqual(verificarModalConTitulo(sin).length, 1);
   });
 
-  test('next-line sobre el wrapper suprime el h3 interno', () => {
+  test('next-line sobre la guarda suprime el h3 de 2 lineas despues', () => {
     assert.strictEqual(verificarModalConTitulo(base).length, 0);
   });
 });
 
 suite('modal-acciones-no-canonico — next-line sobre guarda (SeccionPagos:218)', () => {
+  /* [15A-25] El fixture anterior llevaba `modalAcciones` junto a la clase local, que
+   * es justo el caso que la regla ahora acepta (la zona canonica esta; lo demas es un
+   * modificador). Se usa una clase local sin la canonica para seguir cubriendo el
+   * contrato del disable. */
   const base = [
     '<Modal abierto={abierto} onCerrar={onCerrar}>',
-    '{/* sentinel-disable-next-line modal-acciones-no-canonico -- ya lleva modalAcciones */}',
+    '{/* sentinel-disable-next-line modal-acciones-no-canonico -- [15A-25] pie local */}',
     '{puedeSolicitarReembolso && (',
-    '<div className="modalAcciones pagosFacturaAcciones">',
+    '<div className="pagosFacturaAcciones">',
   ];
 
   test('dispara sin disable', () => {
