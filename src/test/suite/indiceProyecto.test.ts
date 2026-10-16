@@ -69,6 +69,78 @@ suite('css-adhoc-button-style — veredicto por elemento', () => {
     assert.strictEqual(violaciones.length, 1);
   });
 
+  /* [15A-27] Dos de los 41 hallazgos de KAMPLES eran este caso: la clase no se
+   * escribe en el `className`, se arma antes en un array (`const clases = [...]`),
+   * a veces en un `.ts` sin JSX —el hook que la devuelve—. El indice solo miraba
+   * el literal del `className`, asi que la clase quedaba invisible y el elemento
+   * parecia no tenerla. */
+  test('[15A-27] la clase armada en un array del propio fichero cuenta', () => {
+    const raiz = crearProyecto({
+      'src/boton/BotonLike.tsx': [
+        'export function BotonLike() {',
+        "  const clases = ['botonLike', liked ? 'botonLikeActivo' : '', className].filter(Boolean).join(' ');",
+        '  return <BotonBase className={clases} onClick={alternar}>Like</BotonBase>;',
+        '}',
+      ].join('\n'),
+    });
+    const violaciones = verificarCssAdhocButtonStyle(
+      '.botonLike { cursor: pointer; padding: 4px 12px; }',
+      crearDocumento(path.join(raiz, 'src/boton/BotonLike.css')),
+      'BotonLike.css',
+      [raiz],
+    );
+
+    assert.strictEqual(violaciones.length, 0);
+  });
+
+  test('[15A-27] la clase que devuelve un hook en un .ts tambien cuenta', () => {
+    const raiz = crearProyecto({
+      'src/boton/useBotonFollow.ts': [
+        'export function useBotonFollow(siguiendo: boolean) {',
+        "  const clases = ['botonFollow', siguiendo ? 'botonFollowActivo' : ''].filter(Boolean).join(' ');",
+        '  return { clases };',
+        '}',
+      ].join('\n'),
+      'src/boton/BotonFollow.tsx': [
+        'export function BotonFollow() {',
+        '  const { clases } = useBotonFollow(siguiendo);',
+        '  return <BotonBase variante="ghost" className={`${clases} botonFollowIcono`} onClick={seguir}>Seguir</BotonBase>;',
+        '}',
+      ].join('\n'),
+    });
+    const violaciones = verificarCssAdhocButtonStyle(
+      '.botonFollow { cursor: pointer; padding: 4px 12px; }',
+      crearDocumento(path.join(raiz, 'src/boton/BotonFollow.css')),
+      'BotonFollow.css',
+      [raiz],
+    );
+
+    assert.strictEqual(violaciones.length, 0);
+  });
+
+  test('[15A-27] testigo: un identificador repetido no arrastra las clases de otro fichero', () => {
+    /* `clases` es el nombre de variable de medio centenar de ficheros. Si el
+     * enlace del propio fichero no mandase sobre la union del proyecto, la clase
+     * de otro fichero eximiria a esta sin que nadie la aplique. */
+    const raiz = crearProyecto({
+      'src/otro/useOtraCosa.ts': "const clases = ['botonLike', 'botonLikeActivo'];",
+      'src/panel/Panel.tsx': [
+        'export function Panel() {',
+        "  const clases = ['panelBotonPropio'];",
+        '  return <button className={clases} onClick={abrir}>Abrir</button>;',
+        '}',
+      ].join('\n'),
+    });
+    const violaciones = verificarCssAdhocButtonStyle(
+      '.botonLike { cursor: pointer; padding: 4px 12px; }',
+      crearDocumento(path.join(raiz, 'src/panel/Panel.css')),
+      'Panel.css',
+      [raiz],
+    );
+
+    assert.strictEqual(violaciones.length, 1);
+  });
+
   test('sin roots conserva el veredicto anterior (fail-closed)', () => {
     const texto = '.botonFollow { cursor: pointer; }';
     const violaciones = verificarCssAdhocButtonStyle(

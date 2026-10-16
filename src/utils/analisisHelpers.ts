@@ -172,6 +172,17 @@ export interface IndiceProyecto {
   cuerposCss: Map<string, string[]>;
   /* El <Modal> del proyecto fusiona la className recibida con las suyas. */
   modalFusionaClassName: boolean;
+  /* [15A-27] Identificador -> fragmentos de clase, para las clases que NO se
+   * escriben como literal en el `className` sino que se arman antes:
+   * `const clases = ['botonLike', ...]` en el propio fichero, o el array que
+   * devuelve un hook en un `.ts` (`useBotonFollow.ts:51` -> `clases`). Sin esto
+   * la clase quedaba invisible para el indice y la regla no podia ver sobre que
+   * elemento se aplica. */
+  aliasClases: Map<string, Set<string>>;
+  /* [15A-27] Enlaces del PROPIO fichero, que mandan sobre la union global: el
+   * identificador `clases` se repite en medio centenar de ficheros, asi que la
+   * union sola resolveria unos con los fragmentos de otros. */
+  enlacesPorFichero: Map<string, Map<string, string[]>>;
 }
 
 const DIRS_FUENTES_SKIP = new Set([
@@ -201,6 +212,42 @@ const RE_MODAL_FUSIONA = [
   /\bclassName\b\s*\+\s*['"]/,
 ];
 const cacheIndice = new Map<string, IndiceProyecto>();
+/* [15A-27] Enlace de un identificador a un literal de cadena o a un array de
+ * fragmentos. Se admite un nivel de anidamiento porque los arrays reales llevan
+ * indexaciones dentro (`mapaTamano[tamano]`), que un `[^\]]*` no cruza. */
+const RE_ENLACE_CLASES = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(\[(?:[^[\]]|\[[^[\]]*\])*\]|`[^`]*`|'[^']*'|"[^"]*")/g;
+
+/* Fragmentos de clase de un literal: mismo criterio que el `className`, se toman
+ * todos los identificadores con pinta de clase y sobra alguna palabra suelta. */
+function fragmentosDeClases(valor: string): string[] {
+  return valor.split(/[^A-Za-z0-9_-]+/).filter(Boolean);
+}
+
+/* [15A-27] Recoge los enlaces del fichero. Se aplica tambien a `.ts`/`.js`, que
+ * no llevan JSX pero si los arrays de clases que devuelven los hooks. Se guardan
+ * en dos sitios: el mapa del fichero, que resuelve con exactitud, y la union del
+ * proyecto, que resuelve los enlaces importados de otro modulo. */
+function indexarEnlaces(ruta: string, indice: IndiceProyecto): void {
+  let texto: string;
+  try {
+    texto = fs.readFileSync(ruta, 'utf8');
+  } catch {
+    return;
+  }
+
+  RE_ENLACE_CLASES.lastIndex = 0;
+  let enlace: RegExpExecArray | null;
+  while ((enlace = RE_ENLACE_CLASES.exec(texto)) !== null) {
+    const fragmentos = fragmentosDeClases(enlace[2]);
+    const propios = indice.enlacesPorFichero.get(ruta) ?? new Map<string, string[]>();
+    propios.set(enlace[1], fragmentos);
+    indice.enlacesPorFichero.set(ruta, propios);
+
+    const union = indice.aliasClases.get(enlace[1]) ?? new Set<string>();
+    for (const fragmento of fragmentos) { union.add(fragmento); }
+    indice.aliasClases.set(enlace[1], union);
+  }
+}
 
 function indexarJsx(ruta: string, indice: IndiceProyecto): void {
   let texto: string;
@@ -213,6 +260,17 @@ function indexarJsx(ruta: string, indice: IndiceProyecto): void {
   if (/[\\/]Modal\.(?:tsx|jsx)$/.test(ruta) && RE_MODAL_FUSIONA.some(re => re.test(texto))) {
     indice.modalFusionaClassName = true;
   }
+
+  /* [15A-27] Los enlaces propios del fichero mandan; la union global solo entra
+   * para los identificadores que no se declaran aqui (el array que devuelve un
+   * hook importado). */
+  const propios = indice.enlacesPorFichero.get(ruta);
+  const resolver = (token: string): string[] => {
+    const local = propios?.get(token);
+    if (local) { return local; }
+    const union = indice.aliasClases.get(token);
+    return union ? Array.from(union) : [];
+  };
 
   RE_TAG_JSX.lastIndex = 0;
   let tag: RegExpExecArray | null;
@@ -231,9 +289,14 @@ function indexarJsx(ruta: string, indice: IndiceProyecto): void {
       const valor = atributo[1] ?? atributo[2] ?? atributo[3] ?? '';
       for (const token of valor.split(/[^A-Za-z0-9_-]+/)) {
         if (!token) { continue; }
-        destino.add(token);
-        if (esControl) { indice.control.add(token); }
-        if (seOpera) { indice.operado.add(token); }
+        /* [15A-27] Si el token es un enlace (`clases`), valen tambien los
+         * fragmentos a los que apunta: la clase esta aplicada a ESTE elemento
+         * aunque su nombre no se escriba aqui. */
+        for (const clase of [token, ...resolver(token)]) {
+          destino.add(clase);
+          if (esControl) { indice.control.add(clase); }
+          if (seOpera) { indice.operado.add(clase); }
+        }
       }
     }
   }
@@ -261,7 +324,9 @@ function indexarCss(ruta: string, indice: IndiceProyecto): void {
   }
 }
 
-function recorrerFuentes(dir: string, indice: IndiceProyecto): void {
+const RE_FUENTE_JS = /\.(?:ts|tsx|js|jsx)$/;
+
+function listarFuentes(dir: string, salida: string[]): void {
   let entries: import('fs').Dirent[];
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -272,14 +337,25 @@ function recorrerFuentes(dir: string, indice: IndiceProyecto): void {
   for (const entry of entries) {
     if (DIRS_FUENTES_SKIP.has(entry.name)) { continue; }
     const ruta = path.join(dir, entry.name);
+    if (entry.isDirectory()) { listarFuentes(ruta, salida); }
+    else if (entry.isFile()) { salida.push(ruta); }
+  }
+}
 
-    if (entry.isDirectory()) {
-      recorrerFuentes(ruta, indice);
-    } else if (entry.isFile() && /\.(?:tsx|jsx)$/.test(entry.name)) {
-      indexarJsx(ruta, indice);
-    } else if (entry.isFile() && entry.name.endsWith('.css')) {
-      indexarCss(ruta, indice);
-    }
+function recorrerFuentes(dir: string, indice: IndiceProyecto): void {
+  const ficheros: string[] = [];
+  listarFuentes(dir, ficheros);
+
+  /* [15A-27] Dos pasadas: primero los enlaces (`const clases = [...]`), que
+   * pueden vivir en un `.ts` sin JSX —el hook que devuelve la lista de clases—,
+   * y despues el JSX, que ya los ve resueltos. */
+  for (const fichero of ficheros) {
+    if (RE_FUENTE_JS.test(fichero)) { indexarEnlaces(fichero, indice); }
+  }
+
+  for (const fichero of ficheros) {
+    if (/\.(?:tsx|jsx)$/.test(fichero)) { indexarJsx(fichero, indice); }
+    else if (fichero.endsWith('.css')) { indexarCss(fichero, indice); }
   }
 }
 
@@ -296,6 +372,8 @@ export function indiceProyecto(roots: string[]): IndiceProyecto {
     operado: new Set(),
     cuerposCss: new Map(),
     modalFusionaClassName: false,
+    aliasClases: new Map(),
+    enlacesPorFichero: new Map(),
   };
   for (const root of normalizados) {
     recorrerFuentes(root, indice);
