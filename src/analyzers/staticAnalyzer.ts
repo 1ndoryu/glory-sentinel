@@ -173,7 +173,7 @@ export function analizarEstatico(
             violaciones.push(...verificarCssAdhocButtonStyle(texto, documento, nombreArchivo, obtenerWorkspaceRoots()));
         }
         if (reglaHabilitada('css-especificacion-diseno-local')) {
-            violaciones.push(...verificarCssEspecificacionDisenoLocal(texto, documento, nombreArchivo));
+            violaciones.push(...verificarCssEspecificacionDisenoLocal(texto, documento, nombreArchivo, obtenerWorkspaceRoots()));
         }
         if (reglaHabilitada('card-icono-debe-extender-base')) {
             violaciones.push(...verificarCardIconoExtiendeBase(texto, documento, nombreArchivo));

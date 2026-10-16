@@ -159,6 +159,15 @@ export interface IndiceProyecto {
   componente: Set<string>;
   /* Clases aplicadas a un elemento NATIVO (<button ...>). */
   nativo: Set<string>;
+  /* [15A-26] Subconjunto de `nativo`: clases aplicadas a un CONTROL
+   * (<button>, <a>, <input>, <select>, <textarea>, <summary>). La regla
+   * `css-especificacion-diseno-local` prescribe "usa una receta compartida como
+   * Button": eso solo es aplicable donde hay un control. */
+  control: Set<string>;
+  /* [15A-26] Clases aplicadas a un elemento que SE OPERA: lleva un manejador `on*`
+   * o declara un rol interactivo. Un `<div onClick>` es un boton de facto y la
+   * receta si aplica. */
+  operado: Set<string>;
   /* Cuerpo de cada bloque CSS, por clase: una clase puede definirse en varias hojas. */
   cuerposCss: Map<string, string[]>;
   /* El <Modal> del proyecto fusiona la className recibida con las suyas. */
@@ -171,6 +180,12 @@ const DIRS_FUENTES_SKIP = new Set([
 ]);
 const RE_TAG_JSX = /<([A-Za-z][\w.]*)([^<>]*?)\/?>/g;
 const RE_CLASSNAME_JSX = /className\s*=\s*(?:"([^"]*)"|'([^']*)'|\{([\s\S]*?)\})/g;
+/* [15A-26] Etiquetas nativas que SON un control: ahi la receta de boton del sistema
+ * es aplicable tal cual. */
+const TAGS_CONTROL = new Set(['button', 'a', 'input', 'select', 'textarea', 'summary']);
+/* [15A-26] El elemento SE OPERA: tiene un manejador `on*` o declara un rol
+ * interactivo. Un <div onClick> es un boton de facto. */
+const RE_ATRIBUTO_OPERADO = /\bon[A-Z]\w*\s*=|\brole\s*=\s*['"]?(?:button|menuitem|option|tab|link)\b/;
 const RE_BLOQUE_CSS = /([^{}]+)\{([^{}]*)\}/g;
 /* [15A-25] Evidencia de que el <Modal> del proyecto FUSIONA la className recibida
  * con la del contenedor en vez de reemplazarla. Son las tres formas de componer una
@@ -202,7 +217,10 @@ function indexarJsx(ruta: string, indice: IndiceProyecto): void {
   RE_TAG_JSX.lastIndex = 0;
   let tag: RegExpExecArray | null;
   while ((tag = RE_TAG_JSX.exec(texto)) !== null) {
-    const destino = /^[A-Z]/.test(tag[1]) ? indice.componente : indice.nativo;
+    const etiqueta = tag[1];
+    const destino = /^[A-Z]/.test(etiqueta) ? indice.componente : indice.nativo;
+    const esControl = TAGS_CONTROL.has(etiqueta);
+    const seOpera = RE_ATRIBUTO_OPERADO.test(tag[2]);
 
     RE_CLASSNAME_JSX.lastIndex = 0;
     let atributo: RegExpExecArray | null;
@@ -212,7 +230,10 @@ function indexarJsx(ruta: string, indice: IndiceProyecto): void {
        * suelta, pero el veredicto queda del lado conservador. */
       const valor = atributo[1] ?? atributo[2] ?? atributo[3] ?? '';
       for (const token of valor.split(/[^A-Za-z0-9_-]+/)) {
-        if (token) { destino.add(token); }
+        if (!token) { continue; }
+        destino.add(token);
+        if (esControl) { indice.control.add(token); }
+        if (seOpera) { indice.operado.add(token); }
       }
     }
   }
@@ -271,6 +292,8 @@ export function indiceProyecto(roots: string[]): IndiceProyecto {
   const indice: IndiceProyecto = {
     componente: new Set(),
     nativo: new Set(),
+    control: new Set(),
+    operado: new Set(),
     cuerposCss: new Map(),
     modalFusionaClassName: false,
   };

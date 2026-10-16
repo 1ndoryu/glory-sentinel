@@ -3,6 +3,13 @@
 
 ## [Unreleased]
 
+### `css-especificacion-diseno-local`: el remedio solo se prescribe donde es aplicable
+
+- La regla prescribe "usa una receta compartida como Button/ContextMenu/dropdown canonico". Ahora comprueba que ese remedio EXISTA para la clase señalada, mirando a que elemento se aplica (indice de JSX del proyecto, el mismo que estrena `css-adhoc-button-style`): dispara si el elemento es un control (etiqueta nativa de control o componente del sistema), si se opera (manejador `on` o rol interactivo), si el nombre es de familia de superficie (`Trigger`/`Dropdown`/`Menu`/`Panel`…) o si el bloque declara la firma de superficie flotante (fondo + borde + radio + sombra, la receta de `.dropdownPanel`). Una fila de lista que solo se ilumina al pasar el ratón no tiene receta canónica a la que plegarse: su hallazgo era ruido. Medido en KAMPLES: 12 hallazgos de 10 clases (`adminHistorialItem`, `papeleraItem`, `seguidoresItem`, `reproductorIslandColaItem`, `blogSkeletonItem`, `feedTagItem`, `sincPanelArchivoItem`, `sincPanelHistorialItem`, `sincPanelColeccionItem`, `selectorPatronItem`), todas sobre `<div>` de fila. **Esa deuda — filas con especificación visual local — queda sin reportar a propósito**, y así está anotada en el roadmap del consumidor.
+- Fail-closed: si el índice no ha visto la clase en ninguna etiqueta (clase dinámica, fichero fuera del barrido, o llamada sin `roots`), se cae al veredicto de siempre (`bloqueDeclaraGesto`). La falta de evidencia no exime.
+- `IndiceProyecto` gana `control` (clases sobre etiquetas de control) y `operado` (clases sobre un elemento con `on*` o rol interactivo).
+- Test de regresión: `cssDesignSpec.test.ts` — fila de `<div>` sin operar no dispara; `<button>`, `<BotonBase>`, `<div onClick>` y la firma de superficie sí; sin `roots` se mantiene el veredicto antiguo.
+
 ### Cooldown del guard: sin cooldown por defecto
 
 - `DEFAULT_COOLDOWN_MS` pasa de 20 min a 0 (decisión de la usuaria, 2026-10-12). Un proyecto sin `heavyRun.cooldownMinutes` ya no bloquea la suite completa; con un valor > 0 mantiene su cooldown.

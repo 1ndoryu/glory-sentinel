@@ -1,5 +1,6 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { verificarCssEspecificacionDisenoLocal } from '../../analyzers/static/staticCssRules';
 import { analyzeDocument } from '../../core/analyzeDocument';
@@ -184,6 +185,75 @@ suite('css-especificacion-diseno-local', () => {
     assert.strictEqual(verificar(filaSinGesto).length, 0);
     assert.strictEqual(verificar(filaConGesto).length, 1);
     assert.strictEqual(verificar(superficieSinGesto).length, 1);
+  });
+
+  test('[15A-26] el remedio solo se prescribe donde es aplicable', () => {
+    /* El mensaje de la regla dice "usa una receta compartida como Button/ContextMenu/
+     * dropdown canonico". Se comprueba con el indice del proyecto a que elemento se
+     * aplica la clase: si es una fila de <div> que no se opera y no declara superficie,
+     * no hay receta a la que plegarse y el hallazgo seria ruido. */
+    /* Un proyecto minimo por caso: el indice se cachea por conjunto de roots, asi que
+     * reutilizar la carpeta haria que el caso 2 viera el JSX del caso 1. */
+    const enProyecto = (jsx: string, texto: string): number => {
+      const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-ds-'));
+      const rutaJsx = path.join(raiz, 'src', 'ui', 'Fila.tsx');
+      fs.mkdirSync(path.dirname(rutaJsx), { recursive: true });
+      fs.writeFileSync(rutaJsx, jsx, 'utf8');
+      const violaciones = verificarCssEspecificacionDisenoLocal(
+        texto,
+        crearDocumento(path.join(raiz, 'src', 'ui', 'Lista.css')),
+        'Lista.css',
+        [raiz]
+      );
+      fs.rmSync(raiz, { recursive: true, force: true });
+      return violaciones.length;
+    };
+
+    const fila = '.filaListaItem {\n  display: flex;\n  border-radius: var(--radioSm);\n  cursor: pointer;\n  transition: background-color 0.15s;\n}';
+    const superficie = '.panelFiltrosDropdown {\n  background: var(--bg-primary);\n  border: 1px solid var(--bordeSutil);\n  border-radius: var(--radioMd);\n  box-shadow: var(--sombraElevada);\n}';
+
+    /* 1. La fila no es un control: el <div> no se opera. */
+    assert.strictEqual(
+      enProyecto('export const Fila = () => <div className="filaListaItem"><span>hola</span></div>;\n', fila),
+      0,
+      'fila de <div> sin operar no debe disparar'
+    );
+
+    /* 2. El mismo bloque sobre un CONTROL nativo si es un hallazgo. */
+    assert.strictEqual(
+      enProyecto('export const Fila = () => <button className="filaListaItem">hola</button>;\n', fila),
+      1,
+      'un <button> si lleva receta de boton local'
+    );
+
+    /* 3. Un componente del sistema (<BotonBase>) tambien. */
+    assert.strictEqual(
+      enProyecto('export const Fila = () => <BotonBase className="filaListaItem">hola</BotonBase>;\n', fila),
+      1,
+      'un componente del sistema si lleva receta local'
+    );
+
+    /* 4. Un <div> que SE OPERA es un boton de facto. */
+    assert.strictEqual(
+      enProyecto('export const Fila = () => <div className="filaListaItem" onClick={ir}>hola</div>;\n', fila),
+      1,
+      'un <div onClick> es un boton de facto'
+    );
+
+    /* 5. Sobre un <div> llano, pero con la firma de superficie flotante. */
+    assert.strictEqual(
+      enProyecto('export const Fila = () => <div className="panelFiltrosDropdown" />;\n', superficie),
+      1,
+      'la firma de superficie si dispara sobre un <div>'
+    );
+
+    /* 6. FAIL-CLOSED: sin roots no hay indice, y la falta de evidencia no exime. */
+    const sinIndice = verificarCssEspecificacionDisenoLocal(
+      fila,
+      crearDocumento('/repo/frontend/src/components/ui/Lista.css'),
+      'Lista.css'
+    );
+    assert.strictEqual(sinIndice.length, 1, 'sin indice se cae al veredicto de siempre');
   });
 
   test('fixture de equivalencia core vs CLI detecta el selector de idioma', async () => {

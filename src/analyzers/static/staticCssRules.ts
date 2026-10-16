@@ -9,6 +9,7 @@ import { CoreTextDocument } from '../../core/types';
 import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
 import {
   indiceProyecto,
+  IndiceProyecto,
   tieneSentinelDisable,
 } from '../../utils/analisisHelpers';
 
@@ -101,9 +102,68 @@ function selectorLlevaRecetaInteractiva(clasesSelector: string[]): boolean {
   return clasesSelector.some(clase => CLASES_INTERACTIVAS_BASE.has(clase));
 }
 
+/* [15A-25] El bloque declara un gesto propio (puntero, transicion, animacion,
+ * posicionamiento o un estado `:hover`/`:focus`/`:active`). Es la evidencia de
+ * siempre, y sigue siendo el veredicto cuando el indice del proyecto no puede
+ * decir a que elemento se aplica la clase. */
 function bloqueDeclaraGesto(cuerpo: string, selector: string): boolean {
   return /cursor\s*:|(?:transition|animation)\s*:|position\s*:\s*(?:absolute|fixed)/i.test(cuerpo)
     || /:(?:hover|focus|focus-visible|active)\b/.test(selector);
+}
+
+/* [15A-26] Firma de superficie flotante: fondo + borde + radio + sombra, que es
+ * exactamente lo que declara la receta canonica (.dropdownPanel, .menuContextualPanel).
+ * Un bloque que la declara esta recreando una superficie, no una fila. */
+const FIRMA_SUPERFICIE = [
+  /\bbackground(?:-color|-image)?\s*:/i,
+  /\bborder\s*:/i,
+  /\bborder-radius\s*:/i,
+  /\bbox-shadow\s*:/i,
+];
+
+function bloqueDeclaraFirmaSuperficie(cuerpo: string): boolean {
+  const limpio = cuerpo.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  return FIRMA_SUPERFICIE.every(patron => patron.test(limpio));
+}
+
+/* [15A-26] El mensaje de la regla prescribe un remedio concreto: "usa una receta
+ * compartida como Button/ContextMenu/dropdown canonico". Ese remedio solo existe donde
+ * hay un control o una superficie flotante, asi que la regla solo debe disparar ahi:
+ *
+ *   - el nombre es de familia de superficie (Trigger/Dropdown/Menu/Panel...), o
+ *   - el elemento que lleva la clase ES un control: etiqueta nativa de control, o un
+ *     componente del sistema (<BotonBase>, <Checkbox>, <Radio>...), o
+ *   - el elemento SE OPERA (manejador `on` o rol interactivo), aunque sea un <div>, o
+ *   - esta sobre un elemento llano pero su bloque declara la firma de superficie.
+ *
+ * Una fila de lista que solo se ilumina al pasar el raton no tiene receta canonica a la
+ * que plegarse: su hallazgo no tiene remedio aplicable, y un hallazgo cuyo remedio no es
+ * aplicable no es un hallazgo, es ruido (mismo criterio que modalTitulo/modalAcciones en
+ * analisisHelpers). Esa deuda — filas con especificacion visual local — queda SIN
+ * REPORTAR a proposito, y asi esta anotado en el roadmap de KAMPLES.
+ *
+ * FAIL-CLOSED: si el indice no ha visto la clase en NINGUNA etiqueta (clase dinamica,
+ * fichero fuera del barrido, o llamada sin roots), se cae al veredicto de siempre
+ * (`bloqueDeclaraGesto`): la falta de evidencia no exime. */
+function recetaAplicable(
+  clase: string,
+  selector: string,
+  cuerpo: string,
+  indice: IndiceProyecto,
+): boolean {
+  if (PATRONES_ROL_SUPERFICIE.test(clase)) {
+    return true;
+  }
+
+  if (indice.control.has(clase) || indice.componente.has(clase) || indice.operado.has(clase)) {
+    return true;
+  }
+
+  if (indice.nativo.has(clase)) {
+    return bloqueDeclaraFirmaSuperficie(cuerpo);
+  }
+
+  return bloqueDeclaraGesto(cuerpo, selector);
 }
 
 /* [15A-25] El sujeto de un selector es el ultimo compuesto de cada parte separada
@@ -380,9 +440,14 @@ export function verificarCssEspecificacionDisenoLocal(
   texto: string,
   documento: CoreTextDocument,
   nombreArchivo: string,
+  /* [15A-26] El caller pasa las roots del proyecto para saber a que elemento se aplica
+   * cada clase. Sin roots el indice sale vacio y la regla dispara como antes:
+   * fail-closed, la falta de evidencia no exime. */
+  roots: string[] = [],
 ): Violacion[] {
   const nombreLower = nombreArchivo.toLowerCase();
   const rutaNorm = documento.fileName.replace(/\\/g, '/');
+  const indice = indiceProyecto(roots);
 
   if (ARCHIVOS_RECETA_DISENO.has(nombreLower)) {
     return [];
@@ -424,7 +489,7 @@ export function verificarCssEspecificacionDisenoLocal(
 
     const claseProblematica = clasesSujeto(selector)
       .filter(clase => claseTieneRolInteractivoLocal(clase) && !archivoEsRecetaDeClase(nombreLower, clase))
-      .find(clase => PATRONES_ROL_SUPERFICIE.test(clase) || bloqueDeclaraGesto(cuerpo, selector));
+      .find(clase => recetaAplicable(clase, selector, cuerpo, indice));
     if (!claseProblematica) {
       continue;
     }
