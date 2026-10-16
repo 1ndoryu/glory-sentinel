@@ -9,6 +9,9 @@
 - Fail-closed: si el índice no ha visto la clase en ninguna etiqueta (clase dinámica, fichero fuera del barrido, o llamada sin `roots`), se cae al veredicto de siempre (`bloqueDeclaraGesto`). La falta de evidencia no exime.
 - `IndiceProyecto` gana `control` (clases sobre etiquetas de control) y `operado` (clases sobre un elemento con `on*` o rol interactivo).
 - Test de regresión: `cssDesignSpec.test.ts` — fila de `<div>` sin operar no dispara; `<button>`, `<BotonBase>`, `<div onClick>` y la firma de superficie sí; sin `roots` se mantiene el veredicto antiguo.
+- **Layout contextual sobre un componente no es reimplementar la receta.** El mensaje pide "deja aquí solo layout contextual", pero `padding` y `text-align` contaban como especificación de diseño: una clase plegada a `<BotonBase>` que solo ajustara esos dos seguía marcada, de modo que la instrucción no tenía salida. Ahora, si el elemento es un componente (`<BotonBase>`, `<Checkbox>`…) o se opera (`on*`/rol) y el bloque no re-declara nada de la receta (fondo, borde, radio, sombra, color, tipografía, opacidad, animación, transición), la clase es contexto y no se marca. Sobre un control **nativo** la regla sigue disparando: ahí no hay receta a la que plegarse.
+- **La hoja del dropdown canónico es una hoja de receta.** `dropdownPanel.css` define `.dropdownPanel` y `.dropdownItem`, que son la receta que la regla prescribe; faltaba en `ARCHIVOS_RECETA_DISENO` mientras `contextmenu.css` sí estaba. Marcarla era circular. Un `.dropdownItem` definido en otra hoja sigue marcándose.
+- Tests de regresión: los dos casos anteriores, cada uno con su control.
 
 ### Cooldown del guard: sin cooldown por defecto
 

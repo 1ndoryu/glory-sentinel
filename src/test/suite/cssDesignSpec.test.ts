@@ -256,6 +256,69 @@ suite('css-especificacion-diseno-local', () => {
     assert.strictEqual(sinIndice.length, 1, 'sin indice se cae al veredicto de siempre');
   });
 
+  test('[15A-26] sobre un componente, solo layout contextual no es reimplementar la receta', () => {
+    /* El mensaje de la regla dice "deja aqui solo layout contextual". Si el elemento
+     * ya es un <BotonBase> y el bloque no re-declara nada de la receta, el autor ha
+     * hecho exactamente lo que se le pide: marcarlo lo dejaria sin salida. */
+    const enProyecto = (jsx: string, texto: string): number => {
+      const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-ds-'));
+      const rutaJsx = path.join(raiz, 'src', 'ui', 'Fila.tsx');
+      fs.mkdirSync(path.dirname(rutaJsx), { recursive: true });
+      fs.writeFileSync(rutaJsx, jsx, 'utf8');
+      const violaciones = verificarCssEspecificacionDisenoLocal(
+        texto,
+        crearDocumento(path.join(raiz, 'src', 'ui', 'Lista.css')),
+        'Lista.css',
+        [raiz]
+      );
+      fs.rmSync(raiz, { recursive: true, force: true });
+      return violaciones.length;
+    };
+
+    const componente = 'export const Fila = () => <BotonBase variante="ghost" className="filaListaItem">hola</BotonBase>;\n';
+
+    /* Solo layout contextual: la receta ya esta en uso. */
+    assert.strictEqual(
+      enProyecto(componente, '.filaListaItem { padding: var(--espacioXs) var(--espacioSm); text-align: left; }'),
+      0,
+      'layout contextual sobre un componente no debe disparar'
+    );
+
+    /* Re-declara la receta: sigue siendo un hallazgo. */
+    assert.strictEqual(
+      enProyecto(componente, '.filaListaItem { padding: var(--espacioXs); background: var(--fondoElevado2); color: var(--textoPrimario); }'),
+      1,
+      're-declarar fondo y color si es reimplementar la receta'
+    );
+
+    /* Un control nativo no tiene receta a la que plegarse: sigue disparando. */
+    assert.strictEqual(
+      enProyecto('export const Fila = () => <button className="filaListaItem">hola</button>;\n', '.filaListaItem { padding: var(--espacioXs); text-align: left; }'),
+      1,
+      'un <button> nativo sigue siendo un hallazgo aunque solo ajuste layout'
+    );
+  });
+
+  test('[15A-26] la hoja del dropdown canonico es una hoja de receta', () => {
+    /* .dropdownItem vive en dropdownPanel.css junto a .dropdownPanel: es la receta
+     * que la regla prescribe, no una reimplementacion. Mismo criterio que
+     * contextmenu.css. */
+    const texto = '.dropdownItem { display: flex; cursor: pointer; border: none; background: none; width: 100%; padding: var(--espacioXs) var(--espacioSm); border-radius: var(--radioMd); }';
+    const enSuHoja = verificarCssEspecificacionDisenoLocal(
+      texto,
+      crearDocumento('/repo/frontend/src/styles/dropdownPanel.css'),
+      'dropdownPanel.css'
+    );
+    const enOtraHoja = verificarCssEspecificacionDisenoLocal(
+      texto,
+      crearDocumento('/repo/frontend/src/components/panel/Portal.css'),
+      'Portal.css'
+    );
+
+    assert.strictEqual(enSuHoja.length, 0);
+    assert.strictEqual(enOtraHoja.length, 1);
+  });
+
   test('fixture de equivalencia core vs CLI detecta el selector de idioma', async () => {
     const fixtureRoot = path.join(process.cwd(), 'fixtures', 'equivalence', 'language-selector-design-spec');
     const inputPath = path.join(fixtureRoot, 'LanguageSelector.css');

@@ -35,6 +35,11 @@ const REGLA_ESPECIFICACION_DISENO_LOCAL = 'css-especificacion-diseno-local';
 const ARCHIVOS_RECETA_DISENO = new Set([
   'button.css',
   'contextmenu.css',
+  /* [15A-26] La hoja que define el dropdown canonico es una hoja de receta, igual
+   * que contextmenu.css: en ella viven .dropdownPanel y .dropdownItem, que SON la
+   * receta que la regla prescribe ("usa una receta compartida como ... dropdown
+   * canonico"). Marcarla era circular. Faltaba en la lista. */
+  'dropdownpanel.css',
   'modal.css',
   'reset.css',
   'init.css',
@@ -126,6 +131,17 @@ function bloqueDeclaraFirmaSuperficie(cuerpo: string): boolean {
   return FIRMA_SUPERFICIE.every(patron => patron.test(limpio));
 }
 
+/* [15A-26] Propiedades que son LAYOUT contextual y no receta visual: son justo las
+ * que el mensaje de la regla pide conservar. `padding` lo aporta la receta del
+ * sistema por tamano, pero un bloque puede necesitar el suyo; `text-align` no lo
+ * declara ninguna receta. */
+const PROPIEDADES_LAYOUT_CONTEXTUAL = new Set(['padding', 'text-align']);
+
+/* [15A-26] El bloque no re-declara la receta: solo ajusta layout. */
+function bloqueSoloAjustaLayout(cuerpo: string): boolean {
+  return obtenerPropiedadesDiseno(cuerpo).every(propiedad => PROPIEDADES_LAYOUT_CONTEXTUAL.has(propiedad));
+}
+
 /* [15A-26] El mensaje de la regla prescribe un remedio concreto: "usa una receta
  * compartida como Button/ContextMenu/dropdown canonico". Ese remedio solo existe donde
  * hay un control o una superficie flotante, asi que la regla solo debe disparar ahi:
@@ -155,8 +171,17 @@ function recetaAplicable(
     return true;
   }
 
-  if (indice.control.has(clase) || indice.componente.has(clase) || indice.operado.has(clase)) {
+  if (indice.control.has(clase)) {
     return true;
+  }
+
+  /* [15A-26] El elemento YA es un componente del sistema o un control de facto: la
+   * receta esta en uso. Si el bloque no re-declara nada de la receta y solo ajusta
+   * layout, es literalmente lo que el mensaje pide conservar ("deja aqui solo layout
+   * contextual"), asi que marcarlo deja al autor sin salida: cualquier padding lo
+   * volveria a marcar. */
+  if (indice.componente.has(clase) || indice.operado.has(clase)) {
+    return !bloqueSoloAjustaLayout(cuerpo);
   }
 
   if (indice.nativo.has(clase)) {
