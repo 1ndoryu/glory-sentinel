@@ -110,6 +110,22 @@ suite('289A-1 todo-prosa-sin-marcador: guardas prosa española', () => {
     assert.strictEqual(verificar('// ver el todo-list del sprint').length, 0);
   });
 
+  test('cuantificador a mitad de frase no marca', () => {
+    /* Falso positivo real: CabeceraModal.tsx "…encima del titulo, todo
+     * centrado)." El marcador informal abre el comentario o su linea. */
+    assert.strictEqual(verificar(' * Variantes: fila (icono al lado),\n * centrada (icono encima del titulo, todo centrado).').length, 0);
+    assert.strictEqual(verificar('// el panel queda todo centrado').length, 0);
+  });
+
+  test('la mencion que abre el comentario o su linea si marca', () => {
+    assert.strictEqual(verificar('/* bloque\n * todo revisar el adapter\n */').length, 1);
+    assert.strictEqual(verificar('// todo revisar el adapter').length, 1);
+  });
+
+  test('TODO mayusculo a mitad de frase sigue marcando', () => {
+    assert.strictEqual(verificar('// el adapter TODO migrar a roadmap').length, 1);
+  });
+
   test('URL con /todo no marca', () => {
     assert.strictEqual(verificar('// ver https://ejemplo.com/todo para detalles').length, 0);
   });

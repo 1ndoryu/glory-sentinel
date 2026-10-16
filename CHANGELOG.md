@@ -3,6 +3,14 @@
 
 ## [Unreleased]
 
+### `todo-prosa-sin-marcador`: el cuantificador español a mitad de frase ya no es una tarea
+
+- Las guardas miraban solo la palabra **siguiente** a `todo` (artículo, cuantificador). Quedaba fuera la prosa donde `todo` va dentro de la oración y le sigue cualquier otra palabra: `KAMPLES/frontend/src/legacy/components/ui/modal/CabeceraModal.tsx:4` — «Variantes: … (icono encima del título, **todo** centrado).» — se reportaba como tarea sin marcador.
+- La guarda nueva es de **posición**: en minúsculas la mención solo marca si abre el comentario o su línea (`// todo revisar esto`, `* todo revisar esto`); dentro de la oración es el cuantificador español. La forma en mayúsculas (`TODO`) sigue marcando en cualquier posición, porque es la taquigrafía explícita.
+- Efecto colateral medido: `\btodo\b` también casaba dentro de «mé**todo**», de modo que `* Filtro por método de pago` se reportaba. La misma guarda lo cierra.
+- Alcance medido el 2026-10-16 sobre el área: **35 menciones** dejan de reportarse, todas prosa española real (`se revierte todo`, `todo pasa`, `todo binario que`, `Todo estilo debe ir en`, `método de pago`). Ninguna era una tarea. RESTAURANTE conserva 7 hallazgos legítimos; KAMPLES pasa a 0.
+- Tests de regresión: `todoProsaSinMarcador.test.ts` — cuantificador a mitad de frase, mención que abre el comentario o su línea, y `TODO` mayúsculo a mitad de frase.
+
 ### `limite-lineas` en Rust: el módulo de tests se reconoce por su `mod`, no por el primer `#[cfg(test)]`
 
 - `contarLineasEfectivas(texto, true)` truncaba el archivo en el **primer** `#[cfg(test)]`. Un `#[cfg(test)] use ...` en la cabecera —import que solo usan los tests— dejaba el archivo entero fuera del recuento: `MN-Inmobiliaria/src/handlers/ia/rutas.rs` contaba **12** líneas efectivas en vez de 537, y `limite-lineas` no disparaba nunca sobre él. Ahora se trunca en el `#[cfg(test)]` que introduce un `mod` (el último, que por convención es el módulo de tests).

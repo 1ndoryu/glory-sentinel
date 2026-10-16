@@ -499,7 +499,11 @@ export function verificarHtmlSinOrigenDeclarado(
  *     prosa española, no marca; la forma mayuscula sola (TODO) si marca
  *     porque se exige la forma con dos puntos;
  *   - compuestos con guion (tipo todo-list) → no marca;
- *   - `/todo` (URL/ruta dentro del comentario) → no marca.
+ *   - `/todo` (URL/ruta dentro del comentario) → no marca;
+ *   - cuantificador a mitad de frase ("…, todo centrado)") → no marca: el
+ *     marcador informal abre el comentario o su linea ("// todo revisar esto",
+ *     "* todo revisar"); dentro de la oracion, "todo" es el cuantificador.
+ *     La forma en mayusculas (TODO) si marca en cualquier posicion.
  *   - FIXME/XXX nunca marcan (son marcadores validos por si mismos).
  * Nota de paridad: HACK no exime por si solo (igual que en VarSense); solo
  * exime si la mencion lleva marcador (`TODO:` etc.).
@@ -566,11 +570,26 @@ function extraerRegionesComentarioTodoProsa(texto: string): Array<{ inicio: numb
   return regiones;
 }
 
+/* Abre el comentario o su linea: solo blancos y los adornos de comentario
+ * (`*` de bloque, `/` de linea) entre el inicio de la linea y la mencion.
+ * [Falso positivo real, 16A-4] "Variantes: … (icono destacado encima del
+ * titulo, todo centrado)." marcaba: el cuantificador español vive dentro de la
+ * oracion, mientras que el marcador informal abre la linea. Solo la forma en
+ * mayusculas marca en cualquier posicion, porque es la taquigrafia explicita. */
+function abreLineaDeComentario(textoComentario: string, indice: number): boolean {
+  const salto = textoComentario.lastIndexOf('\n', indice - 1);
+  return /^[\s*/]*$/.test(textoComentario.slice(salto + 1, indice));
+}
+
 function esTodoProsaSinMarcador(textoComentario: string, indice: number, forma: string): boolean {
   const anterior = indice > 0 ? textoComentario[indice - 1] : '';
   /* URL/ruta dentro del comentario (https://…/todo) o parte de un
    * identificador kebab-case (evento regenerar-todo): no es prosa. */
   if (anterior === '/' || anterior === '-') {
+    return false;
+  }
+  /* Cuantificador a mitad de frase. */
+  if (forma !== 'TODO' && !abreLineaDeComentario(textoComentario, indice)) {
     return false;
   }
 
