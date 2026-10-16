@@ -1346,6 +1346,33 @@ const UMBRAL_GOD_WARN = 500;
 const UMBRAL_GOD_ERROR = 800;
 const LINEA_SOLO_REEXPORT = /^\s*(pub(\([^)]*\))?\s+)?(mod|use)\s+[\w:*{}, ]+;?\s*$/;
 
+/* [16A-9] Un atributo es metadato de compilacion, no comportamiento: el
+ * `#[openapi(paths(...), components(schemas(...)))]` de utoipa es un registro
+ * de datos, no logica que partir. Mismo principio que la exencion de
+ * mod.rs-solo-reexport ("no cuenta lo que no es codigo").
+ * Caso real `handlers/openapi.rs`: 645 lineas, 602 dentro de atributos; sin
+ * ellos quedan ~43. Los god-object reales no tienen atributos de ese tamano,
+ * asi que su recuento no cambia.
+ * Limite documentado: los corchetes dentro de un literal de un atributo
+ * desajustarian el balance. */
+function sinAtributos(texto: string): string {
+  const lineas = texto.split('\n');
+  let corchetes = 0;
+  for (let i = 0; i < lineas.length; i++) {
+    if (corchetes === 0) {
+      if (!/^\s*#!?\[/.test(lineas[i])) { continue; }
+      /* `#[cfg(test)]` se conserva: `contarLineasEfectivas` lo usa para
+       * truncar el modulo de tests. */
+      if (lineas[i].includes('#[cfg(test)]')) { continue; }
+    }
+    for (const ch of lineas[i]) {
+      if (ch === '[') { corchetes++; } else if (ch === ']') { corchetes--; }
+    }
+    lineas[i] = '';
+  }
+  return lineas.join('\n');
+}
+
 export function detectarGodObject(
   lineas: string[],
   _rangoTests: Set<number>,
@@ -1362,7 +1389,7 @@ export function detectarGodObject(
   }
   if (!tieneCodigo) { return []; }
 
-  const efectivas = contarLineasEfectivas(texto, true);
+  const efectivas = contarLineasEfectivas(sinAtributos(texto), true);
   if (efectivas <= UMBRAL_GOD_WARN) { return []; }
 
   const base = efectivas > UMBRAL_GOD_ERROR ? 'error' : 'warning';

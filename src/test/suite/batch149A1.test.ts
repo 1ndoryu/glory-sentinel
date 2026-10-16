@@ -631,6 +631,32 @@ ${cuerpoGrande(900)}`;
     const findings = analyzeRustDoc(cuerpo, '/src/mod.rs');
     assert.strictEqual(contar('god-object-rs', findings), 0);
   });
+
+  test('[16A-9] un registro declarativo dentro de un atributo no es god-object', () => {
+    /* Caso real handlers/openapi.rs: 645 lineas, 602 en el `#[openapi(...)]`. */
+    const rutas = Array.from({ length: 600 }, (_, i) => `        api::handler_${i}::listar,`).join('\n');
+    const texto = [
+      '#[derive(OpenApi)]',
+      '#[openapi(',
+      '  paths(',
+      rutas,
+      '  )',
+      ')]',
+      'pub struct ApiDoc;',
+    ].join('\n');
+    assert.strictEqual(contar('god-object-rs', analyzeRustDoc(texto)), 0);
+  });
+
+  test('[16A-9] el atributo no exime el god-object de verdad', () => {
+    const cuerpo = [
+      '#[derive(Clone)]',
+      '#[allow(dead_code)]',
+      cuerpoGrande(900),
+    ].join('\n');
+    const mias = analyzeRustDoc(cuerpo).filter(v => v.reglaId === 'god-object-rs');
+    assert.strictEqual(mias.length, 1);
+    assert.strictEqual(mias[0].severidad, 'error');
+  });
 });
 
 suite('[149A-1] port-fs-duplicado-rs', () => {
