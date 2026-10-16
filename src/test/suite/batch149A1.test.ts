@@ -291,6 +291,61 @@ suite('[149A-1] path-join-sin-canonicalize', () => {
     assert.strictEqual(contar('path-join-sin-canonicalize', findings), 0);
   });
 
+  test('[16A-9] no dispara si el segmento esta atado a un literal del scope', () => {
+    const findings = analyzeRustDoc([
+      'use std::path::PathBuf;',
+      'fn buscar(ssh_dir: &PathBuf) -> Option<PathBuf> {',
+      '  for key_name in ["id_ed25519", "id_rsa"] {',
+      '    let p = ssh_dir.join(key_name);',
+      '    if p.exists() { return Some(p); }',
+      '  }',
+      '  None',
+      '}',
+    ].join('\n'));
+    assert.strictEqual(contar('path-join-sin-canonicalize', findings), 0);
+  });
+
+  test('[16A-9] no dispara con `let x = "lit"` visible, pero si con el parametro homonimo', () => {
+    const exento = analyzeRustDoc([
+      'use std::path::PathBuf;',
+      'fn f(base: &PathBuf) -> PathBuf {',
+      '  let nombre = "fijo.txt";',
+      '  base.join(nombre)',
+      '}',
+    ].join('\n'));
+    assert.strictEqual(contar('path-join-sin-canonicalize', exento), 0);
+    const dispara = analyzeRustDoc([
+      'use std::path::PathBuf;',
+      'fn f(base: &PathBuf, nombre: &str) -> PathBuf {',
+      '  base.join(nombre)',
+      '}',
+    ].join('\n'));
+    assert.strictEqual(contar('path-join-sin-canonicalize', dispara), 1);
+  });
+
+  test('[16A-9] el literal de un bloque hermano no exime el join de fuera', () => {
+    const findings = analyzeRustDoc([
+      'use std::path::PathBuf;',
+      'fn f(base: &PathBuf, x: &str) -> PathBuf {',
+      '  { let x = "fijo"; }',
+      '  base.join(x)',
+      '}',
+    ].join('\n'));
+    assert.strictEqual(contar('path-join-sin-canonicalize', findings), 1);
+  });
+
+  test('[16A-9] reasignar el id deja de ser valor fijo', () => {
+    const findings = analyzeRustDoc([
+      'use std::path::PathBuf;',
+      'fn f(base: &PathBuf, otro: &str) -> PathBuf {',
+      '  let mut nombre = "fijo";',
+      '  nombre = otro;',
+      '  base.join(nombre)',
+      '}',
+    ].join('\n'));
+    assert.strictEqual(contar('path-join-sin-canonicalize', findings), 1);
+  });
+
   test('[08AA-26] determinista: un scope eximido antes no oculta un join posterior (lastIndex)', () => {
     analyzeRustDoc([
       'use std::path::{Component, Path, PathBuf};',

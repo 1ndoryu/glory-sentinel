@@ -787,6 +787,90 @@ const PATRON_JOIN = /\.join\s*\(/g;
 const PATRON_ARG_SOLO_LITERALES = /^\s*("(?:[^"\\]|\\.)*"\s*,?\s*)+$/;
 const PATRON_ARG_SOLO_CONSTANTE = /^\s*&?\s*(?:[A-Za-z_][A-Za-z0-9_]*::)*[A-Z][A-Z0-9_]*\s*$/;
 
+/* [16A-9] Valor fijo atado en el scope: `let x = "lit";` o
+ * `for x in ["a", "b"] {`. El identificador solo puede tomar un literal de
+ * compilacion, asi que no hay traversal posible: exento. Caso real
+ * `rescatar.rs:407` (`for key_name in ["id_ed25519", ...] { ssh_dir.join(key_name) }`).
+ * [por que] la exencion exige visibilidad real (profundidad de llaves) y que
+ * nada reate ni reasigne el id antes del join: si no, el parametro homonimo de
+ * un bloque hermano quedaria exento por error (falso negativo). */
+const PATRON_ARG_IDENT = /^\s*&?\s*([a-z_][A-Za-z0-9_]*)\s*$/;
+const PATRON_LET_LITERAL =
+  /^\s*let\s+(?:mut\s+)?([a-z_][A-Za-z0-9_]*)\s*(?::[^=]+)?=\s*"(?:[^"\\]|\\.)*"\s*;\s*$/;
+const PATRON_FOR_LISTA = /^\s*for\s+([a-z_][A-Za-z0-9_]*)\s+in\s*\[([^\]]*)\]\s*\{/;
+const PATRON_LISTA_LITERALES = /^\s*("(?:[^"\\]|\\.)*"\s*,\s*)*"(?:[^"\\]|\\.)*"\s*,?\s*$/;
+
+/* Quita literales de cadena y de caracter: las llaves de `format!("{x}")` no
+ * deben contar como bloque al medir profundidad. */
+function sinLiterales(linea: string): string {
+  return linea.replace(/"(?:[^"\\]|\\.)*"/g, '""').replace(/'(?:[^'\\]|\\.)'/g, "''");
+}
+
+/* Profundidad de llaves al COMENZAR cada linea del scope (relativa a inicio). */
+function profundidades(lineas: string[], inicio: number, fin: number): number[] {
+  const prof: number[] = [];
+  let d = 0;
+  for (let j = inicio; j <= fin; j++) {
+    prof[j] = d;
+    for (const ch of sinLiterales(lineas[j])) {
+      if (ch === '{') { d++; } else if (ch === '}') { d--; }
+    }
+  }
+  return prof;
+}
+
+/* Profundidad de llaves en la columna `col` de la linea `j`. */
+function profundidadEn(lineas: string[], prof: number[], j: number, col: number): number {
+  let d = prof[j];
+  for (const ch of sinLiterales(lineas[j]).slice(0, col)) {
+    if (ch === '{') { d++; } else if (ch === '}') { d--; }
+  }
+  return d;
+}
+
+/* `id` es valor fijo en la linea `i`? */
+function atadoAFijo(
+  lineas: string[],
+  prof: number[],
+  inicio: number,
+  i: number,
+  id: string,
+): boolean {
+  let atado = -1;
+  let profAtado = 0;
+  for (let j = inicio; j < i; j++) {
+    const mL = PATRON_LET_LITERAL.exec(lineas[j]);
+    if (mL && mL[1] === id) {
+      atado = j;
+      profAtado = profundidadEn(lineas, prof, j, mL.index);
+      continue;
+    }
+    const mF = PATRON_FOR_LISTA.exec(lineas[j]);
+    if (mF && mF[1] === id && PATRON_LISTA_LITERALES.test(mF[2])) {
+      atado = j;
+      profAtado = profundidadEn(lineas, prof, j, mF.index);
+    }
+  }
+  if (atado < 0) { return false; }
+  /* Visible desde el join: no mas profundo, y su bloque no se cerro antes. */
+  if (profAtado > prof[i]) { return false; }
+  for (let k = atado + 1; k < i; k++) {
+    if (prof[k] < profAtado) { return false; }
+  }
+  /* Reatado (`let`/`for` que lo vuelve a nombrar) o reasignado: deja de ser
+   * fijo. Se exige que el id quede a la IZQUIERDA del `=`: usarlo en la parte
+   * derecha (`let p = base.join(key_name)`) no lo reata. */
+  const reata = new RegExp(`\\blet\\s+(?:mut\\s+)?[^=]*\\b${id}\\b\\s*(?::[^=]+)?=`);
+  const reataFor = new RegExp(`\\bfor\\s+${id}\\b`);
+  const asigna = new RegExp(`(^|[^\\w.])${id}\\s*(?:[-+*/])?=(?!=)`);
+  for (let k = inicio; k < i; k++) {
+    if (k === atado) { continue; }
+    if (!new RegExp(`\\b${id}\\b`).test(lineas[k])) { continue; }
+    if (reata.test(lineas[k]) || reataFor.test(lineas[k]) || asigna.test(lineas[k])) { return false; }
+  }
+  return true;
+}
+
 /* Extrae el texto entre el parentesis que abre en (i, colParen) y su cierre
  * balanceado (hasta +4 lineas para joins multilinea). null si no cierra. */
 function textoArgsJoin(lineas: string[], i: number, colParen: number): string | null {
@@ -840,6 +924,10 @@ export function detectarPathJoinSinCanonicalize(
     }
     if (tieneCanonicalize || tieneGuardiaLexica) { continue; }
 
+    /* [16A-9] Profundidad de llaves del scope: la exencion por valor fijo
+     * necesita saber si el binding sigue visible en la linea del join. */
+    const prof = profundidades(lineas, inicio, fin);
+
     for (let i = inicio; i <= fin; i++) {
       const linea = lineas[i];
       const trimmed = linea.trim();
@@ -858,8 +946,15 @@ export function detectarPathJoinSinCanonicalize(
          * puede encadenar `base.join(C).join(variable)`. */
         if (args === null) {
           sospechoso = { index: match.index, len: match[0].length };
-        } else if (!PATRON_ARG_SOLO_LITERALES.test(args) && !PATRON_ARG_SOLO_CONSTANTE.test(args)) {
-          sospechoso = { index: match.index, len: match[0].length };
+        } else if (PATRON_ARG_SOLO_LITERALES.test(args) || PATRON_ARG_SOLO_CONSTANTE.test(args)) {
+          /* Literal o constante de modulo: segmento fijo. */
+        } else {
+          /* [16A-9] Identificador atado a un literal en el scope: tambien fijo. */
+          const ident = PATRON_ARG_IDENT.exec(args);
+          const fijo = ident !== null && atadoAFijo(lineas, prof, inicio, i, ident[1]);
+          if (!fijo) {
+            sospechoso = { index: match.index, len: match[0].length };
+          }
         }
       }
       if (sospechoso !== null) {
