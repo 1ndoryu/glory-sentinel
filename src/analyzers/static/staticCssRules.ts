@@ -7,7 +7,14 @@
 import { Violacion } from '../../types';
 import { CoreTextDocument } from '../../core/types';
 import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
-import { tieneSentinelDisable } from '../../utils/analisisHelpers';
+import {
+  indiceProyecto,
+  tieneSentinelDisable,
+} from '../../utils/analisisHelpers';
+
+/* [15A-25] Movido a staticCssModalRules.ts por budget ADR 0001; se re-exporta
+ * para no tocar importadores (staticAnalyzer, tests). */
+export { verificarModalSemanticaNoCanonica } from './staticCssModalRules';
 
 const CLASES_BOTON_SISTEMA = new Set([
   'menuContextualBoton',
@@ -21,13 +28,7 @@ const CLASES_BOTON_SISTEMA = new Set([
   'botonIcono',
 ]);
 
-const CLASES_MODAL_CANONICAS = new Set([
-  'modalTitulo',
-  'modalTexto',
-  'modalAcciones',
-]);
 
-const REGLA_MODAL_SEMANTICA = 'modal-semantica-no-canonica';
 const REGLA_ESPECIFICACION_DISENO_LOCAL = 'css-especificacion-diseno-local';
 
 const ARCHIVOS_RECETA_DISENO = new Set([
@@ -73,43 +74,59 @@ const PROPIEDADES_DISENO_CSS = [
   { nombre: 'opacity', patron: /\bopacity\s*:/i },
 ];
 
-function detectarSufijoSemanticoModal(nombreClase: string): 'Titulo' | 'Texto' | 'Descripcion' | 'Acciones' | null {
-  if (CLASES_MODAL_CANONICAS.has(nombreClase)) {
-    return null;
-  }
-
-  const match = /(?:^modal[A-Z][\w-]*|^[A-Za-z][\w-]*Modal)(Titulo|Texto|Descripcion|Acciones)$/.exec(nombreClase);
-  return (match?.[1] as 'Titulo' | 'Texto' | 'Descripcion' | 'Acciones' | undefined) ?? null;
-}
-
-function claseCanonicaModal(sufijo: 'Titulo' | 'Texto' | 'Descripcion' | 'Acciones'): 'modalTitulo' | 'modalTexto' | 'modalAcciones' {
-  if (sufijo === 'Titulo') {
-    return 'modalTitulo';
-  }
-
-  if (sufijo === 'Acciones') {
-    return 'modalAcciones';
-  }
-
-  return 'modalTexto';
-}
-
-function bloqueDefineSemanticaModal(cuerpo: string, sufijo: 'Titulo' | 'Texto' | 'Descripcion' | 'Acciones'): boolean {
-  const cuerpoLimpio = cuerpo.replace(/\/\*[\s\S]*?\*\//g, ' ');
-
-  if (sufijo === 'Acciones') {
-    return /(display\s*:\s*flex|justify-content\s*:|align-items\s*:|gap\s*:)/i.test(cuerpoLimpio);
-  }
-
-  return /(font-size\s*:|font-family\s*:|font-weight\s*:|line-height\s*:|color\s*:|text-align\s*:|letter-spacing\s*:|margin(?:-top|-bottom)?\s*:)/i.test(cuerpoLimpio);
-}
-
+/* [15A-25] `detectarSufijoSemanticoModal`, `claseCanonicaModal` y
+ * `bloqueDefineSemanticaModal` viven ahora en utils/analisisHelpers, porque la
+ * regla de JSX `modal-acciones-no-canonico` necesita el mismo veredicto sobre el
+ * mismo bloque CSS: una clase `*Acciones` no es la zona de botones por llamarse
+ * asi, y la unica prueba esta en su hoja. */
 function claseTieneRolInteractivoLocal(nombreClase: string): boolean {
   if (CLASES_INTERACTIVAS_BASE.has(nombreClase)) {
     return false;
   }
 
   return PATRONES_ROL_INTERACTIVO_LOCAL.some(patron => patron.test(nombreClase));
+}
+
+/* [15A-25] Familias cuyo nombre ya implica una superficie flotante o un
+ * disparador: la receta la posee el sistema (contextmenu.css, dropdownPanel.css)
+ * aunque el bloque no declare ningun gesto, porque el gesto esta en la superficie
+ * — que se abre, se cierra y se posiciona. Una fila de lista, en cambio, no es un
+ * control por llamarse `...Item`: eso hay que verlo. */
+const PATRONES_ROL_SUPERFICIE = /(?:Trigger|Dropdown|Desplegable|SubMenu|Submenu|Menu|Panel)$/;
+
+/* [15A-25] Si el selector ya lleva una clase del sistema interactivo
+ * (`.botonBase.eliminarItem`), el bloque es un MODIFICADOR de esa receta, no una
+ * reimplementacion: la clase base ya aporta el aspecto y aqui solo se ajusta. */
+function selectorLlevaRecetaInteractiva(clasesSelector: string[]): boolean {
+  return clasesSelector.some(clase => CLASES_INTERACTIVAS_BASE.has(clase));
+}
+
+function bloqueDeclaraGesto(cuerpo: string, selector: string): boolean {
+  return /cursor\s*:|(?:transition|animation)\s*:|position\s*:\s*(?:absolute|fixed)/i.test(cuerpo)
+    || /:(?:hover|focus|focus-visible|active)\b/.test(selector);
+}
+
+/* [15A-25] El sujeto de un selector es el ultimo compuesto de cada parte separada
+ * por comas: en `.tarjetaColeccionLista .tarjetaColeccionPortada img` el bloque
+ * estiliza `img`, no `.tarjetaColeccionLista`. La regla tomaba la PRIMERA clase con
+ * rol de todo el selector y culpaba al ancestro. */
+function clasesSujeto(selector: string): string[] {
+  const clases: string[] = [];
+
+  for (const parte of selector.split(',')) {
+    const ultimoCompuesto = parte.trim().split(/[\s>+~]+/).pop() ?? '';
+    for (const grupo of ultimoCompuesto.matchAll(/\.([A-Za-z_][\w-]*)/g)) {
+      clases.push(grupo[1]);
+    }
+  }
+
+  return clases;
+}
+
+/* [15A-25] La hoja que define la clase ES su receta: `.dropdownPanel` dentro de
+ * dropdownPanel.css no es una especificacion local, es el canonico. */
+function archivoEsRecetaDeClase(nombreLower: string, clase: string): boolean {
+  return nombreLower === `${clase.toLowerCase()}.css`;
 }
 
 function obtenerPropiedadesDiseno(cuerpo: string): string[] {
@@ -275,6 +292,10 @@ export function verificarCssAdhocButtonStyle(
   texto: string,
   documento: CoreTextDocument,
   nombreArchivo: string,
+  /* [15A-25] El caller (staticAnalyzer) pasa las roots del proyecto para poder
+   * mirar a que elemento se aplica la clase. Sin roots el indice sale vacio y la
+   * regla dispara como antes: fail-closed, la falta de evidencia no exime. */
+  roots: string[] = [],
 ): Violacion[] {
   const nombreLower = nombreArchivo.toLowerCase();
   const rutaNorm = documento.fileName.replace(/\\/g, '/');
@@ -292,6 +313,7 @@ export function verificarCssAdhocButtonStyle(
     return [];
   }
 
+  const aplicadas = indiceProyecto(roots);
   const violaciones: Violacion[] = [];
   const regexBloques = /([^{}]+)\{([^{}]*)\}/g;
   let match: RegExpExecArray | null;
@@ -323,6 +345,14 @@ export function verificarCssAdhocButtonStyle(
     });
 
     if (!claseProblematica) {
+      continue;
+    }
+
+    /* [15A-25] El veredicto lo da el elemento que lleva la clase, no el CSS. Si la
+     * clase se aplica a un componente y a ningun elemento nativo, es una variante
+     * del boton del sistema (su className viaja al <BotonBase>), no un boton hecho
+     * a mano. Un bloque CSS no puede ser un boton por si mismo. */
+    if (aplicadas.componente.has(claseProblematica) && !aplicadas.nativo.has(claseProblematica)) {
       continue;
     }
 
@@ -388,7 +418,13 @@ export function verificarCssEspecificacionDisenoLocal(
     }
 
     const clasesSelector = Array.from(selector.matchAll(/\.([A-Za-z_][\w-]*)/g)).map(grupo => grupo[1]);
-    const claseProblematica = clasesSelector.find(claseTieneRolInteractivoLocal);
+    if (selectorLlevaRecetaInteractiva(clasesSelector)) {
+      continue;
+    }
+
+    const claseProblematica = clasesSujeto(selector)
+      .filter(clase => claseTieneRolInteractivoLocal(clase) && !archivoEsRecetaDeClase(nombreLower, clase))
+      .find(clase => PATRONES_ROL_SUPERFICIE.test(clase) || bloqueDeclaraGesto(cuerpo, selector));
     if (!claseProblematica) {
       continue;
     }
@@ -402,85 +438,6 @@ export function verificarCssEspecificacionDisenoLocal(
       reglaId: REGLA_ESPECIFICACION_DISENO_LOCAL,
       mensaje: `La clase CSS ".${claseProblematica}" define especificacion visual local (${propiedadesDiseno.join(', ')}). Usa una receta compartida como Button/ContextMenu/dropdown canonico y deja aqui solo layout contextual.`,
       severidad: obtenerSeveridadRegla(REGLA_ESPECIFICACION_DISENO_LOCAL),
-      linea,
-      fuente: 'estatico',
-    });
-  }
-
-  return violaciones;
-}
-
-/*
- * Detecta clases de modal por componente que duplican semantica compartida.
- * Casos como .ordenDetalleModalTexto o .modalCompraDescripcion deben reutilizar
- * .modalTexto/.modalTitulo/.modalAcciones y dejar solo layout o estado local.
- */
-export function verificarModalSemanticaNoCanonica(
-  texto: string,
-  documento: CoreTextDocument,
-  nombreArchivo: string,
-  /* [119A-4 S4] El caller (staticAnalyzer) lo calcula con proyectoTieneModalCanonico().
-   * Default true = fail-closed: sin evidencia de ausencia, la regla dispara como antes. */
-  tieneModalCanonico = true,
-): Violacion[] {
-  const nombreLower = nombreArchivo.toLowerCase();
-  const rutaNorm = documento.fileName.replace(/\\/g, '/');
-
-  if (/^variables\.css$/.test(nombreLower)) {
-    return [];
-  }
-
-  if (!tieneModalCanonico) { return []; }
-
-  if (rutaNorm.includes('/node_modules/') || rutaNorm.includes('/vendor/') ||
-      rutaNorm.includes('/glory-rs/') || rutaNorm.includes('/public/assets/')) {
-    return [];
-  }
-
-  if (texto.includes(`sentinel-disable-file ${REGLA_MODAL_SEMANTICA}`)) {
-    return [];
-  }
-
-  const violaciones: Violacion[] = [];
-  const lineas = texto.split('\n');
-  const regexBloques = /([^{}]+)\{([^{}]*)\}/g;
-  let match: RegExpExecArray | null;
-
-  while ((match = regexBloques.exec(texto)) !== null) {
-    const selectorRaw = match[1];
-    const selector = selectorRaw.replace(/\/\*[\s\S]*?\*\//g, ' ').trim();
-    const cuerpo = match[2];
-    const lineaBase = texto.slice(0, match.index).split('\n').length - 1;
-    const linea = lineaBase + (selectorRaw.split('\n').length - 1);
-
-    if (!selector || selector.startsWith('@')) {
-      continue;
-    }
-
-    if (tieneSentinelDisable(lineas, linea, REGLA_MODAL_SEMANTICA)) {
-      continue;
-    }
-
-    const clasesSelector = Array.from(selector.matchAll(/\.([A-Za-z_][\w-]*)/g)).map(grupo => grupo[1]);
-    const claseProblematica = clasesSelector.find(nombreClase => {
-      const sufijo = detectarSufijoSemanticoModal(nombreClase);
-      return sufijo ? bloqueDefineSemanticaModal(cuerpo, sufijo) : false;
-    });
-
-    if (!claseProblematica) {
-      continue;
-    }
-
-    const sufijo = detectarSufijoSemanticoModal(claseProblematica);
-    if (!sufijo) {
-      continue;
-    }
-
-    const claseCanonica = claseCanonicaModal(sufijo);
-    violaciones.push({
-      reglaId: REGLA_MODAL_SEMANTICA,
-      mensaje: `La clase "${claseProblematica}" duplica semantica visual compartida de Modal. Usa className="${claseCanonica}" y deja el layout/estado en clases locales separadas.`,
-      severidad: obtenerSeveridadRegla(REGLA_MODAL_SEMANTICA),
       linea,
       fuente: 'estatico',
     });
@@ -609,6 +566,35 @@ export function verificarCssElementoHTMLDirecto(
   /* Excepciones: contextos donde estilar h* directamente es válido */
   const excepcionH = /\.(tiptap|[a-zA-Z]+Texto|[a-zA-Z]+Vacio|[a-zA-Z]+Single)\s+h[1-6]/;
 
+  /* [15A-25] Una superficie de contenido inyectado (markdown, rich text, un
+   * contentEditable) no admite className en sus h2/h3: el marcado lo genera un
+   * renderizador, no el JSX del componente. Se reconoce por su FORMA, no por su
+   * nombre: si una misma clase estiliza tres o mas elementos crudos distintos en la
+   * hoja, es una superficie de contenido y no el marcado propio de un componente.
+   * Los nueve hallazgos de KAMPLES eran `.prose` (12 elementos), `.prose-sm`,
+   * `.editorArticuloContenido` (4) y `.articuloDetalleContenido` (10); la lista
+   * anterior (tiptap|*Texto|*Vacio|*Single) solo acertaba por casualidad del nombre,
+   * y de hecho ya eximia a `.tiptap` — que es la misma cosa. */
+  const MIN_ELEMENTOS_SUPERFICIE = 3;
+  const elementosPorClase = new Map<string, Set<string>>();
+  const regexClaseElemento = /\.([\w-]+)\s+(button|h[1-6]|p|ul|ol|li|a|img|blockquote|code|pre|table|hr|strong|em)\b/g;
+  let coincidencia: RegExpExecArray | null;
+
+  while ((coincidencia = regexClaseElemento.exec(texto)) !== null) {
+    const elementos = elementosPorClase.get(coincidencia[1]) ?? new Set<string>();
+    elementos.add(coincidencia[2]);
+    elementosPorClase.set(coincidencia[1], elementos);
+  }
+
+  function esSuperficieDeContenido(linea: string): boolean {
+    for (const clase of Array.from(linea.matchAll(/\.([\w-]+)/g), grupo => grupo[1])) {
+      const elementos = elementosPorClase.get(clase);
+      if (elementos && elementos.size >= MIN_ELEMENTOS_SUPERFICIE) { return true; }
+    }
+
+    return false;
+  }
+
   for (let i = 0; i < lineas.length; i++) {
     const linea = lineas[i].trim();
 
@@ -620,6 +606,7 @@ export function verificarCssElementoHTMLDirecto(
 
     const elemento = match[1];
     if (elemento !== 'button' && excepcionH.test(linea)) { continue; }
+    if (esSuperficieDeContenido(linea)) { continue; }
 
     const mensaje = elemento === 'button'
       ? `Selector ".{clase} button" detectado. Pasar className al <Button> en lugar de apuntar al elemento raw.`

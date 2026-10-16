@@ -9,7 +9,7 @@ import * as path from 'path';
 import { Violacion } from '../types';
 import { CoreTextDocument } from '../core/types';
 import { reglaHabilitada } from '../config/ruleRegistry';
-import { esRutaGlory, proyectoTieneModalCanonico } from '../utils/analisisHelpers';
+import { esRutaGlory, indiceProyecto, proyectoTieneModalCanonico } from '../utils/analisisHelpers';
 
 /* Submodulos */
 import {
@@ -146,12 +146,15 @@ export function analizarReact(documento: CoreTextDocument, opciones: ReactAnalys
       violaciones.push(...verificarModalConTitulo(lineas));
     }
     if (reglaHabilitada('modal-acciones-no-canonico')) {
-      violaciones.push(...verificarModalAccionesNoCanonico(lineas));
+      /* [15A-25] Coste con cache; solo se calcula si la regla esta habilitada. */
+      violaciones.push(...verificarModalAccionesNoCanonico(lineas, obtenerWorkspaceRootsReact()));
     }
     if (reglaHabilitada('modal-estructura-no-canonica')) {
       /* [119A-4 S4] Coste con cache; solo se calcula si la regla esta habilitada. */
       const tieneModalCanonico = proyectoTieneModalCanonico(obtenerWorkspaceRootsReact());
-      violaciones.push(...verificarModalEstructuraNoCanonica(lineas, nombreArchivo, tieneModalCanonico));
+      /* [15A-25] Un <Modal className="X"> no redefine el contenedor: lo append. */
+      const fusionaClassName = indiceProyecto(obtenerWorkspaceRootsReact()).modalFusionaClassName;
+      violaciones.push(...verificarModalEstructuraNoCanonica(lineas, nombreArchivo, tieneModalCanonico, fusionaClassName));
     }
     if (reglaHabilitada('menu-contextual-override-diseno')) {
       violaciones.push(...verificarMenuContextualOverride(lineas, nombreArchivo));

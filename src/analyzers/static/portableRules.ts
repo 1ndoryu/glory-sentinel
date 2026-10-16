@@ -66,6 +66,42 @@ function hasExportedLogic(text: string): boolean {
   return /\bexport\s+(?:async\s+)?(?:function|class|const|let|var)\b/.test(text);
 }
 
+/* [15A-25] Deja cada linea con sus literales y sus comentarios fuera, para no
+ * leer como codigo lo que es texto. Antes solo se quitaba `//` con un `replace`
+ * por linea, de modo que el cuerpo de un comentario de bloque se analizaba como
+ * codigo: los cinco `window-reference-outside-platform` de KAMPLES salian de
+ * comentarios que documentan justamente por que NO se usa `window.location`.
+ * Un comentario de bloque cruza lineas, asi que el estado viaja entre ellas y
+ * un `replace` por linea no basta. Orden dentro de la linea: primero literales
+ * (para no truncar en el `//` de una URL), luego `//`, luego `/* ... *\/`. */
+function lineasSinComentariosNiLiterales(lineas: string[]): string[] {
+  let enBloque = false;
+  return lineas.map(lineaOriginal => {
+    let linea = lineaOriginal;
+    let salida = '';
+    for (;;) {
+      if (enBloque) {
+        const cierre = linea.indexOf('*/');
+        if (cierre === -1) return salida.trim();
+        enBloque = false;
+        linea = linea.slice(cierre + 2);
+        continue;
+      }
+      const sinStrings = linea.replace(/'(?:[^'\\\r\n]|\\.)*'|"(?:[^"\\\r\n]|\\.)*"|`(?:[^`\\]|\\.)*`/g, '""');
+      const sinLinea = sinStrings.replace(/\/\/.*$/, '');
+      const apertura = sinLinea.indexOf('/*');
+      if (apertura === -1) return (salida + sinLinea).trim();
+      const cierre = sinLinea.indexOf('*/', apertura + 2);
+      salida += sinLinea.slice(0, apertura);
+      if (cierre === -1) {
+        enBloque = true;
+        return salida.trim();
+      }
+      linea = sinLinea.slice(cierre + 2);
+    }
+  });
+}
+
 /** Ejecuta únicamente sobre JavaScript/TypeScript de aplicación. */
 export function verificarReglasPortables(
   document: CoreTextDocument,
@@ -86,13 +122,12 @@ export function verificarReglasPortables(
   const isServiceBoundary = inBoundary(document.fileName, serviceBoundaries);
   const isLoggerModule = inBoundary(document.fileName, loggerModules);
 
-  lines.forEach((line, index) => {
-    /* [119A-4 S6] Despojar literales antes de testear: 'window.location' dentro
-     * de un string es documentacion/texto, no una referencia real (FP en
-     * etiquetas.ts del allowlist). Orden: primero strings (para no truncar en
-     * '//' dentro de URLs), luego comentarios. */
-    const sinStrings = line.replace(/'(?:[^'\\\r\n]|\\.)*'|"(?:[^"\\\r\n]|\\.)*"|`(?:[^`\\]|\\.)*`/g, '""');
-    const code = sinStrings.replace(/\/\/.*$/, '').trim();
+  /* [119A-4 S6] Despojar literales y comentarios antes de testear: 'window.location'
+   * dentro de un string es documentacion/texto, no una referencia real (FP en
+   * etiquetas.ts del allowlist). */
+  const codigo = lineasSinComentariosNiLiterales(lines);
+
+  codigo.forEach((code, index) => {
     if (!code) return;
 
     if (!isDomBoundary && /\b(?:document|globalThis\.document)\.(?:createElement|querySelector|querySelectorAll|getElementById|body|head)\b/.test(code)) {

@@ -169,7 +169,8 @@ export function analizarEstatico(
             violaciones.push(...verificarNomenclaturaCssIngles(texto, documento, nombreArchivo));
         }
         if (reglaHabilitada('css-adhoc-button-style')) {
-            violaciones.push(...verificarCssAdhocButtonStyle(texto, documento, nombreArchivo));
+            /* [15A-25] Coste con cache; solo se calcula si la regla esta habilitada. */
+            violaciones.push(...verificarCssAdhocButtonStyle(texto, documento, nombreArchivo, obtenerWorkspaceRoots()));
         }
         if (reglaHabilitada('css-especificacion-diseno-local')) {
             violaciones.push(...verificarCssEspecificacionDisenoLocal(texto, documento, nombreArchivo));
@@ -233,6 +234,38 @@ function propiedadEsCssVar(token: string): boolean {
     return /^(?:\[\s*)?['"]--[\w-]+['"](?:\s+as\s+[A-Za-z0-9_$.]+(?:<[^>]*>)?)?\s*\]?\s*:/.test(token);
 }
 
+/* [15A-25] Divide por las comas de nivel superior: las que no estan dentro de
+ * llaves, parentesis, corchetes ni literales. Un `split(',')` a secas partia
+ * `'--porcentaje': `${Math.min(100, proceso.progreso)}%`` por la coma del
+ * `Math.min` y el trozo resultante dejaba de parecer una custom property, de
+ * modo que la exencion se perdia y salia un `inline-style-prohibido` falso.
+ * Medido en KAMPLES: 7 casos, todos con una coma dentro de una interpolacion. */
+function dividirComasNivelSuperior(texto: string): string[] {
+    const partes: string[] = [];
+    let profundidad = 0;
+    let comilla: string | null = null;
+    let inicio = 0;
+
+    for (let i = 0; i < texto.length; i += 1) {
+        const caracter = texto[i];
+        if (comilla) {
+            if (caracter === '\\') { i += 1; continue; }
+            if (caracter === comilla) { comilla = null; }
+            continue;
+        }
+        if (caracter === '"' || caracter === "'" || caracter === '`') { comilla = caracter; continue; }
+        if (caracter === '(' || caracter === '{' || caracter === '[') { profundidad += 1; continue; }
+        if (caracter === ')' || caracter === '}' || caracter === ']') { profundidad -= 1; continue; }
+        if (caracter === ',' && profundidad === 0) {
+            partes.push(texto.slice(inicio, i));
+            inicio = i + 1;
+        }
+    }
+    partes.push(texto.slice(inicio));
+
+    return partes.map(parte => parte.trim()).filter(Boolean);
+}
+
 function styleInlineSoloCssVars(lineas: string[], indice: number): boolean {
     const ventana = lineas.slice(indice, Math.min(indice + 15, lineas.length)).join('\n');
     const match = /style\s*=\s*\{\s*\{([\s\S]*?)\}\s*(?:as\s+[A-Za-z0-9_.]+)?\s*\}/.exec(ventana);
@@ -240,11 +273,7 @@ function styleInlineSoloCssVars(lineas: string[], indice: number): boolean {
         return false;
     }
 
-    const propiedades = match[1]
-        .replace(/\/\*[\s\S]*?\*\//g, ' ')
-        .split(',')
-        .map(token => token.trim())
-        .filter(Boolean);
+    const propiedades = dividirComasNivelSuperior(match[1].replace(/\/\*[\s\S]*?\*\//g, ' '));
 
     if (propiedades.length === 0) {
         return false;

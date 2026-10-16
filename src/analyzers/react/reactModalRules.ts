@@ -9,43 +9,73 @@
 
 import { Violacion } from '../../types';
 import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
-import { esComentario, tieneSentinelDisable, tieneSentinelDisableFile } from '../../utils/analisisHelpers';
+import {
+  bloqueDefineSemanticaModal,
+  esComentario,
+  indiceProyecto,
+  tieneSentinelDisable,
+  tieneSentinelDisableFile,
+} from '../../utils/analisisHelpers';
 
 /*
- * Detecta titulos (<h1-h6>) dentro de bloques <Modal>.
- * Contrato: los modales son minimalistas — sin titulos, solo contenido y modalAcciones.
- * Gotcha: rastrea profundidad JSX de <Modal> para no fallar en h* fuera del modal.
+ * Detecta titulos (<h1-h6>) que son hijos directos de un bloque <Modal>.
+ * Contrato: los modales son minimalistas — contenido directo y modalAcciones.
+ *
+ * [15A-25] Antes disparaba a CUALQUIER profundidad dentro del <Modal>, lo que
+ * contradecia su propio mensaje («contenido directo») y su propia premisa: el
+ * <Modal> canonico SI pinta titulo cuando recibe la prop `titulo`
+ * (Modal.tsx:92-94, <h2 className="modalTitulo"> a 13px). Los ocho casos de
+ * KAMPLES eran encabezados propios de modales que necesitan una cabecera mas
+ * rica que esa barra compacta (icono + titulo en linea, titulo centrado de
+ * 18px, rotulo de seccion de 12px en mayusculas) y NINGUNO era hijo directo.
+ *
+ * Criterio: la primera etiqueta JSX que aparece despues de cerrar `<Modal ...>`
+ * tiene que ser el propio encabezado. Es conservador a proposito — si antes hay
+ * otro elemento, no dispara — y solo mira modales cuya etiqueta de apertura se
+ * cierra en su propia linea, para no tener que interpretar atributos con JSX
+ * (`icono={<X />}`) ni etiquetas partidas en varias lineas.
  */
 export function verificarModalConTitulo(lineas: string[]): Violacion[] {
   const texto = lineas.join('\n');
   if (tieneSentinelDisableFile(texto, 'modal-con-titulo')) { return []; }
 
   const violaciones: Violacion[] = [];
-  let profundidadModal = 0;
+  const ETIQUETA_JSX = /<([A-Za-z][\w.$-]*)/;
+
+  function registrar(lineaHijo: number, etiqueta: string): void {
+    if (!/^h[1-6]$/.test(etiqueta)) { return; }
+    if (tieneSentinelDisable(lineas, lineaHijo, 'modal-con-titulo')) { return; }
+    violaciones.push({
+      reglaId: 'modal-con-titulo',
+      mensaje: `<${etiqueta}> como hijo directo de <Modal>. Los modales no llevan titulo — usa la prop \`titulo\` del <Modal> o deja el encabezado dentro de su propia cabecera.`,
+      severidad: obtenerSeveridadRegla('modal-con-titulo'),
+      linea: lineaHijo,
+      fuente: 'estatico',
+    });
+  }
 
   for (let i = 0; i < lineas.length; i++) {
     const linea = lineas[i];
     if (esComentario(linea)) { continue; }
-    if (tieneSentinelDisable(lineas, i, 'modal-con-titulo')) { continue; }
+    if (!/<Modal[\s>]/.test(linea) || /<Modal[^>]*\/>/.test(linea)) { continue; }
+    /* La etiqueta de apertura debe cerrarse en esta misma linea. */
+    if (!/\/?>\s*$/.test(linea)) { continue; }
 
-    /* Apertura de Modal (no self-closing) */
-    if (/<Modal[\s>]/.test(linea) && !/<Modal[^>]*\/>/.test(linea)) {
-      profundidadModal++;
-    }
-    /* Cierre de Modal */
-    if (/<\/Modal>/.test(linea)) {
-      profundidadModal = Math.max(0, profundidadModal - 1);
+    /* Resto de la linea tras la etiqueta de apertura. */
+    const resto = linea.replace(/^[\s\S]*?\/?>/, '');
+    const enMismaLinea = ETIQUETA_JSX.exec(resto);
+    if (enMismaLinea) {
+      registrar(i, enMismaLinea[1]);
+      continue;
     }
 
-    if (profundidadModal > 0 && /<h[1-6][\s/>]/.test(linea)) {
-      const numH = linea.match(/<h([1-6])/)?.[1] ?? '?';
-      violaciones.push({
-        reglaId: 'modal-con-titulo',
-        mensaje: `<h${numH}> detectado dentro de <Modal>. Los modales no llevan titulo — contenido directo + modalAcciones solamente.`,
-        severidad: obtenerSeveridadRegla('modal-con-titulo'),
-        linea: i,
-        fuente: 'estatico',
-      });
+    for (let j = i + 1; j < lineas.length; j++) {
+      if (/<\/Modal>/.test(lineas[j])) { break; }
+      if (esComentario(lineas[j])) { continue; }
+      const primera = ETIQUETA_JSX.exec(lineas[j]);
+      if (!primera) { continue; }
+      registrar(j, primera[1]);
+      break;
     }
   }
 
@@ -55,14 +85,31 @@ export function verificarModalConTitulo(lineas: string[]): Violacion[] {
 /*
  * Detecta clases tipo "*Acciones" no canonicas dentro de bloques <Modal>.
  * Contrato: el unico contenedor de botones valido en un modal es className="modalAcciones".
- * Gotcha: excluye clases que no terminan en "Acciones" para evitar falsos positivos.
+ *
+ * [15A-25] El nombre no basta: `XAcciones` solo reescribe la receta cuando su hoja
+ * define de verdad una zona de acciones. Las cuatro clases de KAMPLES que disparaban
+ * no lo hacian — .configAcciones y .generosAcciones son pies con borde propio y
+ * reparto a los extremos, .modalCodigoExpiradoAcciones anade flex-end + flex-wrap — y
+ * seguir la recomendacion habria metido el flex:1 de .modalAcciones, encogiendo los
+ * botones. El veredicto sale del bloque CSS, con el mismo predicado que usa la regla
+ * de CSS (utils/analisisHelpers). Solo .algoTimingAcciones, duplicado literal de
+ * .modalAcciones (`display:flex; gap`), queda como hallazgo.
  */
-export function verificarModalAccionesNoCanonico(lineas: string[]): Violacion[] {
+export function verificarModalAccionesNoCanonico(lineas: string[], roots: string[] = []): Violacion[] {
   const texto = lineas.join('\n');
   if (tieneSentinelDisableFile(texto, 'modal-acciones-no-canonico')) { return []; }
 
+  const { cuerposCss } = indiceProyecto(roots);
   const violaciones: Violacion[] = [];
   let profundidadModal = 0;
+
+  /* Reescribe la receta si alguno de sus bloques ES una zona de acciones. Sin
+   * bloque CSS no hay receta que juzgar y se mantiene el veredicto por nombre
+   * (fail-closed, igual que cuando no hay roots configurados). */
+  function reescribeRecetaAcciones(clase: string): boolean {
+    const cuerpos = cuerposCss.get(clase) ?? [];
+    return cuerpos.length === 0 || cuerpos.some(cuerpo => bloqueDefineSemanticaModal(cuerpo, 'Acciones'));
+  }
 
   for (let i = 0; i < lineas.length; i++) {
     const linea = lineas[i];
@@ -79,8 +126,11 @@ export function verificarModalAccionesNoCanonico(lineas: string[]): Violacion[] 
     if (profundidadModal > 0) {
       const classMatch = /className\s*=\s*["']([^"']+)["']/.exec(linea);
       if (classMatch) {
-        const clases = classMatch[1].split(/\s+/);
-        const accionesNoCanonica = clases.find(c => c.endsWith('Acciones') && c !== 'modalAcciones');
+        const clases = classMatch[1].split(/\s+/).filter(Boolean);
+        /* Si la zona canonica ya esta, lo demas es un modificador suyo. */
+        if (clases.includes('modalAcciones')) { continue; }
+
+        const accionesNoCanonica = clases.find(c => c.endsWith('Acciones') && reescribeRecetaAcciones(c));
         if (accionesNoCanonica) {
           violaciones.push({
             reglaId: 'modal-acciones-no-canonico',
@@ -136,6 +186,10 @@ export function verificarModalEstructuraNoCanonica(
   /* [119A-4 S4] El caller (reactAnalyzer) lo calcula con proyectoTieneModalCanonico().
    * Default true = fail-closed: sin evidencia de ausencia, la regla dispara como antes. */
   tieneModalCanonico = true,
+  /* [15A-25] El caller lo calcula con indiceProyecto().modalFusionaClassName. Un
+   * <Modal className="X"> no reescribe el contenedor: lo APPENDEA.
+   * Default false = fail-closed, la regla dispara como antes. */
+  modalFusionaClassName = false,
 ): Violacion[] {
   const texto = lineas.join('\n');
   if (tieneSentinelDisableFile(texto, 'modal-estructura-no-canonica')) { return []; }
@@ -161,7 +215,11 @@ export function verificarModalEstructuraNoCanonica(
 
     if (clases.length > 0) {
       const tieneClaseCanonica = clases.some(clase => CLASES_CONTENEDOR_MODAL_CANONICAS.has(clase));
-      const claseContenedorLocal = (esLineaModal && clases.length > 0 && !tieneClaseCanonica)
+      /* [15A-25] La prop `className` de <Modal> no sustituye al contenedor: Modal.tsx
+       * la concatena (`const clasesContenedor = ['modalContenedor', mapaTamano[tamano],
+       * className]`). Con esa evidencia la clase local es una variante, no una
+       * redefinicion, y el aviso era falso para los cuatro casos de KAMPLES. */
+      const claseContenedorLocal = (esLineaModal && !tieneClaseCanonica && !modalFusionaClassName)
         ? clases[0]
         : undefined;
       const usaFormularioCanonico = clases.includes('modalFormulario');
@@ -186,7 +244,7 @@ export function verificarModalEstructuraNoCanonica(
       if (enContextoModal && /<(?:form|div)[\s>]/.test(linea) && claseFormularioLocal && !usaFormularioCanonico) {
         violaciones.push({
           reglaId: 'modal-estructura-no-canonica',
-          mensaje: `Clase "${claseFormularioLocal}" redefine el cuerpo/formulario compartido del modal. Usa className="modalFormulario" o <ModalBody ...>.`,
+          mensaje: `Clase "${claseFormularioLocal}" redefine el cuerpo/formulario compartido del modal. Usa className="modalFormulario".`,
           severidad: obtenerSeveridadRegla('modal-estructura-no-canonica'),
           linea: i,
           fuente: 'estatico',
@@ -196,7 +254,7 @@ export function verificarModalEstructuraNoCanonica(
       if (enContextoModal && /<(?:div|label|fieldset)[\s>]/.test(linea) && claseCampoLocal && !usaCampoCanonico) {
         violaciones.push({
           reglaId: 'modal-estructura-no-canonica',
-          mensaje: `Clase "${claseCampoLocal}" redefine un campo compartido de Modal. Usa className="modalCampo" o <ModalField>.`,
+          mensaje: `Clase "${claseCampoLocal}" redefine un campo compartido de Modal. Usa className="modalCampo".`,
           severidad: obtenerSeveridadRegla('modal-estructura-no-canonica'),
           linea: i,
           fuente: 'estatico',
