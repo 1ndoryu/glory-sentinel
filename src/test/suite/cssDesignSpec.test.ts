@@ -411,7 +411,7 @@ suite('css-especificacion-diseno-local', () => {
     );
     /* Un fondo suelto no es una superficie: sin limite no hay piel que plegar. */
     assert.strictEqual(
-      verificarCssEspecificacionDisenoLocal(soloFondoNiRadio, crearDocumento('/repo/c.css'), 'c.css').length,
+      verificarCssEspecificacionDisenoLocal(sinBordeNiRadio, crearDocumento('/repo/c.css'), 'c.css').length,
       0
     );
   });
