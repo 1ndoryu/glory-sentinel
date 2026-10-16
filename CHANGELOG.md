@@ -3,6 +3,12 @@
 
 ## [Unreleased]
 
+### `limite-lineas` en Rust: el módulo de tests se reconoce por su `mod`, no por el primer `#[cfg(test)]`
+
+- `contarLineasEfectivas(texto, true)` truncaba el archivo en el **primer** `#[cfg(test)]`. Un `#[cfg(test)] use ...` en la cabecera —import que solo usan los tests— dejaba el archivo entero fuera del recuento: `MN-Inmobiliaria/src/handlers/ia/rutas.rs` contaba **12** líneas efectivas en vez de 537, y `limite-lineas` no disparaba nunca sobre él. Ahora se trunca en el `#[cfg(test)]` que introduce un `mod` (el último, que por convención es el módulo de tests).
+- Alcance medido el 2026-10-16: 8 archivos en 4 consumidores (MN-Inmobiliaria 2, RESTAURANTE 2, WANDORIUS 3, limpiador-pc 1). Los que superen su techo pasarán a reportarse.
+- Tests de regresión: `lineCounter.test.ts` — módulo de tests al final, atributo y `mod` en el mismo renglón, y cabecera con `#[cfg(test)]` que ya no trunca.
+
 ### `css-especificacion-diseno-local`: el remedio solo se prescribe donde es aplicable
 
 - La regla prescribe "usa una receta compartida como Button/ContextMenu/dropdown canonico". Ahora comprueba que ese remedio EXISTA para la clase señalada, mirando a que elemento se aplica (indice de JSX del proyecto, el mismo que estrena `css-adhoc-button-style`): dispara si el elemento es un control (etiqueta nativa de control o componente del sistema), si se opera (manejador `on` o rol interactivo), si el nombre es de familia de superficie (`Trigger`/`Dropdown`/`Menu`/`Panel`…) o si el bloque declara la firma de superficie flotante (fondo + borde + radio + sombra, la receta de `.dropdownPanel`). Una fila de lista que solo se ilumina al pasar el ratón no tiene receta canónica a la que plegarse: su hallazgo era ruido. Medido en KAMPLES: 12 hallazgos de 10 clases (`adminHistorialItem`, `papeleraItem`, `seguidoresItem`, `reproductorIslandColaItem`, `blogSkeletonItem`, `feedTagItem`, `sincPanelArchivoItem`, `sincPanelHistorialItem`, `sincPanelColeccionItem`, `selectorPatronItem`), todas sobre `<div>` de fila. **Esa deuda — filas con especificación visual local — queda sin reportar a propósito**, y así está anotada en el roadmap del consumidor.

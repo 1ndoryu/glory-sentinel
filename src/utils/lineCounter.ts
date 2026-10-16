@@ -3,14 +3,42 @@
  * Se usa para verificar limites de archivo segun el protocolo (Seccion 3).
  */
 
+/* Devuelve el offset del `#[cfg(test)]` que introduce el modulo de tests
+ * —aquel cuyo codigo siguiente es un `mod`—, o -1 si no hay ninguno.
+ * [16AA-5] No vale el primero del archivo: un `#[cfg(test)] use ...` en la
+ * cabecera (import que solo usan los tests) truncaba el archivo entero y el
+ * limite de lineas no saltaba nunca. Se toma el ultimo `mod` para no cortar
+ * por un `#[cfg(test)] mod` de un submodulo intermedio. */
+function offsetModuloDeTests(texto: string): number {
+  const atributo = '#[cfg(test)]';
+  const lineas = texto.split('\n');
+  let offset = 0;
+  let encontrado = -1;
+
+  for (let i = 0; i < lineas.length; i++) {
+    const idx = lineas[i].indexOf(atributo);
+    if (idx !== -1) {
+      const mismoRenglon = lineas[i].slice(idx + atributo.length).trim();
+      const siguiente = mismoRenglon !== '' ? mismoRenglon : (lineas[i + 1] ?? '').trim();
+      if (/^mod\s/.test(siguiente)) {
+        encontrado = offset + idx;
+      }
+    }
+    offset += lineas[i].length + 1;
+  }
+
+  return encontrado;
+}
+
 /* Cuenta lineas efectivas excluyendo comentarios (bloque y linea) y lineas vacias.
- * Si esRust=true, excluye bloques #[cfg(test)] (tests no son complejidad de produccion,
- * y en Rust es convencion tenerlos al final del mismo archivo). */
+ * Si esRust=true, excluye el modulo #[cfg(test)] (los tests no son complejidad de
+ * produccion, y en Rust es convencion tenerlos al final del mismo archivo). */
 export function contarLineasEfectivas(texto: string, esRust: boolean = false): number {
-  /* Para Rust: truncar en #[cfg(test)] — los tests viven al final del archivo
-   * y no contribuyen a la complejidad de mantenimiento del codigo de produccion. */
+  /* Para Rust: truncar en el modulo de tests — los tests viven al final del
+   * archivo y no contribuyen a la complejidad de mantenimiento del codigo de
+   * produccion. */
   if (esRust) {
-    const idxTest = texto.indexOf('#[cfg(test)]');
+    const idxTest = offsetModuloDeTests(texto);
     if (idxTest !== -1) {
       texto = texto.substring(0, idxTest);
     }

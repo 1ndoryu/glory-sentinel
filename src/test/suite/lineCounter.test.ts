@@ -51,6 +51,36 @@ suite('lineCounter', () => {
     assert.strictEqual(contarLineasEfectivas(texto), 6);
   });
 
+  test('contarLineasEfectivas - Rust: excluye el modulo de tests del final', () => {
+    const texto = [
+      'pub fn uno() {}',
+      'pub fn dos() {}',
+      '#[cfg(test)]',
+      'mod pruebas {',
+      '    #[test]',
+      '    fn prueba() {}',
+      '}',
+    ].join('\n');
+    assert.strictEqual(contarLineasEfectivas(texto, true), 2);
+  });
+
+  test('contarLineasEfectivas - Rust: atributo y mod en el mismo renglon', () => {
+    const texto = 'pub fn uno() {}\npub fn dos() {}\n#[cfg(test)] mod pruebas;';
+    assert.strictEqual(contarLineasEfectivas(texto, true), 2);
+  });
+
+  test('contarLineasEfectivas - Rust: un #[cfg(test)] de cabecera no trunca el archivo', () => {
+    const texto = [
+      '#[cfg(test)]',
+      'use super::ayuda;',
+      'pub fn uno() {}',
+      'pub fn dos() {}',
+      '#[cfg(test)]',
+      'mod pruebas;',
+    ].join('\n');
+    assert.strictEqual(contarLineasEfectivas(texto, true), 3);
+  });
+
   test('obtenerLimiteArchivo - hook detectado', () => {
     const limite = obtenerLimiteArchivo('useAlumnos.ts', '/src/hooks/useAlumnos.ts');
     assert.notStrictEqual(limite, null);
