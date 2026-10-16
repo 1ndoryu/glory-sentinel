@@ -372,6 +372,39 @@ suite('css-especificacion-diseno-local', () => {
     assert.strictEqual(violaciones.length, 0);
   });
 
+  test('[15A-27] el sujeto no es la clase cuando el selector es un pseudo de proveedor', () => {
+    /* `.dropdown::-webkit-scrollbar-thumb` estiliza una pieza interna del
+     * navegador, no la piel del dropdown: no reimplementa su receta. */
+    const barra = [
+      '.busquedaRapidaDropdown::-webkit-scrollbar-thumb {',
+      '  background: var(--bordeSutil);',
+      '  border-radius: var(--radioSm);',
+      '}',
+    ].join('\n');
+
+    const violaciones = verificarCssEspecificacionDisenoLocal(
+      barra,
+      crearDocumento('/repo/frontend/src/styles/busquedaRapida.css'),
+      'busquedaRapida.css'
+    );
+
+    assert.strictEqual(violaciones.length, 0);
+  });
+
+  test('[15A-27] testigo: un pseudo de contenido si es el sujeto de la clase', () => {
+    /* `::before`/`::after` si crean decoracion propia del elemento, y eso es
+     * especificacion local. Sin este testigo el anterior pasaria por no mirar. */
+    const decoracion = '.panelFiltrosDropdown::after { background: var(--fondoElevado1); border-radius: var(--radioMd); }';
+
+    const violaciones = verificarCssEspecificacionDisenoLocal(
+      decoracion,
+      crearDocumento('/repo/frontend/src/styles/busquedaRapida.css'),
+      'busquedaRapida.css'
+    );
+
+    assert.strictEqual(violaciones.length, 1);
+  });
+
   test('[15A-27] testigo: un ...Panel que si se pinta sigue siendo un hallazgo', () => {
     /* Sin este testigo el anterior pasaria por no mirar. Se cubren las dos formas
      * de limite y se omite box-shadow a proposito: exigir elevacion dejaria ciego

@@ -217,11 +217,22 @@ function recetaAplicable(
  * por comas: en `.tarjetaColeccionLista .tarjetaColeccionPortada img` el bloque
  * estiliza `img`, no `.tarjetaColeccionLista`. La regla tomaba la PRIMERA clase con
  * rol de todo el selector y culpaba al ancestro. */
+/* [15A-27] Un pseudo-elemento de PROVEEDOR (`::-webkit-scrollbar-thumb` y
+ * compania) no es el sujeto de la clase: estiliza una pieza interna del
+ * navegador —la barra de scroll, su riel, su pulgar—, no la piel del elemento
+ * que la contiene. `.dropdown::-webkit-scrollbar-thumb { background; border-radius }`
+ * no reimplementa la receta del dropdown. Los pseudo-elementos de CONTENIDO
+ * (`::before`, `::after`) siguen contando: ahi el bloque crea decoracion propia
+ * del elemento, y eso si es especificacion local (ver el testigo de
+ * `.selectorIdiomaLista::before`). */
+const RE_PSEUDO_PROVEEDOR = /::-(?:webkit|moz|ms)-[\w-]+/;
+
 function clasesSujeto(selector: string): string[] {
   const clases: string[] = [];
 
   for (const parte of selector.split(',')) {
     const ultimoCompuesto = parte.trim().split(/[\s>+~]+/).pop() ?? '';
+    if (RE_PSEUDO_PROVEEDOR.test(ultimoCompuesto)) { continue; }
     for (const grupo of ultimoCompuesto.matchAll(/\.([A-Za-z_][\w-]*)/g)) {
       clases.push(grupo[1]);
     }
