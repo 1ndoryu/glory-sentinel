@@ -102,9 +102,97 @@ suite('css-adhoc-button-style — veredicto por elemento', () => {
         '}',
       ].join('\n'),
       'src/boton/BotonFollow.tsx': [
+        "import { useBotonFollow } from './useBotonFollow';",
         'export function BotonFollow() {',
         '  const { clases } = useBotonFollow(siguiendo);',
         '  return <BotonBase variante="ghost" className={`${clases} botonFollowIcono`} onClick={seguir}>Seguir</BotonBase>;',
+        '}',
+      ].join('\n'),
+    });
+    const violaciones = verificarCssAdhocButtonStyle(
+      '.botonFollow { cursor: pointer; padding: 4px 12px; }',
+      crearDocumento(path.join(raiz, 'src/boton/BotonFollow.css')),
+      'BotonFollow.css',
+      [raiz],
+    );
+
+    assert.strictEqual(violaciones.length, 0);
+  });
+
+  test('[15A-27] el enlace llega por el alias del tsconfig', () => {
+    /* El caso real de KAMPLES: el hook se importa como
+     * `@app/hooks/boton/useBotonFollow`, no por ruta relativa. */
+    const raiz = crearProyecto({
+      'tsconfig.json': JSON.stringify({
+        compilerOptions: { paths: { '@app/*': ['./src/legacy/*'] } },
+      }),
+      'src/legacy/hooks/boton/useBotonFollow.ts': [
+        'export function useBotonFollow(siguiendo: boolean) {',
+        "  const clases = ['botonFollow', siguiendo ? 'botonFollowActivo' : ''].filter(Boolean).join(' ');",
+        '  return { clases };',
+        '}',
+      ].join('\n'),
+      'src/legacy/components/BotonFollow.tsx': [
+        "import { useBotonFollow } from '@app/hooks/boton/useBotonFollow';",
+        'export function BotonFollow() {',
+        '  const { clases } = useBotonFollow(siguiendo);',
+        '  return <BotonBase variante="ghost" className={clases} onClick={seguir}>Seguir</BotonBase>;',
+        '}',
+      ].join('\n'),
+    });
+    const violaciones = verificarCssAdhocButtonStyle(
+      '.botonFollow { cursor: pointer; padding: 4px 12px; }',
+      crearDocumento(path.join(raiz, 'src/legacy/styles/botonFollow.css')),
+      'botonFollow.css',
+      [raiz],
+    );
+
+    assert.strictEqual(violaciones.length, 0);
+  });
+
+  test('[15A-27] testigo: sin import que seguir, el enlace no exime (fail-closed)', () => {
+    const raiz = crearProyecto({
+      'src/boton/BotonFollow.tsx': [
+        'export function BotonFollow() {',
+        '  const { clases } = useBotonFollow(siguiendo);',
+        '  return <BotonBase variante="ghost" className={clases} onClick={seguir}>Seguir</BotonBase>;',
+        '}',
+      ].join('\n'),
+    });
+    const violaciones = verificarCssAdhocButtonStyle(
+      '.botonFollow { cursor: pointer; padding: 4px 12px; }',
+      crearDocumento(path.join(raiz, 'src/boton/BotonFollow.css')),
+      'BotonFollow.css',
+      [raiz],
+    );
+
+    assert.strictEqual(violaciones.length, 1);
+  });
+
+  test('[15A-27] testigo: un `className={clases}` sin origen no contagia al proyecto', () => {
+    /* La regresion que motivo este cambio. `clases` es el identificador mas
+     * comun del proyecto (163 ficheros en KAMPLES). Mientras el indice lo unia
+     * por NOMBRE, este <button> —que no declara ni importa nada— arrastraba las
+     * clases de todos los demas ficheros, y `.botonFollow` pasaba a contar como
+     * aplicada a un elemento nativo: la exencion de css-adhoc-button-style moria
+     * en los dos ficheros reales del proyecto. */
+    const raiz = crearProyecto({
+      'src/boton/useBotonFollow.ts': [
+        'export function useBotonFollow(siguiendo: boolean) {',
+        "  const clases = ['botonFollow', `botonFollow-${tamano}`].join(' ');",
+        '  return { clases };',
+        '}',
+      ].join('\n'),
+      'src/boton/BotonFollow.tsx': [
+        "import { useBotonFollow } from './useBotonFollow';",
+        'export function BotonFollow() {',
+        '  const { clases } = useBotonFollow(siguiendo);',
+        '  return <BotonBase variante="ghost" className={clases}>Seguir</BotonBase>;',
+        '}',
+      ].join('\n'),
+      'src/panel/Panel.tsx': [
+        'export function Panel({ clases }) {',
+        '  return <button className={clases} onClick={abrir}>Abrir</button>;',
         '}',
       ].join('\n'),
     });
@@ -154,6 +242,7 @@ suite('css-adhoc-button-style — veredicto por elemento', () => {
         '}',
       ].join('\n'),
       'src/boton/BotonFollow.tsx': [
+        "import { useBotonFollow } from './useBotonFollow';",
         'export function BotonFollow() {',
         '  const { clases } = useBotonFollow(tamano);',
         '  return <BotonBase variante="ghost" className={clases}>Seguir</BotonBase>;',

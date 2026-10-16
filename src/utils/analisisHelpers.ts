@@ -172,20 +172,22 @@ export interface IndiceProyecto {
   cuerposCss: Map<string, string[]>;
   /* El <Modal> del proyecto fusiona la className recibida con las suyas. */
   modalFusionaClassName: boolean;
-  /* [15A-27] Identificador -> fragmentos de clase, para las clases que NO se
-   * escriben como literal en el `className` sino que se arman antes:
-   * `const clases = ['botonLike', ...]` en el propio fichero, o el array que
-   * devuelve un hook en un `.ts` (`useBotonFollow.ts:51` -> `clases`). Sin esto
-   * la clase quedaba invisible para el indice y la regla no podia ver sobre que
-   * elemento se aplica. */
-  aliasClases: Map<string, Set<string>>;
-  /* [15A-27] Enlaces del PROPIO fichero, que mandan sobre la union global: el
-   * identificador `clases` se repite en medio centenar de ficheros, asi que la
-   * union sola resolveria unos con los fragmentos de otros. */
+  /* [15A-27] Fichero -> (identificador -> fragmentos de clase), para las clases
+   * que NO se escriben como literal en el `className` sino que se arman antes:
+   * `const clases = ['botonLike', ...]`, o el array que devuelve un hook en un
+   * `.ts` (`useBotonFollow.ts:51` -> `clases`). Sin esto la clase quedaba
+   * invisible para el indice y la regla no podia ver sobre que elemento se
+   * aplica. Las claves son rutas normalizadas a `/`. */
   enlacesPorFichero: Map<string, Map<string, EnlaceClases>>;
-  /* [15A-27] La misma union, para los prefijos de plantilla que viajan dentro
-   * de un enlace (`['botonFollow', \`botonFollow-${tamano}\`]`). */
-  aliasPrefijos: Map<string, Set<string>>;
+  /* [15A-27] Fichero -> (identificador -> modulo y nombre del que procede), para
+   * los enlaces que NO se declaran en el propio fichero sino que entran por un
+   * `import`. Es la sustitucion de la union por nombre que habia antes: unir
+   * TODOS los ficheros por identificador parecia inofensivo hasta que el nombre
+   * repetido fue `clases` —el mas comun del proyecto—, y entonces cada elemento
+   * con `className={clases}` arrastraba las clases de los demas ficheros. Asi
+   * `.botonFollow` acababa contada como aplicada a un <button> nativo que nunca
+   * la llevo, y la exencion de `css-adhoc-button-style` moria. */
+  origenesPorFichero: Map<string, Map<string, OrigenEnlace>>;
   /* [15A-27] Prefijos de clase que el JSX arma con plantilla:
    * `` `botonFollow-${tamano}` `` produce `.botonFollow-sm` o `.botonFollow-md`
    * segun el valor, que no esta en el literal. El sufijo es dinamico y no se
@@ -203,6 +205,91 @@ export interface IndiceProyecto {
 interface EnlaceClases {
   clases: string[];
   prefijos: string[];
+}
+
+/* [15A-27] De donde viene un identificador que el fichero NO declara: el modulo
+ * que lo exporta y el nombre que tiene alli. */
+interface OrigenEnlace {
+  modulo: string;
+  nombre: string;
+}
+
+/* [15A-27] Alias de importacion del proyecto (`@app/*` -> `frontend/src/legacy/*`,
+ * declarados en los tsconfig). Sin seguirlos, un
+ * `import { useBotonFollow } from '@app/hooks/boton/useBotonFollow'` no lleva a
+ * ninguna parte y el enlace que el hook devuelve queda invisible. */
+interface AliasModulo {
+  prefijo: string;
+  base: string;
+}
+
+const EXTENSIONES_MODULO = ['.ts', '.tsx', '.js', '.jsx'];
+const VACIO: EnlaceClases = { clases: [], prefijos: [] };
+
+/* [15A-27] Resuelve un especificador de import a un fichero del proyecto.
+ * Solo relativo o por alias: un paquete de node_modules no interesa, y un
+ * especificador que no se puede seguir devuelve null (fail-closed: la falta de
+ * evidencia no exime). */
+function resolverModulo(desde: string, especificador: string, alias: AliasModulo[]): string | null {
+  let base: string | null = null;
+
+  if (especificador.startsWith('.')) {
+    base = path.resolve(path.dirname(desde), especificador);
+  } else {
+    const encontrado = alias.find(a => especificador.startsWith(a.prefijo));
+    if (encontrado) { base = path.join(encontrado.base, especificador.slice(encontrado.prefijo.length)); }
+  }
+
+  if (!base) { return null; }
+
+  const candidatos = [
+    base,
+    ...EXTENSIONES_MODULO.map(extension => base + extension),
+    ...EXTENSIONES_MODULO.map(extension => path.join(base, `index${extension}`)),
+  ];
+
+  for (const candidato of candidatos) {
+    try {
+      if (fs.statSync(candidato).isFile()) { return normalizarRuta(candidato); }
+    } catch {
+      /* candidato inexistente: se prueba el siguiente */
+    }
+  }
+
+  return null;
+}
+
+/* [15A-27] Lee los `paths` de los tsconfig del proyecto. Los tsconfig reales
+ * llevan comentarios, asi que se limpian antes de parsear; si no se puede leer
+ * uno, se ignora y se sigue (nunca revienta el indice por un tsconfig raro). */
+function leerAliases(ficheros: string[]): AliasModulo[] {
+  const alias: AliasModulo[] = [];
+
+  for (const fichero of ficheros) {
+    if (!/^tsconfig(\.[\w-]+)?\.json$/.test(path.basename(fichero))) { continue; }
+
+    let crudo: { compilerOptions?: { paths?: Record<string, string[]> } };
+    try {
+      const texto = fs.readFileSync(fichero, 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, ' ')
+        .replace(/(^|[^:])\/\/.*$/gm, '$1');
+      crudo = JSON.parse(texto) as typeof crudo;
+    } catch {
+      continue;
+    }
+
+    for (const [clave, destinos] of Object.entries(crudo.compilerOptions?.paths ?? {})) {
+      const destino = destinos[0];
+      if (!destino) { continue; }
+      alias.push({
+        prefijo: clave.replace(/\*$/, ''),
+        base: normalizarRuta(path.resolve(path.dirname(fichero), destino.replace(/\*$/, ''))),
+      });
+    }
+  }
+
+  /* El prefijo mas largo manda: `@app/x` no debe casar por `@a`. */
+  return alias.sort((a, b) => b.prefijo.length - a.prefijo.length);
 }
 
 /* [15A-27] Pertenencia al indice con prefijos: `clase` cuenta si esta aplicada
@@ -249,6 +336,12 @@ const cacheIndice = new Map<string, IndiceProyecto>();
  * indexaciones dentro (`mapaTamano[tamano]`), que un `[^\]]*` no cruza. */
 const RE_ENLACE_CLASES = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(\[(?:[^[\]]|\[[^[\]]*\])*\]|`[^`]*`|'[^']*'|"[^"]*")/g;
 
+/* [15A-27] Formas de import que traen un identificador del que puede colgar un
+ * enlace de clases, y la desestructuracion de una llamada a uno de ellos. */
+const RE_IMPORT_NOMBRADOS = /import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g;
+const RE_IMPORT_DEFECTO = /import\s+([A-Za-z_$][\w$]*)\s*(?:,\s*\{[^}]*\})?\s+from\s*['"]([^'"]+)['"]/g;
+const RE_DESTRUCTURA_LLAMADA = /(?:const|let|var)\s*\{([^}]*)\}\s*=\s*([A-Za-z_$][\w$]*)\s*\(/g;
+
 /* Fragmentos de clase de un literal: mismo criterio que el `className`, se toman
  * todos los identificadores con pinta de clase y sobra alguna palabra suelta. */
 function fragmentosDeClases(valor: string): string[] {
@@ -274,10 +367,8 @@ function prefijosDeClases(valor: string): string[] {
 }
 
 /* [15A-27] Recoge los enlaces del fichero. Se aplica tambien a `.ts`/`.js`, que
- * no llevan JSX pero si los arrays de clases que devuelven los hooks. Se guardan
- * en dos sitios: el mapa del fichero, que resuelve con exactitud, y la union del
- * proyecto, que resuelve los enlaces importados de otro modulo. */
-function indexarEnlaces(ruta: string, indice: IndiceProyecto): void {
+ * no llevan JSX pero si los arrays de clases que devuelven los hooks. */
+function indexarEnlaces(ruta: string, indice: IndiceProyecto, alias: AliasModulo[]): void {
   let texto: string;
   try {
     texto = fs.readFileSync(ruta, 'utf8');
@@ -285,25 +376,54 @@ function indexarEnlaces(ruta: string, indice: IndiceProyecto): void {
     return;
   }
 
+  const clave = normalizarRuta(ruta);
+
   RE_ENLACE_CLASES.lastIndex = 0;
   let enlace: RegExpExecArray | null;
   while ((enlace = RE_ENLACE_CLASES.exec(texto)) !== null) {
-    const aporta: EnlaceClases = {
+    const propios = indice.enlacesPorFichero.get(clave) ?? new Map<string, EnlaceClases>();
+    propios.set(enlace[1], {
       clases: fragmentosDeClases(enlace[2]),
       prefijos: prefijosDeClases(enlace[2]),
-    };
+    });
+    indice.enlacesPorFichero.set(clave, propios);
+  }
 
-    const propios = indice.enlacesPorFichero.get(ruta) ?? new Map<string, EnlaceClases>();
-    propios.set(enlace[1], aporta);
-    indice.enlacesPorFichero.set(ruta, propios);
+  const origenes = indice.origenesPorFichero.get(clave) ?? new Map<string, OrigenEnlace>();
+  indice.origenesPorFichero.set(clave, origenes);
 
-    const union = indice.aliasClases.get(enlace[1]) ?? new Set<string>();
-    for (const fragmento of aporta.clases) { union.add(fragmento); }
-    indice.aliasClases.set(enlace[1], union);
+  /* 1. `import { a, b as c } from './modulo'`: cada nombre entra apuntando al
+   * modulo que lo exporta. */
+  RE_IMPORT_NOMBRADOS.lastIndex = 0;
+  let importacion: RegExpExecArray | null;
+  while ((importacion = RE_IMPORT_NOMBRADOS.exec(texto)) !== null) {
+    const modulo = resolverModulo(ruta, importacion[2], alias);
+    if (!modulo) { continue; }
 
-    const unionPrefijos = indice.aliasPrefijos.get(enlace[1]) ?? new Set<string>();
-    for (const prefijo of aporta.prefijos) { unionPrefijos.add(prefijo); }
-    indice.aliasPrefijos.set(enlace[1], unionPrefijos);
+    for (const bruto of importacion[1].split(',')) {
+      const [exportado, apodo] = bruto.split(/\s+as\s+/).map(parte => parte.trim());
+      if (exportado) { origenes.set(apodo || exportado, { modulo, nombre: exportado }); }
+    }
+  }
+
+  RE_IMPORT_DEFECTO.lastIndex = 0;
+  while ((importacion = RE_IMPORT_DEFECTO.exec(texto)) !== null) {
+    const modulo = resolverModulo(ruta, importacion[2], alias);
+    if (modulo) { origenes.set(importacion[1], { modulo, nombre: 'default' }); }
+  }
+
+  /* 2. `const { clases } = useBotonFollow(...)`: el enlace no lo declara este
+   * fichero, lo devuelve el hook — que si lo declara, en su modulo. Se hereda el
+   * origen del hook y se busca alli el nombre desestructurado. */
+  RE_DESTRUCTURA_LLAMADA.lastIndex = 0;
+  while ((importacion = RE_DESTRUCTURA_LLAMADA.exec(texto)) !== null) {
+    const origen = origenes.get(importacion[2].trim());
+    if (!origen) { continue; }
+
+    for (const bruto of importacion[1].split(',')) {
+      const nombre = bruto.split(':')[0]?.trim();
+      if (nombre) { origenes.set(nombre, { modulo: origen.modulo, nombre }); }
+    }
   }
 }
 
@@ -319,19 +439,21 @@ function indexarJsx(ruta: string, indice: IndiceProyecto): void {
     indice.modalFusionaClassName = true;
   }
 
-  /* [15A-27] Los enlaces propios del fichero mandan; la union global solo entra
-   * para los identificadores que no se declaran aqui (el array que devuelve un
-   * hook importado). */
-  const propios = indice.enlacesPorFichero.get(ruta);
+  /* [15A-27] Los enlaces propios del fichero mandan; si no se declara aqui, se
+   * sigue el `import` hasta el modulo que lo exporta. Lo que no se puede seguir
+   * no aporta nada: antes se unia por nombre todo el proyecto, y eso contagiaba a
+   * cada elemento las clases de cualquier fichero que usara el mismo nombre. */
+  const clave = normalizarRuta(ruta);
+  const propios = indice.enlacesPorFichero.get(clave);
+  const origenes = indice.origenesPorFichero.get(clave);
   const resolver = (token: string): EnlaceClases => {
     const local = propios?.get(token);
     if (local) { return local; }
 
-    const clases = indice.aliasClases.get(token);
-    const prefijos = indice.aliasPrefijos.get(token);
-    if (!clases && !prefijos) { return { clases: [], prefijos: [] }; }
+    const origen = origenes?.get(token);
+    if (!origen) { return VACIO; }
 
-    return { clases: Array.from(clases ?? []), prefijos: Array.from(prefijos ?? []) };
+    return indice.enlacesPorFichero.get(origen.modulo)?.get(origen.nombre) ?? VACIO;
   };
 
   RE_TAG_JSX.lastIndex = 0;
@@ -420,7 +542,7 @@ function listarFuentes(dir: string, salida: string[]): void {
   }
 }
 
-function recorrerFuentes(dir: string, indice: IndiceProyecto): void {
+function recorrerFuentes(dir: string, indice: IndiceProyecto, alias: AliasModulo[]): void {
   const ficheros: string[] = [];
   listarFuentes(dir, ficheros);
 
@@ -428,7 +550,7 @@ function recorrerFuentes(dir: string, indice: IndiceProyecto): void {
    * pueden vivir en un `.ts` sin JSX —el hook que devuelve la lista de clases—,
    * y despues el JSX, que ya los ve resueltos. */
   for (const fichero of ficheros) {
-    if (RE_FUENTE_JS.test(fichero)) { indexarEnlaces(fichero, indice); }
+    if (RE_FUENTE_JS.test(fichero)) { indexarEnlaces(fichero, indice, alias); }
   }
 
   for (const fichero of ficheros) {
@@ -450,17 +572,36 @@ export function indiceProyecto(roots: string[]): IndiceProyecto {
     operado: new Set(),
     cuerposCss: new Map(),
     modalFusionaClassName: false,
-    aliasClases: new Map(),
-    aliasPrefijos: new Map(),
     enlacesPorFichero: new Map(),
+    origenesPorFichero: new Map(),
     prefijosComponente: new Set(),
     prefijosNativo: new Set(),
     prefijosControl: new Set(),
     prefijosOperado: new Set(),
   };
-  for (const root of normalizados) {
-    recorrerFuentes(root, indice);
+
+  /* [15A-27] El arbol se lista una vez y los alias se leen ANTES de indexar: para
+   * seguir un `import` hay que conocer los alias, y los alias viven en los
+   * tsconfig, que forman parte del mismo arbol. */
+  const porRoot = normalizados.map(root => {
+    const ficheros: string[] = [];
+    listarFuentes(root, ficheros);
+    return ficheros;
+  });
+  const alias = leerAliases(porRoot.flat());
+
+  for (const ficheros of porRoot) {
+    for (const fichero of ficheros) {
+      if (RE_FUENTE_JS.test(fichero)) { indexarEnlaces(fichero, indice, alias); }
+    }
   }
+  for (const ficheros of porRoot) {
+    for (const fichero of ficheros) {
+      if (/\.(?:tsx|jsx)$/.test(fichero)) { indexarJsx(fichero, indice); }
+      else if (fichero.endsWith('.css')) { indexarCss(fichero, indice); }
+    }
+  }
+
   cacheIndice.set(clave, indice);
   return indice;
 }
