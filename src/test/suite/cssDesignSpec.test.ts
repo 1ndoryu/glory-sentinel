@@ -345,4 +345,74 @@ suite('css-especificacion-diseno-local', () => {
     assert.deepStrictEqual(resumirFindings(coreFindings), expected);
     assert.deepStrictEqual(resumirFindings(cliFindings), expected);
   });
+
+  test('[15A-27] un contenedor de layout llamado ...Panel no es una superficie', () => {
+    /* El nombre de familia abre la puerta, pero no decide: el bloque tiene que
+     * pintarse como superficie. Este es un contenedor de contenido (padding, flex,
+     * tipografia) sin fondo ni limite: no hay receta a la que plegarlo. */
+    const contenedor = [
+      '.diagSyncPanel {',
+      '  padding: var(--espacioMd);',
+      '  display: flex;',
+      '  flex-direction: column;',
+      '  gap: var(--espacioMd);',
+      '  font-size: var(--fuenteSm);',
+      '  color: var(--textoSecundario);',
+      '  overflow-y: auto;',
+      '  max-height: 400px;',
+      '}',
+    ].join('\n');
+
+    const violaciones = verificarCssEspecificacionDisenoLocal(
+      contenedor,
+      crearDocumento('/repo/frontend/src/styles/diagnosticoSync.css'),
+      'diagnosticoSync.css'
+    );
+
+    assert.strictEqual(violaciones.length, 0);
+  });
+
+  test('[15A-27] testigo: un ...Panel que si se pinta sigue siendo un hallazgo', () => {
+    /* Sin este testigo el anterior pasaria por no mirar. Se cubren las dos formas
+     * de limite y se omite box-shadow a proposito: exigir elevacion dejaria ciego
+     * al panel flotante embebido, que es legitimo. */
+    const conBorde = [
+      '.avisoPanel {',
+      '  background: var(--fondoElevado1);',
+      '  border: 1px solid var(--bordeSutil);',
+      '  padding: var(--espacioMd);',
+      '  color: var(--textoSecundario);',
+      '}',
+    ].join('\n');
+    const conRadio = [
+      '.tarjetaPanel {',
+      '  background-color: var(--fondoElevado1);',
+      '  border-radius: var(--radioMd);',
+      '  padding: var(--espacioMd);',
+      '  color: var(--textoSecundario);',
+      '}',
+    ].join('\n');
+
+    const sinBordeNiRadio = [
+      '.soloFondoPanel {',
+      '  background: var(--fondoElevado1);',
+      '  padding: var(--espacioMd);',
+      '  color: var(--textoSecundario);',
+      '}',
+    ].join('\n');
+
+    assert.strictEqual(
+      verificarCssEspecificacionDisenoLocal(conBorde, crearDocumento('/repo/a.css'), 'a.css').length,
+      1
+    );
+    assert.strictEqual(
+      verificarCssEspecificacionDisenoLocal(conRadio, crearDocumento('/repo/b.css'), 'b.css').length,
+      1
+    );
+    /* Un fondo suelto no es una superficie: sin limite no hay piel que plegar. */
+    assert.strictEqual(
+      verificarCssEspecificacionDisenoLocal(soloFondoNiRadio, crearDocumento('/repo/c.css'), 'c.css').length,
+      0
+    );
+  });
 });
