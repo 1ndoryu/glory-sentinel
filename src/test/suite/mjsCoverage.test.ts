@@ -12,6 +12,7 @@ import * as assert from 'assert';
 import { extensionCanonica, languageIdForFile } from '../../core/language';
 import { analizarEstatico } from '../../analyzers/staticAnalyzer';
 import { createCoreDocument } from '../../core/types';
+import { obtenerLimiteArchivo } from '../../utils/lineCounter';
 
 function documento(fileName: string, contenido: string) {
   return createCoreDocument({
@@ -59,6 +60,23 @@ suite('cobertura de .mjs (17AA-2)', () => {
   test('limite-lineas alcanza un .mjs largo', () => {
     const ids = idsDe('scripts/largo.mjs', codigoDeLineas(350));
     assert.ok(ids.includes('limite-lineas'), `esperaba limite-lineas, hubo: ${ids.join(', ') || 'ninguno'}`);
+  });
+
+  /* [17AA-2] `.cjs` es la otra mitad de lo mismo: el núcleo ya lo trata como
+   * JavaScript, pero `obtenerLimiteArchivo` no le daba techo (caía en el `null`
+   * final) y `DEFAULT_INCLUDE_PATTERNS` no lo recolectaba. */
+  test('limite-lineas alcanza un .cjs largo', () => {
+    const ids = idsDe('scripts/legado.cjs', codigoDeLineas(350));
+    assert.ok(ids.includes('limite-lineas'), `esperaba limite-lineas, hubo: ${ids.join(', ') || 'ninguno'}`);
+  });
+
+  test('obtenerLimiteArchivo - .cjs tiene el techo de componente, no el nulo', () => {
+    const limite = obtenerLimiteArchivo('legado.cjs', '/scripts/legado.cjs');
+    assert.notStrictEqual(limite, null, 'un .cjs sin techo se saltaría la regla entera');
+    assert.strictEqual(limite?.tipo, 'componente');
+    assert.strictEqual(limite?.limite, 300);
+    /* Testigo: el mismo barrido sigue reconociendo un archivo de datos sin techo. */
+    assert.strictEqual(obtenerLimiteArchivo('datos.json', '/scripts/datos.json'), null);
   });
 
   test('testigo - el mismo contenido como .js da lo mismo y como .txt nada', () => {

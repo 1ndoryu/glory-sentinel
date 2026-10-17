@@ -42,6 +42,10 @@ export const DEFAULT_INCLUDE_PATTERNS = [
   '**/*.tsx',
   '**/*.js',
   '**/*.mjs',
+  /* [17AA-2] `.cjs` es JavaScript (CommonJS) para todo el núcleo —`language.ts`
+   * lo mapea a `.js`, `EXTENSIONES_CODIGO` lo incluye—, pero no estaba en la
+   * lista por defecto, así que un `.cjs` no entraba al análisis nunca. */
+  '**/*.cjs',
   '**/*.jsx',
   '**/*.css',
   '**/*.scss',

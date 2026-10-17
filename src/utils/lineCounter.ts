@@ -88,6 +88,12 @@ export interface LimiteArchivo {
   limite: number;
 }
 
+/* ¿Es un archivo de pruebas? Por nombre (`.test.`/`.spec.` antes de la extension)
+ * o por carpeta (`/test/`, `/tests/`, `/__tests__/`). */
+export function esArchivoDeTests(nombreLower: string, rutaLower: string): boolean {
+  return /\.(test|spec)\.[cm]?[jt]sx?$/.test(nombreLower) || /\/(__tests__|tests?)\//.test(rutaLower);
+}
+
 export function obtenerLimiteArchivo(nombreArchivo: string, rutaArchivo: string): LimiteArchivo | null {
   const nombreLower = nombreArchivo.toLowerCase();
   const rutaLower = rutaArchivo.toLowerCase().replace(/\\/g, '/');
@@ -96,6 +102,17 @@ export function obtenerLimiteArchivo(nombreArchivo: string, rutaArchivo: string)
    * Convencional: archivos .ts bajo /data/ que solo exportan constantes. */
   if (rutaLower.includes('/data/') && (nombreLower.endsWith('.ts') || nombreLower.endsWith('.js'))) {
     return null;
+  }
+
+  /* [17AA-2 FP] Ficheros de pruebas: mismo techo que el harness de integracion de
+   * Rust (1000), que es el precedente de este archivo. Un archivo de tests no es
+   * complejidad de produccion: en Rust, `contarLineasEfectivas` ya excluye el
+   * modulo `#[cfg(test)]` por esa misma razon. Sin esta rama, un `.test.ts` o un
+   * `.test.mjs` caia en el techo de componente (300) y un archivo de pruebas sano
+   * salia como hallazgo (doctor.test.mjs con 516 lineas efectivas y
+   * remoto.test.mjs con 398, en workspace-manager). */
+  if (esArchivoDeTests(nombreLower, rutaLower)) {
+    return { tipo: 'test-integracion', limite: 1000 };
   }
 
   /* Hooks: archivos use*.ts o use*.tsx.
@@ -204,9 +221,14 @@ export function obtenerLimiteArchivo(nombreArchivo: string, rutaArchivo: string)
     return { tipo: 'servicio', limite: 500 };
   }
 
-  /* Scripts JS/MJS (CLI, tooling, dev): techo de componente. Antes no tenían
-   * límite y un script de 1800 líneas (doctor.mjs) pasaba sin aviso. */
-  if (nombreLower.endsWith('.mjs') || nombreLower.endsWith('.js')) {
+  /* Scripts JS/MJS/CJS (CLI, tooling, dev): techo de componente. Antes no tenían
+   * límite y un script de 1800 líneas (doctor.mjs) pasaba sin aviso.
+   * [17AA-2] `.cjs` faltaba aquí y en `DEFAULT_INCLUDE_PATTERNS`: el resto del
+   * núcleo ya lo trata como JavaScript (`language.ts` lo mapea a `.js`,
+   * `EXTENSIONES_CODIGO` lo incluye, el perfil lo clasifica `web`), así que un
+   * `.cjs` no se recolectaba nunca y, si lo hubiera hecho, caía en el `null`
+   * final: sin techo, sin reglas por extensión. Es CommonJS, no otra cosa. */
+  if (nombreLower.endsWith('.mjs') || nombreLower.endsWith('.cjs') || nombreLower.endsWith('.js')) {
     return { tipo: 'componente', limite: 300 };
   }
 

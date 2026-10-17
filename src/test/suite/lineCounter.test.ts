@@ -4,7 +4,7 @@
  */
 
 import * as assert from 'assert';
-import { contarLineasEfectivas, obtenerLimiteArchivo } from '../../utils/lineCounter';
+import { contarLineasEfectivas, esArchivoDeTests, obtenerLimiteArchivo } from '../../utils/lineCounter';
 
 suite('lineCounter', () => {
 
@@ -112,6 +112,58 @@ suite('lineCounter', () => {
   test('obtenerLimiteArchivo - archivo sin limite', () => {
     const limite = obtenerLimiteArchivo('README.md', '/README.md');
     assert.strictEqual(limite, null);
+  });
+
+  /* [17AA-2] Un archivo de pruebas no es complejidad de produccion: mismo techo
+   * que el harness de integracion de Rust (1000), que ya excluye `#[cfg(test)]`.
+   * Antes caia en el techo de componente (300) y un test sano salia como
+   * hallazgo (doctor.test.mjs 516 efectivas, remoto.test.mjs 398). */
+  test('obtenerLimiteArchivo - archivo de pruebas por sufijo .test/.spec', () => {
+    for (const [nombre, ruta] of [
+      ['doctor.test.mjs', '/scripts/dev/doctor/doctor.test.mjs'],
+      ['remoto.test.mjs', '/scripts/dev/remoto.test.mjs'],
+      ['git.test.ts', '/src/server/scanner/git.test.ts'],
+      ['Panel.test.tsx', '/src/v2/Panel.test.tsx'],
+      ['ciclo.spec.js', '/src/ciclo.spec.js'],
+    ] as const) {
+      const limite = obtenerLimiteArchivo(nombre, ruta);
+      assert.strictEqual(limite?.tipo, 'test-integracion', `${nombre} debe ser test-integracion`);
+      assert.strictEqual(limite?.limite, 1000, `${nombre} debe tener techo 1000`);
+    }
+  });
+
+  test('obtenerLimiteArchivo - archivo de pruebas por carpeta tests/__tests__', () => {
+    for (const [nombre, ruta] of [
+      ['git.ts', '/src/server/scanner/tests/git.ts'],
+      ['ayuda.ts', '/src/__tests__/ayuda.ts'],
+      ['helpers.mjs', '/scripts/helpers/tests/helpers.mjs'],
+    ] as const) {
+      assert.strictEqual(obtenerLimiteArchivo(nombre, ruta)?.tipo, 'test-integracion', nombre);
+    }
+  });
+
+  /* El techo de pruebas va ANTES que el de hook/util: si no, `useX.test.ts`
+   * caeria en hook/300 y `utils/x.test.ts` en util/150. */
+  test('obtenerLimiteArchivo - el techo de pruebas gana a hook y util', () => {
+    assert.strictEqual(obtenerLimiteArchivo('useAlumnos.test.ts', '/src/hooks/useAlumnos.test.ts')?.tipo, 'test-integracion');
+    assert.strictEqual(obtenerLimiteArchivo('helpers.test.ts', '/src/utils/helpers.test.ts')?.tipo, 'test-integracion');
+  });
+
+  /* Testigo: el mismo barrido que detecta los tests sigue detectando produccion,
+   * para que la rama nueva no se haya tragado el resto de techos. */
+  test('obtenerLimiteArchivo - el codigo de produccion conserva su techo', () => {
+    assert.strictEqual(obtenerLimiteArchivo('git.ts', '/src/server/scanner/git.ts')?.limite, 300);
+    assert.strictEqual(obtenerLimiteArchivo('helpers.ts', '/src/utils/helpers.ts')?.limite, 150);
+    assert.strictEqual(obtenerLimiteArchivo('estilos.css', '/src/styles/estilos.css')?.limite, 600);
+  });
+
+  test('esArchivoDeTests - nombre o carpeta, nunca por substring suelto', () => {
+    assert.strictEqual(esArchivoDeTests('a.test.ts', '/src/a.test.ts'), true);
+    assert.strictEqual(esArchivoDeTests('a.ts', '/src/__tests__/a.ts'), true);
+    assert.strictEqual(esArchivoDeTests('a.ts', '/src/a.ts'), false);
+    /* `test` como parte del nombre no basta: no es un archivo de pruebas. */
+    assert.strictEqual(esArchivoDeTests('testimonios.ts', '/src/testimonios.ts'), false);
+    assert.strictEqual(esArchivoDeTests('atest.ts', '/src/atest.ts'), false);
   });
 
   test('obtenerLimiteArchivo - PHP controller/endpoint', () => {
