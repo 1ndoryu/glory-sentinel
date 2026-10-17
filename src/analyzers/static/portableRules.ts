@@ -11,6 +11,7 @@ import { CoreTextDocument } from '../../core/types';
 import { obtenerSeveridadRegla, reglaHabilitada } from '../../config/ruleRegistry';
 import { Violacion } from '../../types';
 import { tieneSentinelDisable, tieneSentinelDisableFile } from '../../utils/analisisHelpers';
+import { extensionCanonica } from '../../core/language';
 
 export interface PortableBoundaryConfig {
   dom?: string[];
@@ -107,7 +108,7 @@ export function verificarReglasPortables(
   document: CoreTextDocument,
   boundaries: PortableBoundaryConfig = {},
 ): Violacion[] {
-  const extension = `.${document.fileName.split('.').pop()?.toLowerCase() ?? ''}`;
+  const extension = extensionCanonica(`.${document.fileName.split('.').pop()?.toLowerCase() ?? ''}`);
   if (!EXTENSIONES_JS.has(extension) || isTestOrTooling(document.fileName)) return [];
 
   const text = document.getText();

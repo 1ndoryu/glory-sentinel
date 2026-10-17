@@ -10,6 +10,7 @@ import {reglasEstaticas} from '../config/defaultRules';
 import {reglaHabilitada, obtenerSeveridadRegla} from '../config/ruleRegistry';
 import { proyectoTieneModalCanonico } from '../utils/analisisHelpers';
 import { obtenerWorkspaceRoots } from '../core/workspaceRoots';
+import { extensionCanonica } from '../core/language';
 
 /* Submodulos */
 import {REGLAS_LIMITE_LINEAS, verificarLimiteLineas, verificarUseStateExcesivo, verificarImportsMuertos, verificarAnyType, verificarNonNullAssertion, verificarDirectorioAbarrotado, verificarHtmlSinOrigenDeclarado, verificarTodoProsaSinMarcador} from './static/staticCodeRules';
@@ -44,7 +45,10 @@ export function analizarEstatico(
 ): Violacion[] {
     const texto = documento.getText();
     const nombreArchivo = documento.fileName.split(/[/\\]/).pop() || '';
-    const extension = '.' + nombreArchivo.split('.').pop();
+    /* [17AA-2] Extension canonica: `.mjs`/`.cjs` cuentan como `.js` y `.mts`/`.cts` como
+     * `.ts`, para que casen con las listas de `aplicaA` y con los chequeos por extension
+     * de mas abajo sin tener que añadirlos uno a uno. */
+    const extension = extensionCanonica('.' + nombreArchivo.split('.').pop());
     const violaciones: Violacion[] = [];
 
     /* Excluir prototipos de referencia */

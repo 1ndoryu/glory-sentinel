@@ -3,6 +3,14 @@
 
 ## [Unreleased]
 
+### `.mjs`/`.cjs` y `.mts`/`.cts` se analizan como su equivalente
+
+- El commit `ba6d9c7` (11-oct) añadió `**/*.mjs` a los patrones por defecto y le dio techo 300 líneas en `obtenerLimiteArchivo`, pero **faltaba la otra mitad**: `languageIdForFile` no mapeaba `.mjs`, así que el documento llegaba como `plaintext` y todas las reglas lo descartaban por `aplicaA`, que lista `.js`. El archivo se recogía y se tiraba sin analizar. Y los consumidores que declaran `includePatterns` propios —todos los que tienen `sentinel.config.json`— seguían sin recogerlo, porque esa clave **reemplaza** los defaults en vez de fusionarse.
+- Ahora hay una tabla de equivalencias en `core/language.ts` (`extensionCanonica`): `.mjs` y `.cjs` cuentan como `.js`; `.mts` y `.cts`, como `.ts`. Se aplica en un solo sitio por cada punto donde se derivaba la extensión del nombre (`staticAnalyzer.ts`, `static/portableRules.ts` y el mapeo de lenguaje), de modo que las listas de `aplicaA` y los chequeos por extensión valen sin añadir el sufijo uno a uno.
+- Efecto medido en workspace-manager: entran **36 `.mjs`** que antes no se analizaban, entre ellos `scripts/dev/doctor.mjs` (2255 líneas) y `scripts/dev/remoto.mjs` (1043), ambos muy por encima del techo de 300.
+- Tests de regresión: `mjsCoverage.test.ts` — equivalencias, mapeo de lenguaje, y dos testigos que exigen que el mismo contenido en `.js` marque igual y en `.txt` no marque (un test que no probara nada habría pasado en verde).
+- Pendiente para los consumidores: añadir `**/*.mjs` a su `includePatterns`, que es lo único que no se puede arreglar desde el núcleo.
+
 ### `sentinel-disable-file` con varios ids: solo eximía el primero
 
 - Cada regla comprobaba la exención con `texto.includes('sentinel-disable-file ' + id)`, así que el id tenía que ir **pegado al prefijo**: en `/* sentinel-disable-file limite-lineas god-object-rs */` solo `limite-lineas` eximía, y `god-object-rs` seguía reportando un archivo que el consumidor ya había eximido. El helper que sí parsea la lista (`tieneSentinelDisableFile`, match por token en la misma línea) ya existía en `utils/analisisHelpers.ts`, pero **28 sitios de 6 analizadores lo esquivaban** con el `includes` directo. Ahora todos pasan por el helper.
