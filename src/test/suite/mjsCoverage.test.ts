@@ -73,7 +73,10 @@ suite('cobertura de .mjs (17AA-2)', () => {
   });
 
   test('las reglas con aplicaA que listan .js tambien corren sobre .mjs', () => {
-    const contenido = '// todo esto hay que rehacerlo cuando cambie el modelo\nconst a = 1;\n';
+    /* [17AA-4] El testigo tiene que ser un marcador informal de verdad: en
+     * minusculas la regla exige infinitivo detras, y "todo esto" es el
+     * cuantificador espanol ("all this"), no una tarea. */
+    const contenido = '// todo rehacer esto cuando cambie el modelo\nconst a = 1;\n';
     const enMjs = idsDe('scripts/nota.mjs', contenido);
     const enJs = idsDe('scripts/nota.js', contenido);
     assert.ok(enJs.includes('todo-prosa-sin-marcador'), 'el testigo .js tiene que marcar: si no, el test no prueba nada');

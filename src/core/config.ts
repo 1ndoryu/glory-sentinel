@@ -222,11 +222,27 @@ export function analyzerSubConfig(config: SentinelConfigFile): SentinelConfigFil
 
 /* [105A-1] Defaults compartidos por CLI y LSP para que ambas superficies consuman
  * el mismo motor sin duplicar contratos de configuracion. */
+/* [17AA-4] `includePatterns` se **une** a los defaults, no los reemplaza.
+ *
+ * Antes era `?? DEFAULT_INCLUDE_PATTERNS`, asi que una ficha que declaraba sus
+ * propios patrones congelaba una copia de los defaults de su fecha: cuando el
+ * default gano el patron de `.mjs` (11-oct), las 11 fichas que ya declaraban
+ * patrones siguieron sin analizar `.mjs` y el arreglo solo valia para un
+ * proyecto. La union hace que un default nuevo llegue a todos, y lo que declara
+ * la ficha sigue acotando (no hay forma de *quitar* un default desde la ficha;
+ * si algun proyecto necesitara eso, se pide un `excludePatterns`, que ya
+ * existe). */
+export function patronesDeInclusion(declarados: string[] | undefined): string[] {
+  return [...new Set([...DEFAULT_INCLUDE_PATTERNS, ...(declarados ?? [])])];
+}
+
+/* [105A-1] Defaults compartidos por CLI y LSP para que ambas superficies consuman
+ * el mismo motor sin duplicar contratos de configuracion. */
 export function buildCoreConfig(config: SentinelConfigFile): CoreAnalysisConfig {
   const analyzerConfig = analyzerSubConfig(config);
   return {
     enabled: true,
-    includePatterns: analyzerConfig.includePatterns ?? DEFAULT_INCLUDE_PATTERNS,
+    includePatterns: patronesDeInclusion(analyzerConfig.includePatterns),
     excludePatterns: analyzerConfig.excludePatterns ?? DEFAULT_EXCLUDE_PATTERNS,
     directoryExceptions: analyzerConfig.directoryExceptions ?? [],
     ruleOverrides: Object.fromEntries(

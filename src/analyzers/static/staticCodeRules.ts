@@ -519,6 +519,18 @@ const PALABRAS_CUANTIFICADOR = new Set([
   'y', 'o',
   'queda', 'quedan', 'va', 'van', 'es', 'son', 'sigue', 'siguen', 'falla', 'fallan', 'hay',
 ]);
+/* [17AA-4] En minusculas, "todo" es el marcador informal solo si le sigue un
+ * verbo en infinitivo: "todo revisar el adapter" es una tarea, "todo verde = 0"
+ * o "todo pendiente" es el cuantificador espanol. Las guardas de articulo y de
+ * verbo cuantificador de arriba eran listas cerradas y por eso se colaba
+ * `scripts/dev/doctor.mjs:1630` ("* todo verde = 0; ..."). La terminacion sola
+ * basta: `ir`, `ser` y `ver` tambien son infinitivos. */
+function esInfinitivo(palabra: string): boolean {
+  return palabra.length >= 2 && /(ar|er|ir)$/.test(palabra);
+}
+/* El infinitivo puede ir detras de una preposicion: "todo sin marcar", "todo
+ * por revisar". Sin esto se perderian marcadores informales legitimos. */
+const PREPOSICIONES_PROSA = new Set(['a', 'de', 'en', 'con', 'sin', 'por', 'para']);
 
 function extraerRegionesComentarioTodoProsa(texto: string): Array<{ inicio: number; fin: number }> {
   const regiones: Array<{ inicio: number; fin: number }> = [];
@@ -620,6 +632,22 @@ function esTodoProsaSinMarcador(textoComentario: string, indice: number, forma: 
   }
   if (forma !== 'TODO' && PALABRAS_CUANTIFICADOR.has(palabra.toLowerCase())) {
     return false;
+  }
+  if (forma !== 'TODO') {
+    let nucleo = palabra.toLowerCase();
+    if (PREPOSICIONES_PROSA.has(nucleo)) {
+      let m = k;
+      while (m < textoComentario.length && /\s/.test(textoComentario[m])) { m++; }
+      let tras = '';
+      while (m < textoComentario.length && /[A-Za-z]/.test(textoComentario[m])) {
+        tras += textoComentario[m];
+        m++;
+      }
+      nucleo = tras.toLowerCase();
+    }
+    if (!esInfinitivo(nucleo)) {
+      return false;
+    }
   }
 
   /* Ultima palabra del comentario ("re-parsear todo.", "todo, …"): en

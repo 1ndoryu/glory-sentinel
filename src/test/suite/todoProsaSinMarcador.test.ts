@@ -134,6 +134,37 @@ suite('289A-1 todo-prosa-sin-marcador: guardas prosa española', () => {
     assert.strictEqual(verificar('const s = "todo pendiente"; // comentario limpio').length, 0);
   });
 
+  test('[17AA-4] "todo" en minusculas solo marca si le sigue un infinitivo', () => {
+    /* Falso positivo real: `scripts/dev/doctor.mjs:1630` ("* todo verde = 0;
+     * dependencia caida/rehusada = 2"). El cuantificador espanol va seguido de
+     * sustantivo o adjetivo; el marcador informal, de verbo. */
+    const bloque = '/*\n * Asegura `requiere`:\n * todo verde = 0; dependencia caida = 2 (degradado, visible). */';
+    assert.strictEqual(verificar(bloque).length, 0);
+    assert.strictEqual(verificar('// todo pendiente de decidir').length, 0);
+    assert.strictEqual(verificar('// todo listo').length, 0);
+  });
+
+  test('[17AA-4] testigo: el mismo "todo" con infinitivo si marca', () => {
+    assert.strictEqual(verificar('/*\n * Asegura `requiere`:\n * todo revisar el adapter */').length, 1);
+    assert.strictEqual(verificar('// todo arreglar el doctor').length, 1);
+    assert.strictEqual(verificar('// todo unificar los dos caminos').length, 1);
+    assert.strictEqual(verificar('// todo ver esto').length, 1);
+    assert.strictEqual(verificar('// todo ser mas explicito').length, 1);
+  });
+
+  test('[17AA-4] el infinitivo detras de preposicion sigue marcando', () => {
+    assert.strictEqual(verificar('/* todo sin marcar */\nconst a = 1;').length, 1);
+    assert.strictEqual(verificar('// todo por revisar').length, 1);
+    assert.strictEqual(verificar('// todo para arreglar').length, 1);
+    /* Guarda: "todo sin" sin infinitivo detras no es una tarea. */
+    assert.strictEqual(verificar('// todo sin sentido').length, 0);
+  });
+
+  test('[17AA-4] en mayusculas la guarda de infinitivo no aplica', () => {
+    assert.strictEqual(verificar('// TODO verde = 0').length, 1);
+    assert.strictEqual(verificar('// TODO pendiente').length, 1);
+  });
+
   test('linea de disable-next-line con el id no se auto-marca (guarda de compuesto)', () => {
     const v = verificar('// sentinel-disable-next-line todo-prosa-sin-marcador\n// todo revisar esto');
     assert.strictEqual(v.length, 0);
