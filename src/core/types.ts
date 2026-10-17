@@ -59,6 +59,7 @@ export interface CoreAnalysisConfig {
     window?: string[];
     services?: string[];
     loggerModules?: string[];
+    tooling?: string[];
   };
 }
 

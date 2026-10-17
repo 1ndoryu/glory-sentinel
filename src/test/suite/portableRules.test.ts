@@ -87,3 +87,32 @@ suite('Portable architecture rules', () => {
     assert.ok(findings.some(finding => finding.reglaId === 'mixed-barrel-logic'));
   });
 });
+
+/* [FP] `console-production` en carpetas de herramientas: el gate ya eximia
+ * `/scripts/`, `/test/` y `/fixtures`, pero esa lista vivia en el codigo y no
+ * podia conocer el directorio de trabajo de cada proyecto. Los `.mjs` de
+ * `.freebuff/` (scripts de prueba manuales) se reportaban como produccion. */
+suite('portableBoundaries.tooling [FP console-production]', () => {
+  const CUADERNO = '/workspace/.freebuff/prueba-manual.mjs';
+  const CONSOLE = 'console.log("paso 1");';
+
+  test('sin declararlo, el mismo barrido SI lo detecta (testigo positivo)', () => {
+    const findings = verificarReglasPortables(documentFor(CUADERNO, CONSOLE));
+    assert.ok(findings.some(finding => finding.reglaId === 'console-production'));
+  });
+
+  test('declarado en tooling, deja de reportarse', () => {
+    const findings = verificarReglasPortables(documentFor(CUADERNO, CONSOLE), { tooling: ['.freebuff'] });
+    assert.strictEqual(findings.some(finding => finding.reglaId === 'console-production'), false);
+  });
+
+  test('los boundaries de serie siguen valiendo sin declarar tooling', () => {
+    const findings = verificarReglasPortables(documentFor('/workspace/scripts/suelto.mjs', CONSOLE));
+    assert.strictEqual(findings.length, 0);
+  });
+
+  test('el producto del mismo repo no se exime por declarar tooling', () => {
+    const findings = verificarReglasPortables(documentFor('/workspace/src/app.ts', CONSOLE), { tooling: ['.freebuff'] });
+    assert.ok(findings.some(finding => finding.reglaId === 'console-production'));
+  });
+});

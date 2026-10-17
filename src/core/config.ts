@@ -62,7 +62,7 @@ export const DEFAULT_EXCLUDE_PATTERNS = [
 ];
 
 const CONFIG_KEYS = new Set(['includePatterns', 'excludePatterns', 'directoryExceptions', 'rules', 'portableBoundaries', 'project', 'schemaVersion', 'mode', 'gate', 'guard', 'runtime', 'analyzers', 'budgets']);
-const PORTABLE_BOUNDARY_KEYS = new Set(['dom', 'window', 'services', 'loggerModules']);
+const PORTABLE_BOUNDARY_KEYS = new Set(['dom', 'window', 'services', 'loggerModules', 'tooling']);
 const RULE_KEYS = new Set(['habilitada', 'severidad']);
 const VALID_SEVERITIES = new Set(['error', 'warning', 'information', 'hint']);
 

@@ -18,6 +18,9 @@ export interface PortableBoundaryConfig {
   window?: string[];
   services?: string[];
   loggerModules?: string[];
+  /* Carpetas de herramientas: scripts sueltos, cuadernos de trabajo y codigo
+   * generado que no es producto. Se SUMAN a las de serie, no las sustituyen. */
+  tooling?: string[];
 }
 
 const EXTENSIONES_JS = new Set(['.ts', '.tsx', '.js', '.jsx']);
@@ -25,13 +28,25 @@ const DEFAULT_DOM_BOUNDARIES = ['/platform/', '/adapters/', '/dom.'];
 const DEFAULT_WINDOW_BOUNDARIES = ['/platform/', '/adapters/', '/navigation/'];
 const DEFAULT_SERVICE_BOUNDARIES = ['/services/', '/adapters/', '/api/', '/repositories/'];
 const DEFAULT_LOGGER_MODULES = ['/logger.', '/logging/'];
+const DEFAULT_TOOLING_BOUNDARIES = ['/__tests__/', '/test/', '/fixture', '/scripts/'];
 
 function normalizePath(fileName: string): string {
   return `/${fileName.replace(/\\/g, '/').replace(/^\/+/, '')}`.toLowerCase();
 }
 
-function isTestOrTooling(fileName: string): boolean {
-  return /(?:\.test|\.spec|\/__tests__|\/scripts\/|\/test\/|\/fixtures?)/i.test(normalizePath(fileName));
+/* Sufijo del nombre de fichero de prueba (no es una carpeta, asi que no cabe en
+ * una lista de boundaries). */
+const PATRON_PRUEBA = /(?:\.test|\.spec)/i;
+
+/* [por que] Las carpetas de herramientas eran una lista fija en el codigo
+ * (`/scripts/`, `/test/`, ...) que no puede conocer los directorios de trabajo
+ * de cada proyecto: en uno con `.freebuff/` de scripts de prueba, los 145
+ * `console.log` de ahi se reportaban como `console-production` de produccion.
+ * Ahora las declara el consumidor en `portableBoundaries.tooling`, que se SUMA
+ * a las de serie. */
+function isTestOrTooling(fileName: string, tooling: string[]): boolean {
+  const normalizado = normalizePath(fileName);
+  return PATRON_PRUEBA.test(normalizado) || inBoundary(normalizado, tooling);
 }
 
 function inBoundary(fileName: string, boundaries: string[]): boolean {
@@ -109,7 +124,8 @@ export function verificarReglasPortables(
   boundaries: PortableBoundaryConfig = {},
 ): Violacion[] {
   const extension = extensionCanonica(`.${document.fileName.split('.').pop()?.toLowerCase() ?? ''}`);
-  if (!EXTENSIONES_JS.has(extension) || isTestOrTooling(document.fileName)) return [];
+  const toolingBoundaries = [...DEFAULT_TOOLING_BOUNDARIES, ...(boundaries.tooling ?? [])];
+  if (!EXTENSIONES_JS.has(extension) || isTestOrTooling(document.fileName, toolingBoundaries)) return [];
 
   const text = document.getText();
   const lines = text.split(/\r\n|\r|\n/);

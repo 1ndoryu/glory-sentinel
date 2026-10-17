@@ -74,3 +74,17 @@ suite('Heavy budget config [07AA-10]', () => {
     assert.throws(() => validateSentinelConfig({ budgets: { limits: { 'cargo-check': 1.5 } } }), /límite inválido/);
   });
 });
+
+/* [FP] La clave `tooling` de portableBoundaries tiene que pasar la validacion
+ * fail-closed: una clave desconocida aborta el analisis entero. */
+suite('portableBoundaries.tooling en la ficha [FP console-production]', () => {
+  test('acepta tooling y lo lleva al core config', () => {
+    const input = { portableBoundaries: { tooling: ['.freebuff', '/frontend/server/'] } };
+    validateSentinelConfig(input);
+    assert.deepStrictEqual(buildCoreConfig(input).portableBoundaries, input.portableBoundaries);
+  });
+
+  test('sigue rechazando claves desconocidas', () => {
+    assert.throws(() => validateSentinelConfig({ portableBoundaries: { toolin: [] } }), /clave desconocida/);
+  });
+});
