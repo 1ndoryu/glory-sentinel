@@ -550,6 +550,43 @@ suite('[149A-1] sqlite-carga-N-consultas', () => {
     assert.strictEqual(v[0].linea, 3, 'el aviso va en el encabezado, no en el send del cuerpo');
   });
 
+  test('[sqlite-carga] queries sobre &mut **tx (doble deref, caso RESTAURANTE conteos.rs:301) no cuentan', () => {
+    const findings = analyzeRustDoc([
+      'async fn ajustar(tx: &mut Transaction<\'_, Postgres>, user: Uuid) -> Result<Decimal, sqlx::Error> {',
+      '  sqlx::query("INSERT auditoria").bind(user).execute(&mut **tx).await?;',
+      '  sqlx::query("INSERT stock").bind(user).execute(&mut **tx).await?;',
+      '  let stock = sqlx::query_as::<_, Fila>("UPDATE stock").bind(user).fetch_one(&mut **tx).await?;',
+      '  Ok(stock.stock)',
+      '}',
+    ].join('\n'));
+    /* Tres awaits sobre la misma transaccion: secuenciales por necesidad, no agrupables. */
+    assert.strictEqual(contar('sqlite-carga-N-consultas', findings), 0);
+  });
+
+  test('[sqlite-carga] queries sobre la misma conexion (&mut *conn / &mut conn) no cuentan', () => {
+    const findings = analyzeRustDoc([
+      'async fn lote(conn: &mut PgConnection, user: Uuid) {',
+      '  sqlx::query("a").bind(user).execute(&mut *conn).await?;',
+      '  sqlx::query("b").bind(user).execute(&mut *conn).await?;',
+      '  sqlx::query("c").bind(user).execute(&mut conn).await?;',
+      '}',
+    ].join('\n'));
+    assert.strictEqual(contar('sqlite-carga-N-consultas', findings), 0);
+  });
+
+  test('[sqlite-carga] control positivo: 3 awaits sobre pool siguen disparando aunque haya una query de tx', () => {
+    const findings = analyzeRustDoc([
+      'async fn mixto(db: &Db, tx: &mut Transaction<\'_, Postgres>) {',
+      '  let a = db.a().await?;',
+      '  sqlx::query("x").execute(&mut **tx).await?;',
+      '  let b = db.b().await?;',
+      '  let c = db.c().await?;',
+      '  let _ = (a, b, c);',
+      '}',
+    ].join('\n'));
+    assert.strictEqual(contar('sqlite-carga-N-consultas', findings), 1);
+  });
+
 });
 
 suite('[149A-1] clone-bajo-lock-rs', () => {

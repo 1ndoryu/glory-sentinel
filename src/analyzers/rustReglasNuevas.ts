@@ -1017,17 +1017,22 @@ const PATRON_PERSISTENCIA_CALLEE =
  * - Dependencia de datos: un await que usa el valor de un await previo
  *   (`.bind(epoch)`) no se puede agrupar con join!. Un handle de transaccion
  *   (`pool.begin()`, `acquire()`) no propaga dependencia.
- * - Transaccion: una query sobre `&mut *tx` no admite join! (dos prestamos
- *   mutables de la misma conexion no compilan), asi que el remedio del mensaje
- *   no aplica y no cuenta. Sigue cubierta la dependencia de datos.
+ * - Transaccion o conexion: una query sobre `&mut *tx`, `&mut **tx` (sqlx sobre
+ *   Transaction) o `&mut *conn` no admite join! (dos prestamos mutables de la
+ *   misma conexion no compilan), asi que el remedio del mensaje no aplica y no
+ *   cuenta. Sigue cubierta la dependencia de datos.
  * - Condiciones complementarias: dos `if` separados sobre el mismo atomo con
  *   polaridad opuesta (`x == "a"` y `!x.eq("a")`, `x != "a"`) nunca corren juntos
  *   (NAKOMI rest_messages.rs:291). Se modelan como un atomo booleano. */
 const PATRON_LITERAL_CADENA = /"(?:[^"\\]|\\.)*"/g;
 const PATRON_LET = /\blet\s+(?:mut\s+)?(\([^)]*\)|[a-z_]\w*)\s*(?::[^=]*)?=/g;
 const PATRON_HANDLE = /\.(begin|acquire|transaction)\s*\(/;
-/* [por que] Query sobre la conexion de una transaccion: no admite join! (ver cabecera). */
-const PATRON_TRANSACCION = /&mut\s*\*?\s*tx\b/;
+/* [por que] Query sobre una conexion o transaccion ya prestada: el executor es el
+ * primer argumento de un metodo (`.execute(&mut **tx)`, `.fetch_one(&mut *conn)`).
+ * Exigir `.metodo(` evita que un `tx: &mut Transaction` de la firma, que se
+ * fusiona con la primera sentencia del cuerpo, excluya sus awaits. No exige el
+ * nombre `tx`: el executor puede llamarse de cualquier forma. */
+const PATRON_TRANSACCION = /\.\w+\s*\(\s*&mut\s*\*{0,2}\s*\w+\b/;
 /* [por que] Un bloque con cabecera (`if let ... = x.await {`) cierra su statement
  * en esa linea. Si no, el cuerpo se fusiona con la cabecera y sus awaits heredan
  * la consulta del encabezado (falso positivo en NAKOMI rest_messages.rs:292). */
