@@ -6,6 +6,7 @@
 
 import * as assert from 'assert';
 import { reglasEstaticas } from '../../config/defaultRules';
+import { analizarEstatico } from '../../analyzers/staticAnalyzer';
 
 suite('Reglas Estaticas - Regex Patterns', () => {
 
@@ -127,4 +128,43 @@ suite('Reglas Estaticas - Regex Patterns', () => {
   /* wpdb-sin-prepare: movido a phpAnalyzer.ts con logica contextual.
    * La deteccion por regex simple no puede excluir START TRANSACTION /
    * ROLLBACK / COMMIT. Los tests de este caso viven en phpAnalyzer.test.ts */
+
+  /* Filtros del analizador (ruta de test, constantes canario): van por
+   * analizarEstatico, no por el regex suelto de testearRegla. */
+  suite('filtros de analizarEstatico', () => {
+    function violacionesDe(reglaId: string, texto: string, fileName: string): number {
+      const regla = reglasEstaticas.find(r => r.id === reglaId);
+      assert.ok(regla, `Regla "${reglaId}" no encontrada`);
+      const lineas = texto.split('\n');
+      const documento = {
+        fileName,
+        lineCount: lineas.length,
+        languageId: 'typescript',
+        getText: () => texto,
+        lineAt: (line: number) => ({ text: lineas[line] ?? '' }),
+      } as never;
+      return analizarEstatico(documento, [regla!]).length;
+    }
+
+    test('emoji-en-codigo: no aplica en archivo .test.ts', () => {
+      assert.strictEqual(violacionesDe('emoji-en-codigo', 'assert.match(s, /🌍/);', 'src/x.test.ts'), 0);
+    });
+
+    test('emoji-en-codigo: no aplica en carpeta test con ruta Windows', () => {
+      assert.strictEqual(violacionesDe('emoji-en-codigo', 'assert.match(s, /🌍/);', 'C:\\proj\\src\\test\\suite\\x.ts'), 0);
+    });
+
+    test('emoji-en-codigo: sigue detectando en codigo de produccion (testigo)', () => {
+      assert.strictEqual(violacionesDe('emoji-en-codigo', 'assert.match(s, /🌍/);', 'src/x.ts'), 1);
+      assert.strictEqual(violacionesDe('emoji-en-codigo', 'export const etiqueta = <span>🌍</span>;', 'src/x.tsx'), 1);
+    });
+
+    test('hardcoded-secret: ignora constante canario en MAYUSCULAS', () => {
+      assert.strictEqual(violacionesDe('hardcoded-secret', "const secret = 'SECRET_QUERY'", 'src/x.ts'), 0);
+    });
+
+    test('hardcoded-secret: sigue detectando password con minusculas y digitos', () => {
+      assert.strictEqual(violacionesDe('hardcoded-secret', 'password = "admin1234"', 'src/x.ts'), 1);
+    });
+  });
 });

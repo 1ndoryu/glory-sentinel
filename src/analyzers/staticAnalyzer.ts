@@ -361,6 +361,13 @@ function enComentario(rangos: Array<[number, number]>, columna: number): boolean
  * solo importa en produccion. Mismo criterio que handler-accede-bd-rs. */
 const REGLAS_SQL_SOLO_PRODUCCION = new Set(['sqlx-query-sin-macro', 'sqlx-query-as-sin-macro']);
 
+/* Archivo de test por nombre (.test./.spec.) o por carpeta (test/, __tests__/).
+ * Normaliza los separadores para cubrir rutas Windows y POSIX. */
+function esArchivoDeTest(rutaArchivo: string): boolean {
+    const ruta = rutaArchivo.replace(/\\/g, '/');
+    return ['.test.', '.spec.', '/test/', '/__tests__/'].some(patron => ruta.includes(patron));
+}
+
 /*
  * Ejecuta una regla regex linea por linea.
  */
@@ -389,6 +396,11 @@ function ejecutarReglaPorLinea(
     const enTest = REGLAS_SQL_SOLO_PRODUCCION.has(regla.id) && documento.fileName.endsWith('.rs')
         ? calcularRangosTest(lineas)
         : null;
+
+    /* emoji-en-codigo no aplica a tests: los emoji ahi son datos de prueba, no UI. */
+    if (regla.id === 'emoji-en-codigo' && esArchivoDeTest(documento.fileName)) {
+        return violaciones;
+    }
 
     /* Se compilan una vez por regla, no por linea. Sin 'g' el RegExp no guarda
      * estado entre llamadas, asi que reutilizarlo equivale a crearlo en cada linea. */
@@ -443,6 +455,14 @@ function ejecutarReglaPorLinea(
             if (regla.id === 'inline-style-prohibido') {
                 if (comentarios && enComentario(comentarios[i], match.index)) continue;
                 if (styleInlineSoloCssVars(lineas, i)) continue;
+            }
+
+            /* hardcoded-secret: un valor en MAYUSCULAS_CON_GUIONES_BAJOS (p. ej. 'SECRET_QUERY')
+             * es una constante canario de prueba, no un secreto real. */
+            if (regla.id === 'hardcoded-secret') {
+                // Solo valores entre comillas: sin ellas no hay canario que reconocer
+                const valor = match[0].match(/['"]([^'"]*)['"]/)?.[1];
+                if (valor !== undefined && /^[A-Z_]+$/.test(valor)) continue;
             }
 
             let mensaje = regla.mensaje;
