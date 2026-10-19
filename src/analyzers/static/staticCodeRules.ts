@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import { Violacion } from '../../types';
 import { CoreTextDocument, positionAtOffset } from '../../core/runtime-proyecto/types';
 import { contarLineasEfectivas, obtenerLimiteArchivo } from '../../utils/lineCounter';
-import { tieneSentinelDisableFile } from '../../utils/analisisHelpers';
+import { tieneSentinelDisableFile, enmascararLiterales } from '../../utils/analisisHelpers';
 import { obtenerSeveridadRegla, reglaHabilitada } from '../../config/ruleRegistry';
 
 interface EscalaLimiteLineas {
@@ -248,16 +248,16 @@ export function verificarNonNullAssertion(texto: string, _documento: CoreTextDoc
   for (let i = 0; i < lineas.length; i++) {
     const linea = lineas[i];
     const trimmed = linea.trim();
-
     if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) { continue; }
     if (linea.includes('sentinel-disable non-null-assertion-excesivo')) { continue; }
     if (i > 0 && lineas[i - 1]?.includes('sentinel-disable-next-line non-null-assertion-excesivo')) { continue; }
 
-    const matches = [...linea.matchAll(/[)\]a-zA-Z0-9_>]!\s*[.[]/g)];
+    const codigo = enmascararLiterales(linea); /* solo código: sin cadenas */
+    const matches = [...codigo.matchAll(/[)\]a-zA-Z0-9_>]!\s*[.[]/g)];
     for (const match of matches) {
       const posExcl = (match.index ?? 0) + match[0].indexOf('!');
-      if (posExcl + 1 < linea.length && linea[posExcl + 1] === '=') { continue; }
-      if (posExcl > 0 && linea[posExcl - 1] === '!') { continue; }
+      if (posExcl + 1 < codigo.length && codigo[posExcl + 1] === '=') { continue; }
+      if (posExcl > 0 && codigo[posExcl - 1] === '!') { continue; }
       instancias.push(i);
     }
   }

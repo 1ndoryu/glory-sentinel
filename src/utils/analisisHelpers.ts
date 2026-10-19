@@ -11,3 +11,4 @@ export { proyectoTieneModalCanonico, sufijoSemanticoModal, claseCanonicaModal, b
 export { IndiceProyecto } from './analisis/indiceTipos';
 export { claseAplicada } from './analisis/indiceAlias';
 export { indiceProyecto } from './analisis/indiceProyecto';
+export { enmascararLiterales } from './analisis/literalesCodigo';
