@@ -13,6 +13,7 @@ import { CoreAnalysisConfig, createCoreDocument } from '../../core/runtime-proye
 import { languageIdForFile } from '../../core/runtime-proyecto/language';
 import { CliAnalysisResult, ParsedCliArgs, SENTINEL_JSON_SCHEMA_VERSION } from '../parseo/argsTypes';
 import { readConfig } from './cliShared';
+import { GIT_MAX_BUFFER, GIT_TIMEOUT_MS } from '../../utils/gitLimites';
 
 const execFileAsync = promisify(execFile);
 
@@ -42,7 +43,7 @@ async function listarNoIgnorados(rootPath: string): Promise<string[] | null> {
     const { stdout } = await execFileAsync(
       'git',
       ['-C', rootPath, 'ls-files', '--cached', '--others', '--exclude-standard', '--deduplicate', '-z'],
-      { maxBuffer: 64 * 1024 * 1024 },
+      { maxBuffer: GIT_MAX_BUFFER, timeout: GIT_TIMEOUT_MS },
     );
     const existentes = await Promise.all(
       stdout.split('\0').filter(Boolean).map(async rel => {

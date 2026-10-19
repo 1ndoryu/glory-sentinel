@@ -25,7 +25,6 @@ Orden de ejecución: T1 → T6. Cada bloque: probar en la 89, documentar en `Age
   - [x] `css-adhoc-button-style`, `sqlx-query-as-sin-macro`, `sqlx-query-sin-macro` y `api-endpoint-faltante` registradas en `ruleRegistry.ts` y en `rules.md` (commit 5899d75); `api-endpoint-faltante` respeta `reglaHabilitada` (activa por defecto, como antes). Cobertura: `src/test/suite/diagnostico/registroReglasCompleto.test.ts`.
   - [x] `reactUiCatalog.ts` (`carpetasUi`) y `apiContractIndexer.ts` (`controladores`): rutas de design system y controllers configurables con `rutasGlory` en `sentinel.config.json` (validado en `config.ts`; sin clave = defaults idénticos). Cobertura: `src/test/suite/runtime-proyecto/rutasGlory.test.ts`. Verificado en la 89: compile rc 0, `test:unit` 939 passing / 0 failing, `check:reglas` y autogate 0 archivos con hallazgos.
 - [ ] **T5 Arquitectura, repo y optimización (medio).**
-  - `git ls-files` sin timeout: `src/cli/comandos/cliAnalyze.ts:42-46`, `src/core/runtime-proyecto/envManifest.ts:147,173`, `src/core/task/coordinador/taskCoordinatorRutas.ts:15`. Acción: timeout y maxBuffer acotado.
   - Unos 19 recorridos de directorio propios (p. ej. `cliAnalyze.ts:96-118`, `install/artefacto.ts:25-33`, `utils/analisis/indiceProyecto.ts:13-27`). Acción: un solo recorredor con reglas de exclusión.
   - `cliAnalyze.ts:187-192,123`: análisis en serie y sin tope por archivo; `:210-221` salida JSON sin límite de entradas.
   - `src/lsp/server.ts:159-161`: sin debounce (la extensión sí lo tiene); relee la config y analiza de forma síncrona en `:91`.

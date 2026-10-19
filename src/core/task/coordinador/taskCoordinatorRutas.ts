@@ -6,6 +6,7 @@ import { promisify } from 'util';
 import { canonicalPath, isStrictlyInside } from '../../seguridad-rutas/pathSafety';
 import { assertSafeBranch } from '../branchValidation';
 import { SAFE_LOCK_KEY, sanitizeTaskId } from './taskCoordinatorValidacion';
+import { GIT_MAX_BUFFER, GIT_TIMEOUT_MS } from '../../../utils/gitLimites';
 
 const execFileAsync = promisify(execFile);
 
@@ -15,7 +16,8 @@ export async function git(root: string, args: string[]): Promise<string> {
   const result = await execFileAsync('git', args, {
     cwd: root,
     windowsHide: true,
-    maxBuffer: 2 * 1024 * 1024,
+    maxBuffer: GIT_MAX_BUFFER,
+    timeout: GIT_TIMEOUT_MS,
   });
   return result.stdout.trim();
 }

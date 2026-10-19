@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { cp, mkdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { canonicalPath, isStrictlyInside } from '../seguridad-rutas/pathSafety';
+import { GIT_MAX_BUFFER, GIT_TIMEOUT_MS } from '../../utils/gitLimites';
 
 export const ENV_MANIFEST_SCHEMA_VERSION = 1;
 export const DEFAULT_ENV_MANIFEST = 'sentinel.env-manifest.json';
@@ -144,7 +145,7 @@ async function runGit(worktree: string, args: string[]): Promise<string> {
   const { execFile } = await import('node:child_process');
   const { promisify } = await import('node:util');
   const execFileAsync = promisify(execFile);
-  const result = await execFileAsync('git', args, { cwd: worktree, windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
+  const result = await execFileAsync('git', args, { cwd: worktree, windowsHide: true, maxBuffer: GIT_MAX_BUFFER, timeout: GIT_TIMEOUT_MS });
   return result.stdout;
 }
 
@@ -170,7 +171,7 @@ async function isTracked(worktree: string, relative: string): Promise<boolean> {
   const { promisify } = await import('node:util');
   const execFileAsync = promisify(execFile);
   try {
-    await execFileAsync('git', ['-C', worktree, 'ls-files', '--error-unmatch', '--', relative], { windowsHide: true });
+    await execFileAsync('git', ['-C', worktree, 'ls-files', '--error-unmatch', '--', relative], { windowsHide: true, timeout: GIT_TIMEOUT_MS });
     return true;
   } catch {
     return false;
