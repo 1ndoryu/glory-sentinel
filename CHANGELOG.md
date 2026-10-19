@@ -1,7 +1,8 @@
 # Changelog
-<!-- test de deteccion: 2026-02-20 -->
 
 ## [Unreleased]
+
+> Las versiones 0.7.24, 0.7.25 y 0.7.26 (`package.json`) no tienen tag ni sección propia: sus cambios figuran en esta sección hasta que se etiqueten.
 
 ### `.mjs`/`.cjs` y `.mts`/`.cts` se analizan como su equivalente
 

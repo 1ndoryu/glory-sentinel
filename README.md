@@ -196,7 +196,7 @@ La coordinación es opcional: puedes usar Sentinel únicamente como analizador o
 | 0.6.x   | Preflight fail-closed, validación de release y recuperación segura    |
 | 0.7.x   | `init`, `migrate`, `uninit`, readiness separada y stages declarativos |
 
-El release coordinado vigente es **0.7.23**, publicado en `main` y `v0.7.23`.
+El último release etiquetado es **0.7.23** (`v0.7.23`), el que fija la instalación de arriba. `package.json` está en **0.7.26**, sin tag: sus cambios están en `[Unreleased]` del [CHANGELOG](CHANGELOG.md) hasta que se etiquete.
 
 ## Documentación
 
