@@ -5,10 +5,7 @@ Orden de ejecución: de arriba abajo. Cada bloque: probar en la 89, documentar, 
 
 ## Pendiente
 
-- [ ] **S6 Arquitectura.** `src/core/analyzeDocument.ts` importa analyzers (core→analyzers). Invertir con un contrato explícito. Budget para `src/analyzers/rustReglasNuevas.ts` (1527 líneas).
-- [ ] **S7 Optimización.** `src/core/scope.ts:80` usa buffer de 64 MB: acotarlo. Revisar timeouts de `externalToolsAnalyzer.ts:281`.
-- [ ] **S8 Docs de dominio.** `README.md:211-247` contiene narrativa interna (039A-1, timeouts): mover a `docs/`.
-- [ ] **S9 Autogate.** Sin ficha de Arranque (noAplica sin-servicio). Gate vía `POST /api/gate/analizar` (`AGENTS-detalle.md:37`). Tests en la 89.
+- [ ] **S9 Autogate en Arranque.** El análisis se ejecuta bien en la 89 (`analyze`, ver S13), pero falta la ficha de Arranque / endpoint `POST /api/gate/analizar`. Bloqueo: cambio en workspace-manager (registro y backend), fuera de este repo.
 
 - Gate de RESTAURANTE (10AA-3, 2026-10-19): Sentinel se ejecuta en la 89 desde `/var/tmp/gate-tools/sentinel` (archive de `b4d043b`, versión 0.7.26; el adaptador comprueba `.quality-pin` y `--version` antes de cada análisis), no desde `tools/sentinel` de los submódulos de la 89, que están sucios por otra sesión. Pendiente de quien lleva Sentinel: decidir si el submódulo de la 89 se fija a ese pin o el pin se declara de otra forma. No tocado desde RESTAURANTE.
 
@@ -20,6 +17,9 @@ Orden de ejecución: de arriba abajo. Cada bloque: probar en la 89, documentar, 
 - Publicar o hacer release a terceros: reservado a la usuaria (AGENTS §3).
 
 ## Hecho
+- S6 Arquitectura (2026-10-19, verificado): core no importa analyzers; `check:core` lo impide (regla S6 de `scripts/check-core-no-vscode.mjs`) y la composición vive en `src/analyzers/pipeline.ts`. Sin cambios de código en este bloque.
+- S7 Optimización (2026-10-19, verificado): `scope.ts` usa `GIT_SALIDA_MAX_BYTES = 8 MiB` (antes 64 MB); `externalToolsAnalyzer.ts` acota salida a 5 MiB y timeout a 120 s. Sin cambios de código en este bloque.
+- S8 Docs de dominio (2026-10-19, verificado): README sin narrativa interna (039A-1); enlaza a `docs/pruebas.md`. Sin cambios de código en este bloque.
 - S13 Directorio-abarrotado en tests (2026-10-19): 73 tests de `src/test/suite` agrupados por dominio; 911 pasan, 0 fallan en la 89. Autogate: 0 hallazgos en tests; 13 warnings heredados (límites de líneas, mixed-barrel) en la cola de arriba.
 - S10 Temporales agnósticos (2026-10-19, e2e2f5a): `src/core/tmpDir.ts` (`tmpBaseDir`; `SENTINEL_TMP_DIR` sustituye C:/tmp). Guard log, scheduler y tests lo usan.
 - S11 Shells (2026-10-19, 80f3621): causa real = en bash `glory_sentinel_host_path` convertía `/var/tmp/x` a `\var\tmp\x`; el CLI no hallaba la política y el guard dejaba pasar (fail-open). Corregido: solo las rutas con unidad se convierten. `shellMatrix` 12 pasan en la 89, sin tests condicionados.
