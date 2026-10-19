@@ -7,6 +7,8 @@ Orden de ejecución: de arriba abajo. Cada bloque: probar en la 89, documentar, 
 
 - [ ] **S9 Autogate en Arranque.** El análisis se ejecuta bien en la 89 (`analyze`, ver S13), pero falta la ficha de Arranque / endpoint `POST /api/gate/analizar`. Bloqueo: cambio en workspace-manager (registro y backend), fuera de este repo.
 
+- [ ] **S15 Autogate a 0 warnings.** Quedan 8 (verificado en la 89 con `analyze`): `directorio-abarrotado` en `src/analyzers/react/formularioConfigSystem.ts`; `limite-lineas` en `rustAnalyzer.ts`, `staticAnalyzer.ts`, `projectInit.ts`, `runtimeInstall.ts`, `analisisHelpers.ts` (+ `limite-lineas-nivel-2` en este último); `mixed-barrel-logic` en `staticCssRules.ts:1`. Orden: staticCssRules, analisisHelpers, projectInit, runtimeInstall, rustAnalyzer, staticAnalyzer, formularioConfigSystem. Cada partición: sin cambio de comportamiento, `module-budgets.json` actualizado, mocha 911/0/2 en la 89.
+
 - Gate de RESTAURANTE (10AA-3, 2026-10-19): Sentinel se ejecuta en la 89 desde `/var/tmp/gate-tools/sentinel` (archive de `b4d043b`, versión 0.7.26; el adaptador comprueba `.quality-pin` y `--version` antes de cada análisis), no desde `tools/sentinel` de los submódulos de la 89, que están sucios por otra sesión. Pendiente de quien lleva Sentinel: decidir si el submódulo de la 89 se fija a ese pin o el pin se declara de otra forma. No tocado desde RESTAURANTE.
 
 ## Decisiones pendientes de la usuaria
@@ -17,6 +19,7 @@ Orden de ejecución: de arriba abajo. Cada bloque: probar en la 89, documentar, 
 - Publicar o hacer release a terceros: reservado a la usuaria (AGENTS §3).
 
 ## Hecho
+- S14 Partición CLI y núcleo (2026-10-19, ffd171e + 5324b01, verificado en la 89): `src/cli/parseo/` y `src/cli/comandos/` con `cliMain.ts`; `args.ts` y `commands.ts` pasan a barril. `diagnose.ts` y `lease.ts` son fachadas sobre `detalle/`. Verificación: compile, tsc, mocha 911/0/2, lint, check:core, check:reglas, smoke `--version`/`--help`, autogate 0 errores y 8 warnings (antes 10; `directorio-abarrotado` de diagnostico y gate resuelto).
 - S6 Arquitectura (2026-10-19, verificado): core no importa analyzers; `check:core` lo impide (regla S6 de `scripts/check-core-no-vscode.mjs`) y la composición vive en `src/analyzers/pipeline.ts`. Sin cambios de código en este bloque.
 - S7 Optimización (2026-10-19, verificado): `scope.ts` usa `GIT_SALIDA_MAX_BYTES = 8 MiB` (antes 64 MB); `externalToolsAnalyzer.ts` acota salida a 5 MiB y timeout a 120 s. Sin cambios de código en este bloque.
 - S8 Docs de dominio (2026-10-19, verificado): README sin narrativa interna (039A-1); enlaza a `docs/pruebas.md`. Sin cambios de código en este bloque.
