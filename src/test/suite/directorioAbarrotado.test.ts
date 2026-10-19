@@ -15,6 +15,7 @@ import {
   verificarDirectorioAbarrotado,
 } from '../../analyzers/static/staticCodeRules';
 import { createCoreDocument } from '../../core/types';
+import { tmpBaseDir } from '../../core/tmpDir';
 
 function crearDirTemporal(nombre: string): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `sentinel-dir-${nombre}-`));
@@ -57,8 +58,9 @@ suite('directorioAbarrotado (filtro no-codigo)', () => {
   });
 
   test('ignora dist-server en cualquier nivel (salida de build, como dist)', () => {
-    /* [por que] Temporal bajo C:/tmp (AGENTS.md §0.2), no %TEMP%. */
-    const base = fs.mkdtempSync('C:/tmp/sentinel-dist-server-');
+    /* [por que] Temporal bajo tmpBaseDir (C:/tmp en Windows, AGENTS.md §0.2; os.tmpdir() en el resto). */
+    fs.mkdirSync(tmpBaseDir(), { recursive: true });
+    const base = fs.mkdtempSync(path.join(tmpBaseDir(), 'sentinel-dist-server-'));
     const dir = path.join(base, 'dist-server', 'server', 'tareas');
     try {
       fs.mkdirSync(dir, { recursive: true });

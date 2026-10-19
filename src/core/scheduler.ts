@@ -7,15 +7,14 @@
 import { lstat, mkdir, readFile, realpath, rename, unlink, writeFile } from 'node:fs/promises';
 import { lstatSync } from 'node:fs';
 import crypto from 'node:crypto';
-import os from 'node:os';
 import path from 'node:path';
+import { tmpBaseDir } from './tmpDir';
 
 /* 0 = sin cooldown por defecto (decisión de la usuaria, 2026-10-12). Un proyecto
  * lo reactiva con heavyRun.cooldownMinutes > 0 en sentinel.config.json o quality.config.json. */
 const DEFAULT_COOLDOWN_MS = 0;
-const DEFAULT_TARGET_BASE = process.platform === 'win32'
-  ? 'C:\\tmp\\glory-target'
-  : path.join(os.tmpdir(), 'glory-target');
+/* Mismo criterio que tmpBaseDir: C:/tmp en Windows, os.tmpdir() en el resto. */
+const DEFAULT_TARGET_BASE = path.join(tmpBaseDir(), 'glory-target');
 
 export interface HeavyRunOptions {
   projectRoot: string;

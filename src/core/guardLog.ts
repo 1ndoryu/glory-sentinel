@@ -4,9 +4,9 @@
  * área lo lean sin tocar repos. Es best-effort: un fallo de disco nunca cambia
  * la decisión del guard ni el exit code del comando. */
 import * as fs from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import { cargoSubcommand, type GuardDecision } from './guardCommand';
+import { tmpBaseDir } from './tmpDir';
 
 /* Tope por fichero: al superarlo se rota a guard-log.1.ndjson (sustituye al
  * anterior), así el total queda acotado a ~2 MiB. */
@@ -18,8 +18,7 @@ const COMANDO_MAX_CHARS = 120;
 /* GLORY_GUARD_LOG_DIR permite aislar el registro (los tests lo fijan). */
 export function guardLogDir(env: NodeJS.ProcessEnv = process.env): string {
   if (env.GLORY_GUARD_LOG_DIR) return env.GLORY_GUARD_LOG_DIR;
-  const base = process.platform === 'win32' ? 'C:/tmp' : os.tmpdir();
-  return path.join(base, 'glory-quality-guard');
+  return path.join(tmpBaseDir(env), 'glory-quality-guard');
 }
 
 /* Solo ejecutable y subcomando: nunca el resto de argumentos (pueden llevar

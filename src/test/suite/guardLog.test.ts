@@ -2,17 +2,17 @@
  * rotación a 1 MiB y best-effort (nunca lanza ni cambia la decisión). */
 import * as assert from 'assert';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import type { GuardDecision } from '../../core/guardCommand';
 import { clasificarDecision, GUARD_LOG_MAX_BYTES, registrarDecision, resumenComando } from '../../core/guardLog';
+import { tmpBaseDir } from '../../core/tmpDir';
 import { removeTmpRoots } from './guardMatrixCommon';
 
 const cleanup: string[] = [];
 
-/* Temporales en C:\tmp (AGENTS §0.2), no en %TEMP%. */
+/* Temporales en tmpBaseDir (C:\tmp en Windows, AGENTS §0.2), no en %TEMP%. */
 function mkTmp(prefix: string): string {
-  const base = process.platform === 'win32' ? 'C:/tmp' : os.tmpdir();
+  const base = tmpBaseDir();
   fs.mkdirSync(base, { recursive: true });
   const dir = fs.mkdtempSync(path.join(base, prefix));
   cleanup.push(dir);

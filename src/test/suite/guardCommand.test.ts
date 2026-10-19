@@ -7,9 +7,10 @@ import * as os from 'os';
 import * as path from 'path';
 import { cargoSubcommand, formatBlockMessage, inspectDirectCommand, QUALITY_GUARD_EXIT_CODE } from '../../core/guardCommand';
 import { LEASE_ENV_VAR, issueLease } from '../../core/lease';
+import { tmpBaseDir } from '../../core/tmpDir';
 
-/* [10AA-2] Los temporales van a C:\tmp, no a %TEMP% (AGENTS.md §0.2). */
-const TMP_BASE = fs.existsSync('C:/tmp') ? 'C:/tmp' : os.tmpdir();
+/* [10AA-2] Los temporales van a C:\tmp en Windows, no a %TEMP% (AGENTS.md §0.2). */
+const TMP_BASE = tmpBaseDir();
 
 function mkTmp(prefix: string): string {
   fs.mkdirSync(TMP_BASE, { recursive: true });
