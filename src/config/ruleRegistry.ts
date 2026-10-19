@@ -59,13 +59,13 @@ const REGISTRO: DefinicionRegla[] = [
   { id: 'import-muerto', nombre: 'Import sin uso', severidadDefault: 'warning', categoria: CategoriaRegla.EstructuraNomenclatura },
 
   /* --- PHP (phpAnalyzer.ts) --- */
-  { id: 'controller-sin-trycatch', nombre: 'Controller sin try-catch', severidadDefault: 'warning', categoria: CategoriaRegla.WordPressPhp },
-  { id: 'wpdb-sin-prepare', nombre: '$wpdb sin prepare()', severidadDefault: 'error', categoria: CategoriaRegla.SeguridadSql },
-  { id: 'request-json-directo', nombre: 'JSON params sin filtrar', severidadDefault: 'warning', categoria: CategoriaRegla.WordPressPhp },
-  { id: 'json-decode-inseguro', nombre: 'json_decode sin verificacion', severidadDefault: 'warning', categoria: CategoriaRegla.WordPressPhp },
+  { id: 'controller-sin-trycatch', nombre: 'Controller sin try-catch', severidadDefault: 'warning', habilitadaDefault: false, categoria: CategoriaRegla.WordPressPhp },
+  { id: 'wpdb-sin-prepare', nombre: '$wpdb sin prepare()', severidadDefault: 'error', habilitadaDefault: false, categoria: CategoriaRegla.SeguridadSql },
+  { id: 'request-json-directo', nombre: 'JSON params sin filtrar', severidadDefault: 'warning', habilitadaDefault: false, categoria: CategoriaRegla.WordPressPhp },
+  { id: 'json-decode-inseguro', nombre: 'json_decode sin verificacion', severidadDefault: 'warning', habilitadaDefault: false, categoria: CategoriaRegla.WordPressPhp },
   { id: 'exec-sin-escapeshellarg', nombre: 'exec sin escapeshellarg', severidadDefault: 'error', categoria: CategoriaRegla.PatronesProhibidos },
-  { id: 'curl-sin-verificacion', nombre: 'curl_exec sin curl_error', severidadDefault: 'warning', categoria: CategoriaRegla.WordPressPhp },
-  { id: 'temp-sin-finally', nombre: 'tempnam sin finally', severidadDefault: 'warning', categoria: CategoriaRegla.WordPressPhp },
+  { id: 'curl-sin-verificacion', nombre: 'curl_exec sin curl_error', severidadDefault: 'warning', habilitadaDefault: false, categoria: CategoriaRegla.WordPressPhp },
+  { id: 'temp-sin-finally', nombre: 'tempnam sin finally', severidadDefault: 'warning', habilitadaDefault: false, categoria: CategoriaRegla.WordPressPhp },
 
   /* --- React (reactAnalyzer.ts) --- */
   { id: 'useeffect-sin-cleanup', nombre: 'useEffect sin cleanup', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
@@ -75,30 +75,30 @@ const REGISTRO: DefinicionRegla[] = [
   { id: 'error-enmascarado', nombre: 'Error enmascarado como exito', severidadDefault: 'error', categoria: CategoriaRegla.ReactPatrones },
 
   /* --- PHP adicional (phpAnalyzer.ts) --- */
-  { id: 'sanitizacion-faltante', nombre: 'Request sin sanitizar', severidadDefault: 'warning', categoria: CategoriaRegla.WordPressPhp },
+  { id: 'sanitizacion-faltante', nombre: 'Request sin sanitizar', severidadDefault: 'warning', habilitadaDefault: false, categoria: CategoriaRegla.WordPressPhp },
 
   /* --- Sprint 8: Nuevas reglas PHP --- */
-  { id: 'lock-sin-finally', nombre: 'Lock sin finally', severidadDefault: 'error', categoria: CategoriaRegla.WordPressPhp },
-  { id: 'catch-critico-solo-log', nombre: 'Catch critico solo log', severidadDefault: 'warning', categoria: CategoriaRegla.WordPressPhp },
+  { id: 'lock-sin-finally', nombre: 'Lock sin finally', severidadDefault: 'error', habilitadaDefault: false, categoria: CategoriaRegla.WordPressPhp },
+  { id: 'catch-critico-solo-log', nombre: 'Catch critico solo log', severidadDefault: 'warning', habilitadaDefault: false, categoria: CategoriaRegla.WordPressPhp },
   { id: 'toctou-select-insert', nombre: 'TOCTOU select-insert', severidadDefault: 'error', categoria: CategoriaRegla.SeguridadSql },
-  { id: 'cadena-isset-update', nombre: 'Cadena isset-update', severidadDefault: 'warning', categoria: CategoriaRegla.WordPressPhp },
+  { id: 'cadena-isset-update', nombre: 'Cadena isset-update', severidadDefault: 'warning', habilitadaDefault: false, categoria: CategoriaRegla.WordPressPhp },
   { id: 'query-doble-verificacion', nombre: 'Query doble verificacion', severidadDefault: 'information', categoria: CategoriaRegla.SeguridadSql },
-  { id: 'json-sin-limite-bd', nombre: 'JSON sin limite a BD', severidadDefault: 'warning', categoria: CategoriaRegla.WordPressPhp },
-  { id: 'retorno-ignorado-repo', nombre: 'Retorno repo ignorado', severidadDefault: 'warning', categoria: CategoriaRegla.WordPressPhp },
+  { id: 'json-sin-limite-bd', nombre: 'JSON sin limite a BD', severidadDefault: 'warning', habilitadaDefault: false, categoria: CategoriaRegla.WordPressPhp },
+  { id: 'retorno-ignorado-repo', nombre: 'Retorno repo ignorado', severidadDefault: 'warning', habilitadaDefault: false, categoria: CategoriaRegla.WordPressPhp },
   { id: 'mime-type-cliente', nombre: 'MIME type del cliente', severidadDefault: 'error', categoria: CategoriaRegla.PatronesProhibidos },
 
   /* --- Glory Schema (gloryAnalyzer.ts) — Sprint 1 --- */
-  { id: 'hardcoded-sql-column', nombre: 'Columna SQL hardcodeada', severidadDefault: 'warning', categoria: CategoriaRegla.GlorySchema },
-  { id: 'hardcoded-enum-value', nombre: 'Valor enum hardcodeado', severidadDefault: 'warning', categoria: CategoriaRegla.GlorySchema },
-  { id: 'endpoint-accede-bd', nombre: 'Controller accede a BD', severidadDefault: 'warning', categoria: CategoriaRegla.GlorySchema },
-  { id: 'interval-sin-whitelist', nombre: 'INTERVAL sin whitelist', severidadDefault: 'error', categoria: CategoriaRegla.GlorySchema },
-  { id: 'open-redirect', nombre: 'Redireccion insegura', severidadDefault: 'error', categoria: CategoriaRegla.GlorySchema },
-  { id: 'return-void-critico', nombre: 'Escritura retorna void', severidadDefault: 'warning', categoria: CategoriaRegla.GlorySchema },
+  { id: 'hardcoded-sql-column', nombre: 'Columna SQL hardcodeada', severidadDefault: 'warning', habilitadaDefault: false, categoria: CategoriaRegla.GlorySchema },
+  { id: 'hardcoded-enum-value', nombre: 'Valor enum hardcodeado', severidadDefault: 'warning', habilitadaDefault: false, categoria: CategoriaRegla.GlorySchema },
+  { id: 'endpoint-accede-bd', nombre: 'Controller accede a BD', severidadDefault: 'warning', habilitadaDefault: false, categoria: CategoriaRegla.GlorySchema },
+  { id: 'interval-sin-whitelist', nombre: 'INTERVAL sin whitelist', severidadDefault: 'error', habilitadaDefault: false, categoria: CategoriaRegla.GlorySchema },
+  { id: 'open-redirect', nombre: 'Redireccion insegura', severidadDefault: 'error', habilitadaDefault: false, categoria: CategoriaRegla.GlorySchema },
+  { id: 'return-void-critico', nombre: 'Escritura retorna void', severidadDefault: 'warning', habilitadaDefault: false, categoria: CategoriaRegla.GlorySchema },
 
   /* --- Sprint 2: React (reactAnalyzer.ts) --- */
   { id: 'zustand-objeto-selector', nombre: 'Zustand selector crea ref nueva', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
   { id: 'key-index-lista', nombre: 'key={index} en lista', severidadDefault: 'hint', categoria: CategoriaRegla.ReactPatrones },
-  { id: 'componente-sin-hook-glory', nombre: 'Componente sin hook dedicado', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
+  { id: 'componente-sin-hook-glory', nombre: 'Componente sin hook dedicado', severidadDefault: 'warning', habilitadaDefault: false, categoria: CategoriaRegla.ReactPatrones },
   { id: 'promise-sin-catch', nombre: 'Promise sin catch', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
   { id: 'useeffect-dep-inestable', nombre: 'useEffect dep inestable', severidadDefault: 'hint', categoria: CategoriaRegla.ReactPatrones },
 
@@ -110,12 +110,12 @@ const REGISTRO: DefinicionRegla[] = [
   { id: 'html-sin-origen-declarado', nombre: 'Productor HTML sin declarar en allowlist', severidadDefault: 'error', categoria: CategoriaRegla.ReactPatrones },
 
   /* --- Sprint 2: Glory (gloryAnalyzer.ts) --- */
-  { id: 'isla-no-registrada', nombre: 'Isla no registrada', severidadDefault: 'warning', categoria: CategoriaRegla.GlorySchema },
+  { id: 'isla-no-registrada', nombre: 'Isla no registrada', severidadDefault: 'warning', habilitadaDefault: false, categoria: CategoriaRegla.GlorySchema },
 
   /* --- Sprint 3: PHP (gloryAnalyzer.ts) --- */
   { id: 'n-plus-1-query', nombre: 'Query N+1 en loop', severidadDefault: 'warning', categoria: CategoriaRegla.SeguridadSql },
   { id: 'controller-fqn-inline', nombre: 'FQN inline en PHP', severidadDefault: 'hint', categoria: CategoriaRegla.EstructuraNomenclatura },
-  { id: 'php-sin-return-type', nombre: 'PHP sin return type', severidadDefault: 'hint', categoria: CategoriaRegla.WordPressPhp },
+  { id: 'php-sin-return-type', nombre: 'PHP sin return type', severidadDefault: 'hint', habilitadaDefault: false, categoria: CategoriaRegla.WordPressPhp },
   { id: 'repository-sin-whitelist-columnas', nombre: 'SELECT * sin columnas', severidadDefault: 'hint', categoria: CategoriaRegla.SeguridadSql },
 
   /* --- Sprint 6: DefaultContent (gloryAnalyzer.ts) ---
@@ -125,29 +125,29 @@ const REGISTRO: DefinicionRegla[] = [
 
   /* 'meta' en vez de 'metaEntrada': PostSyncHandler usa $definition['metaEntrada'] para
    * meta_input de wp_insert_post. Con 'meta' el post se crea sin ningun metadato. */
-  { id: 'glory-meta-clave-incorrecta', nombre: "'meta' en vez de 'metaEntrada'", severidadDefault: 'error', categoria: CategoriaRegla.GlorySchema },
+  { id: 'glory-meta-clave-incorrecta', nombre: "'meta' en vez de 'metaEntrada'", severidadDefault: 'error', habilitadaDefault: false, categoria: CategoriaRegla.GlorySchema },
 
   /* 'slug' en vez de 'slugDefault': DefaultContentSynchronizer usa $definition['slugDefault']
    * para findPorSlug(). Si falta, cada sync CREA un post nuevo en vez de actualizar
    * el existente — duplicacion infinita en cada activacion del tema. */
-  { id: 'glory-slug-clave-incorrecta', nombre: "'slug' en vez de 'slugDefault'", severidadDefault: 'error', categoria: CategoriaRegla.GlorySchema },
+  { id: 'glory-slug-clave-incorrecta', nombre: "'slug' en vez de 'slugDefault'", severidadDefault: 'error', habilitadaDefault: false, categoria: CategoriaRegla.GlorySchema },
 
   /* 'title' en vez de 'titulo': prepareCorePostData() usa $definition['titulo'] para
    * post_title. Con 'title' el post se crea con titulo vacio. */
-  { id: 'glory-titulo-clave-incorrecta', nombre: "'title'/'name' en vez de 'titulo'", severidadDefault: 'error', categoria: CategoriaRegla.GlorySchema },
+  { id: 'glory-titulo-clave-incorrecta', nombre: "'title'/'name' en vez de 'titulo'", severidadDefault: 'error', habilitadaDefault: false, categoria: CategoriaRegla.GlorySchema },
 
   /* 'imagen'/'image' en vez de 'imagenDestacadaAsset': PostRelationHandler::setFeaturedImage()
    * hace isset($definicion['imagenDestacadaAsset']) — si la clave no existe, no asigna
    * imagen destacada sin ningun aviso. */
-  { id: 'glory-imagen-clave-incorrecta', nombre: "'imagen' en vez de 'imagenDestacadaAsset'", severidadDefault: 'warning', categoria: CategoriaRegla.GlorySchema },
+  { id: 'glory-imagen-clave-incorrecta', nombre: "'imagen' en vez de 'imagenDestacadaAsset'", severidadDefault: 'warning', habilitadaDefault: false, categoria: CategoriaRegla.GlorySchema },
 
   /* 'galeria'/'gallery' en vez de 'galeriaAssets': PostRelationHandler::setGallery()
    * usa la clave 'galeriaAssets'. Error tipico de mezclar ingles/espanol. */
-  { id: 'glory-galeria-clave-incorrecta', nombre: "'galeria'/'gallery' en vez de 'galeriaAssets'", severidadDefault: 'warning', categoria: CategoriaRegla.GlorySchema },
+  { id: 'glory-galeria-clave-incorrecta', nombre: "'galeria'/'gallery' en vez de 'galeriaAssets'", severidadDefault: 'warning', habilitadaDefault: false, categoria: CategoriaRegla.GlorySchema },
 
   /* 'content'/'contenido_html' en vez de 'contenido': prepareCorePostData() usa
    * $definition['contenido'] para post_content. Silencioso: post con contenido vacio. */
-  { id: 'glory-contenido-clave-incorrecta', nombre: "'content' en vez de 'contenido'", severidadDefault: 'warning', categoria: CategoriaRegla.GlorySchema },
+  { id: 'glory-contenido-clave-incorrecta', nombre: "'content' en vez de 'contenido'", severidadDefault: 'warning', habilitadaDefault: false, categoria: CategoriaRegla.GlorySchema },
 
   /* --- Sprint 3: CSS (staticAnalyzer.ts) --- */
   /* habilitadaDefault: false — demasiados falsos positivos con clases nativas (.input, .select, .button)
@@ -189,18 +189,18 @@ const REGISTRO: DefinicionRegla[] = [
   { id: 'objeto-mutable-exportado', nombre: 'Objeto mutable exportado', severidadDefault: 'hint', categoria: CategoriaRegla.ReactPatrones },
 
   /* --- Constantes PHP (gloryAnalyzer.ts) --- */
-  { id: 'undefined-class-constant', nombre: 'Constante de clase indefinida', severidadDefault: 'error', categoria: CategoriaRegla.GlorySchema },
+  { id: 'undefined-class-constant', nombre: 'Constante de clase indefinida', severidadDefault: 'error', habilitadaDefault: false, categoria: CategoriaRegla.GlorySchema },
 
   /* --- Contrato API (apiContractRules.ts) --- */
-  { id: 'api-response-mismatch', nombre: 'Mismatch clave API PHP vs TS', severidadDefault: 'error', categoria: CategoriaRegla.GlorySchema },
+  { id: 'api-response-mismatch', nombre: 'Mismatch clave API PHP vs TS', severidadDefault: 'error', habilitadaDefault: false, categoria: CategoriaRegla.GlorySchema },
   { id: 'acceso-api-sin-fallback', nombre: 'Acceso a data.campo sin fallback', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
 
   /* --- Sprint 11: Shape mismatch PHP↔TS (apiContractRules.ts + phpArrayShapeRules.ts) ---
    * Detectan cuando PHP devuelve array asociativo (→ JSON {}) pero TS espera Type[] (→ JSON []).
    * El caso clasico: $arr[$key] = valor en PHP causa 'h.map is not a function' en React. */
-  { id: 'api-shape-mismatch', nombre: 'Shape mismatch array PHP vs TS', severidadDefault: 'error', categoria: CategoriaRegla.GlorySchema },
-  { id: 'php-array-asociativo-como-lista', nombre: 'Array asociativo retornado como lista', severidadDefault: 'warning', categoria: CategoriaRegla.WordPressPhp },
-  { id: 'php-service-retorna-asociativo', nombre: 'Service retorna asociativo en vez de lista', severidadDefault: 'warning', categoria: CategoriaRegla.WordPressPhp },
+  { id: 'api-shape-mismatch', nombre: 'Shape mismatch array PHP vs TS', severidadDefault: 'error', habilitadaDefault: false, categoria: CategoriaRegla.GlorySchema },
+  { id: 'php-array-asociativo-como-lista', nombre: 'Array asociativo retornado como lista', severidadDefault: 'warning', habilitadaDefault: false, categoria: CategoriaRegla.WordPressPhp },
+  { id: 'php-service-retorna-asociativo', nombre: 'Service retorna asociativo en vez de lista', severidadDefault: 'warning', habilitadaDefault: false, categoria: CategoriaRegla.WordPressPhp },
 
   /* --- React/TS: emoji y estilos inline --- */
   { id: 'emoji-en-codigo', nombre: 'Emoji Unicode en codigo', severidadDefault: 'warning', categoria: CategoriaRegla.PatronesProhibidos },
@@ -252,7 +252,7 @@ const REGISTRO: DefinicionRegla[] = [
   /* --- Reglas portables de arquitectura (018A-5) --- */
   { id: 'dom-access-outside-platform', nombre: 'DOM fuera de plataforma', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
   { id: 'window-reference-outside-platform', nombre: 'Window fuera de plataforma', severidadDefault: 'warning', categoria: CategoriaRegla.ReactPatrones },
-  { id: 'api-call-outside-service', nombre: 'API fuera de servicio', severidadDefault: 'warning', categoria: CategoriaRegla.GlorySchema },
+  { id: 'api-call-outside-service', nombre: 'API fuera de servicio', severidadDefault: 'warning', habilitadaDefault: false, categoria: CategoriaRegla.GlorySchema },
   { id: 'console-production', nombre: 'Console en producción', severidadDefault: 'warning', categoria: CategoriaRegla.PatronesProhibidos },
   { id: 'unsafe-process-shell', nombre: 'Proceso shell inseguro', severidadDefault: 'error', categoria: CategoriaRegla.PatronesProhibidos },
   { id: 'default-export', nombre: 'Default export', severidadDefault: 'hint', habilitadaDefault: false, categoria: CategoriaRegla.EstructuraNomenclatura },

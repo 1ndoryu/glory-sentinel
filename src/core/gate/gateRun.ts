@@ -19,6 +19,7 @@ import { createReport, compactLines, GateStage, ReportPolicyIdentity } from './g
 import { issueLease, revokeLease, LEASE_ENV_VAR } from './lease';
 import type { IssuedLease } from './lease';
 import { policyDecision } from '../guard/policyDecision';
+import { recomendacionesPerfil } from '../perfil/perfilProyecto';
 
 const execFileAsync = promisify(execFile);
 
@@ -265,7 +266,7 @@ async function runCheckWithToken(
     { taskId: args.taskId ?? 'task', ci: requestedCi },
     scope,
     stages,
-    [],
+    await recomendacionesPerfil(workspace),
     startedAt,
   );
   const output = compactLines({ report, jsonPath, markdownPath }, { projectRoot: workspace, qualityConfig: limits }).join('\n');

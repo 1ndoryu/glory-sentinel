@@ -4,7 +4,7 @@ import * as path from 'path';
 import { analyzeCliTarget, parseCliArgs } from '../../../cli';
 import { analizarDocumento } from '../../../analyzers/pipeline';
 import { languageIdForFile } from '../../../core/runtime-proyecto/language';
-import { CoreFinding, createCoreDocument } from '../../../core/runtime-proyecto/types';
+import { CoreFinding, CoreRuleOverride, createCoreDocument } from '../../../core/runtime-proyecto/types';
 
 interface ExpectedFindingSummary {
   ruleId: string;
@@ -48,6 +48,15 @@ suite('Sentinel equivalencia core vs CLI', () => {
       const content = fs.readFileSync(inputPath, 'utf8');
       const expected = JSON.parse(fs.readFileSync(expectedPath, 'utf8')) as ExpectedFindingSummary[];
       const expectedRuleIds = new Set(expected.map(finding => finding.ruleId));
+      /* Reglas WordPress/Glory vienen desactivadas por defecto: el fixture que las
+       * necesita trae su propia config, aplicada igual al core y al CLI. */
+      const configPath = path.join(fixtureRoot, 'sentinel.config.json');
+      const configFile = fs.existsSync(configPath) ? configPath : undefined;
+      const reglasFixture = configFile
+        ? (JSON.parse(fs.readFileSync(configFile, 'utf8')).rules ?? {}) as Record<string, { habilitada?: boolean }>
+        : {};
+      const ruleOverrides: Record<string, CoreRuleOverride> = {};
+      for (const [ruleId, regla] of Object.entries(reglasFixture)) ruleOverrides[ruleId] = { enabled: regla.habilitada };
 
       const document = createCoreDocument({
         uri: `file://${inputPath.replace(/\\/g, '/')}`,
@@ -60,9 +69,10 @@ suite('Sentinel equivalencia core vs CLI', () => {
         enabled: true,
         includePatterns: [],
         excludePatterns: [],
-        ruleOverrides: {},
+        ruleOverrides,
       });
-      const cliResult = await analyzeCliTarget(parseCliArgs(['analyze', '--file', inputPath, '--format', 'json']));
+      const cliArgs = ['analyze', '--file', inputPath, '--format', 'json', ...(configFile ? ['--config', configFile] : [])];
+      const cliResult = await analyzeCliTarget(parseCliArgs(cliArgs));
       const cliFindings = cliResult.entries.flatMap(entry => entry.findings);
 
       assert.deepStrictEqual(resumirFindings(coreFindings, expectedRuleIds), expected);

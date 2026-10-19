@@ -233,12 +233,11 @@ export function analyzerSubConfig(config: SentinelConfigFile): SentinelConfigFil
  * default gano el patron de `.mjs` (11-oct) las 11 fichas con patrones propios
  * siguieron sin analizarlo y el arreglo solo valia para un proyecto.
  *
- * Una union a secas tampoco vale, y se midio: WANDORIUS, RESTAURANTE, NAKOMI,
- * PROYECTO TASKS y gloryapi acotan a proposito a `frontend/`, `scripts/`,
- * `client/`… para no analizar el resto del repo, y anadir el patron global de
- * `.ts` anula ese acotado (WANDORIUS paso de 0 a 141 hallazgos). Y los proyectos
- * puramente Rust (limpiador-pc, glory-agent, GLORYPORT, glory-pulse) no
- * declaran ni un patron web: meterles JS no tiene sentido.
+ * Una union a secas tampoco vale, y se midio: varios proyectos web acotan a
+ * proposito a `frontend/`, `scripts/`, `client/`… para no analizar el resto del
+ * repo, y anadir el patron global de `.ts` anula ese acotado (un proyecto paso
+ * de 0 a 141 hallazgos). Y los proyectos puramente Rust no declaran ni un patron
+ * web: meterles JS no tiene sentido.
  *
  * De ahi la regla: **los defaults rellenan las extensiones que la ficha olvido,
  * dentro de los ambitos que la ficha eligio**. El prefijo de directorio de cada

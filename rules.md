@@ -28,23 +28,23 @@ Total: 121 reglas.
 
 ## glory-schema
 
-- [api-call-outside-service] API fuera de servicio — warning
-- [api-response-mismatch] Mismatch clave API PHP vs TS — error
-- [api-shape-mismatch] Shape mismatch array PHP vs TS — error
-- [endpoint-accede-bd] Controller accede a BD — warning
-- [glory-contenido-clave-incorrecta] 'content' en vez de 'contenido' — warning
-- [glory-galeria-clave-incorrecta] 'galeria'/'gallery' en vez de 'galeriaAssets' — warning
-- [glory-imagen-clave-incorrecta] 'imagen' en vez de 'imagenDestacadaAsset' — warning
-- [glory-meta-clave-incorrecta] 'meta' en vez de 'metaEntrada' — error
-- [glory-slug-clave-incorrecta] 'slug' en vez de 'slugDefault' — error
-- [glory-titulo-clave-incorrecta] 'title'/'name' en vez de 'titulo' — error
-- [hardcoded-enum-value] Valor enum hardcodeado — warning
-- [hardcoded-sql-column] Columna SQL hardcodeada — warning
-- [interval-sin-whitelist] INTERVAL sin whitelist — error
-- [isla-no-registrada] Isla no registrada — warning
-- [open-redirect] Redireccion insegura — error
-- [return-void-critico] Escritura retorna void — warning
-- [undefined-class-constant] Constante de clase indefinida — error
+- [api-call-outside-service] API fuera de servicio — warning (desactivada por defecto)
+- [api-response-mismatch] Mismatch clave API PHP vs TS — error (desactivada por defecto)
+- [api-shape-mismatch] Shape mismatch array PHP vs TS — error (desactivada por defecto)
+- [endpoint-accede-bd] Controller accede a BD — warning (desactivada por defecto)
+- [glory-contenido-clave-incorrecta] 'content' en vez de 'contenido' — warning (desactivada por defecto)
+- [glory-galeria-clave-incorrecta] 'galeria'/'gallery' en vez de 'galeriaAssets' — warning (desactivada por defecto)
+- [glory-imagen-clave-incorrecta] 'imagen' en vez de 'imagenDestacadaAsset' — warning (desactivada por defecto)
+- [glory-meta-clave-incorrecta] 'meta' en vez de 'metaEntrada' — error (desactivada por defecto)
+- [glory-slug-clave-incorrecta] 'slug' en vez de 'slugDefault' — error (desactivada por defecto)
+- [glory-titulo-clave-incorrecta] 'title'/'name' en vez de 'titulo' — error (desactivada por defecto)
+- [hardcoded-enum-value] Valor enum hardcodeado — warning (desactivada por defecto)
+- [hardcoded-sql-column] Columna SQL hardcodeada — warning (desactivada por defecto)
+- [interval-sin-whitelist] INTERVAL sin whitelist — error (desactivada por defecto)
+- [isla-no-registrada] Isla no registrada — warning (desactivada por defecto)
+- [open-redirect] Redireccion insegura — error (desactivada por defecto)
+- [return-void-critico] Escritura retorna void — warning (desactivada por defecto)
+- [undefined-class-constant] Constante de clase indefinida — error (desactivada por defecto)
 
 ## limites-archivo
 
@@ -76,7 +76,7 @@ Total: 121 reglas.
 - [button-clase-especifica] Clase específica en botón — warning
 - [cola-sin-limite] push() a cola sin limite — warning
 - [componente-artesanal] Componente artesanal detectado — warning
-- [componente-sin-hook-glory] Componente sin hook dedicado — warning
+- [componente-sin-hook-glory] Componente sin hook dedicado — warning (desactivada por defecto)
 - [dom-access-outside-platform] DOM fuera de plataforma — warning
 - [error-enmascarado] Error enmascarado como exito — error
 - [fallo-sin-feedback] Catch sin feedback al usuario — warning
@@ -133,21 +133,21 @@ Total: 121 reglas.
 - [query-doble-verificacion] Query doble verificacion — information
 - [repository-sin-whitelist-columnas] SELECT * sin columnas — hint
 - [toctou-select-insert] TOCTOU select-insert — error
-- [wpdb-sin-prepare] $wpdb sin prepare() — error
+- [wpdb-sin-prepare] $wpdb sin prepare() — error (desactivada por defecto)
 
 ## wordpress-php
 
-- [cadena-isset-update] Cadena isset-update — warning
-- [catch-critico-solo-log] Catch critico solo log — warning
-- [controller-sin-trycatch] Controller sin try-catch — warning
-- [curl-sin-verificacion] curl_exec sin curl_error — warning
-- [json-decode-inseguro] json_decode sin verificacion — warning
-- [json-sin-limite-bd] JSON sin limite a BD — warning
-- [lock-sin-finally] Lock sin finally — error
-- [php-array-asociativo-como-lista] Array asociativo retornado como lista — warning
-- [php-service-retorna-asociativo] Service retorna asociativo en vez de lista — warning
-- [php-sin-return-type] PHP sin return type — hint
-- [request-json-directo] JSON params sin filtrar — warning
-- [retorno-ignorado-repo] Retorno repo ignorado — warning
-- [sanitizacion-faltante] Request sin sanitizar — warning
-- [temp-sin-finally] tempnam sin finally — warning
+- [cadena-isset-update] Cadena isset-update — warning (desactivada por defecto)
+- [catch-critico-solo-log] Catch critico solo log — warning (desactivada por defecto)
+- [controller-sin-trycatch] Controller sin try-catch — warning (desactivada por defecto)
+- [curl-sin-verificacion] curl_exec sin curl_error — warning (desactivada por defecto)
+- [json-decode-inseguro] json_decode sin verificacion — warning (desactivada por defecto)
+- [json-sin-limite-bd] JSON sin limite a BD — warning (desactivada por defecto)
+- [lock-sin-finally] Lock sin finally — error (desactivada por defecto)
+- [php-array-asociativo-como-lista] Array asociativo retornado como lista — warning (desactivada por defecto)
+- [php-service-retorna-asociativo] Service retorna asociativo en vez de lista — warning (desactivada por defecto)
+- [php-sin-return-type] PHP sin return type — hint (desactivada por defecto)
+- [request-json-directo] JSON params sin filtrar — warning (desactivada por defecto)
+- [retorno-ignorado-repo] Retorno repo ignorado — warning (desactivada por defecto)
+- [sanitizacion-faltante] Request sin sanitizar — warning (desactivada por defecto)
+- [temp-sin-finally] tempnam sin finally — warning (desactivada por defecto)
