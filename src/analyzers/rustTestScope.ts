@@ -57,7 +57,7 @@ const VENTANA_ATRIBUTOS = 240;
 
 /* Cache por directorio: el analisis recorre muchos ficheros y la respuesta
  * depende de los hermanos, no del fichero. Mismo criterio que
- * `cacheRateLimitToml` en rustReglasNuevas.ts. */
+ * `cacheRateLimitToml` en rustReglasRutas.ts. */
 const cache = new Map<string, boolean>();
 
 /* ¿Algun hermano declara ESTE fichero bajo `#[cfg(test)]`?
