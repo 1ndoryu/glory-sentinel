@@ -9,4 +9,5 @@ tsconfig.json
 **/*.map
 **/*.ts
 !out/**/*.js
-PLANIFICACION.md
+roadmap.md
+Agente/**
