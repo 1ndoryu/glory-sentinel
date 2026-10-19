@@ -113,7 +113,7 @@ Los consumidores antiguos pueden conservar temporalmente `task:check` o `scripts
 
 ## Requisitos
 
-- Node.js 20 o superior (`engines.node` y CI usan 20).
+- Node.js 20 o superior (`engines.node` y CI usan 20). En servidores, el `node` por defecto puede ser más antiguo: comprueba `node --version` en la misma terminal donde ejecutarás `npm ci` y `npm run compile`.
 - `git` en el PATH.
 - Windows: el shim `sentinel.cmd` se ejecuta con `cmd`; `--with-path` escribe el PATH de usuario.
 - Fuera de Windows: el shim `bin/sentinel` (sh) se marca ejecutable al instalar.
@@ -131,7 +131,13 @@ npm run compile
 node out/cli/index.js install --source-root . --with-shims --with-path
 ```
 
-Abre una terminal nueva y verifica la instalación real:
+Fuera de Windows, `--with-path` no toca el PATH: añade el directorio `bin` del destino a tu shell (por defecto `~/.glory-sentinel/bin`):
+
+```bash
+export PATH="$HOME/.glory-sentinel/bin:$PATH"
+```
+
+Para que persista, pon esa línea en tu perfil de shell (`~/.bashrc` o equivalente). Abre una terminal nueva y verifica la instalación real:
 
 ```bash
 sentinel --version
@@ -144,7 +150,7 @@ Para comprobar el primer análisis de un proyecto (desde su carpeta raíz; escri
 sentinel analyze --workspace . --format json --output sentinel-reporte.json
 ```
 
-`sentinel doctor --json` comprueba un proyecto consumidor: lee su `sentinel.lock.json` y sale 1 con `lock-missing` si no lo tiene. No es un paso de la instalación del propio Sentinel.
+`sentinel doctor --json` comprueba un proyecto consumidor. Solo lo trata como consumidor si tiene `sentinel.config.json` o `quality.config.json`; en ese caso lee su `sentinel.lock.json` y sale 1 con `lock-missing` si no lo tiene. Un directorio sin ninguno de los dos marcadores sale 0 sin avisos de lock: no es un fallo de la instalación. No es un paso de la instalación del propio Sentinel.
 
 La versión visible no basta para garantizar capacidades. Los proyectos que dependen de Sentinel deben fijar también el commit, el protocolo y el hash del artefacto en su lock.
 
@@ -152,7 +158,7 @@ Destino por defecto: `%LOCALAPPDATA%\GlorySentinel` en Windows; si no existe `LO
 
 - `--with-path` añade al PATH de usuario de Windows los directorios de shims y `bin`. Fuera de Windows no toca el PATH: el dry-run informa `[path] unsupported` y hay que añadir `<destino>/bin` a tu shell a mano.
 - `--with-shims` intercepta solo algunos comandos: `npm`, `npx` y `cargo` en `cmd`; `cargo`, `cargo.exe`, `rustfmt`, `npm`, `npx`, `vitest`, `tsc`, `eslint` y `prettier` en bash y PowerShell. Cualquier otro comando no pasa por Sentinel.
-- `sentinel doctor` lee el `sentinel.lock.json` del workspace; si falta, informa `lock-missing` y sale 1. Un proyecto consumidor debe tenerlo; el repo de Sentinel no es un consumidor. `doctor` no acepta `--target-root` (sale 2 si se pasa) y reporta el runtime global, no el de un destino personalizado.
+- `sentinel doctor` lee el `sentinel.lock.json` del workspace solo si tiene `sentinel.config.json` o `quality.config.json`; si ese lock falta, informa `lock-missing` y sale 1. Un proyecto consumidor debe tenerlo; el repo de Sentinel no es un consumidor. `doctor` no acepta `--target-root` (sale 2 si se pasa) y reporta el runtime global, no el de un destino personalizado.
 - Desinstalar: `sentinel uninstall --dry-run` primero. Retira solo entradas administradas (PATH, shims, marcadores de perfil, versiones y `current`). `--keep-runtime` conserva `versions/`, `current` y `bin/`.
 
 ## Añadir Sentinel a un proyecto nuevo
