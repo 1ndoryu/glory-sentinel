@@ -11,8 +11,8 @@ import { enmascararLiterales } from '../../../utils/analisis/literalesCodigo';
  * solo importa en produccion. Mismo criterio que handler-accede-bd-rs. */
 const REGLAS_SQL_SOLO_PRODUCCION = new Set(['sqlx-query-sin-macro', 'sqlx-query-as-sin-macro']);
 
-/* [por que] Un TODO dentro de una cadena (fixture de test, texto de ejemplo) no es un
- * marcador pendiente: estas reglas solo miran el código y los comentarios. */
+/* [por que] Un marcador de tarea dentro de una cadena (fixture de test, texto de ejemplo)
+ * no es pendiente: estas reglas solo miran el código y los comentarios. */
 const REGLAS_SOLO_CODIGO = new Set(['todo-pendiente']);
 
 /* Archivo de test por nombre (.test./.spec.) o por carpeta (test/, __tests__/).
