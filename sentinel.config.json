@@ -1,14 +1,26 @@
 {
-  "excludePatterns": [
-    "**/node_modules/**",
-    "**/vendor/**",
-    "**/dist/**",
-    "**/_generated/**",
-    "**/out/**",
-    "**/.vitepress/cache/**",
-    "**/build/**",
-    "**/.agent/**",
-    "**/target/**",
-    "**/fixtures/equivalence/**"
-  ]
+  "schemaVersion": 2,
+  "mode": "enforce",
+  "project": {
+    "primaryBranch": "main"
+  },
+  "analyzers": {
+    "sentinel": {
+      "enabled": true,
+      "config": {
+        "excludePatterns": [
+          "**/node_modules/**",
+          "**/vendor/**",
+          "**/dist/**",
+          "**/_generated/**",
+          "**/out/**",
+          "**/.vitepress/cache/**",
+          "**/build/**",
+          "**/.agent/**",
+          "**/target/**",
+          "**/fixtures/equivalence/**"
+        ]
+      }
+    }
+  }
 }
