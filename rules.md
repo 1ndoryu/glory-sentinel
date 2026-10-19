@@ -1,9 +1,9 @@
 # Reglas de Codigo — Code Sentinel
 
-Catalogo generado desde src/config/ruleRegistry.ts (fuente unica de verdad).
+Catalogo generado desde src/config/ruleRegistry.ts (fuente unica de verdad). No editar a mano: `node scripts/catalogo-reglas.mjs`.
 Formato: [id] nombre — severidad por defecto (desactivada por defecto).
 
-Total: 106 reglas.
+Total: 121 reglas.
 
 ---
 
@@ -15,6 +15,7 @@ Total: 106 reglas.
 - [controller-fqn-inline] FQN inline en PHP — hint
 - [css-elemento-html-directo] Selector HTML directo en componente — warning
 - [css-especificacion-diseno-local] Especificacion de diseno local en CSS — warning
+- [css-hardcoded-value] Color CSS hardcodeado — warning
 - [default-export] Default export — hint (desactivada por defecto)
 - [import-muerto] Import sin uso — warning
 - [large-interface-isp] Interface grande ISP — hint
@@ -24,8 +25,6 @@ Total: 106 reglas.
 - [non-null-assertion-excesivo] Non-null assertion excesivo — hint
 - [todo-pendiente] TODO/FIXME pendiente detectado — hint
 - [todo-prosa-sin-marcador] Mencion 'todo' sin marcador de tarea — warning
-
----
 
 ## glory-schema
 
@@ -47,8 +46,6 @@ Total: 106 reglas.
 - [return-void-critico] Escritura retorna void — warning
 - [undefined-class-constant] Constante de clase indefinida — error
 
----
-
 ## limites-archivo
 
 - [directorio-abarrotado] Directorio con demasiados archivos — warning
@@ -56,8 +53,6 @@ Total: 106 reglas.
 - [limite-lineas-nivel-2] Limite de lineas nivel 2 — warning
 - [limite-lineas-nivel-3] Limite de lineas nivel 3 — error
 - [limite-lineas-nivel-4] Limite de lineas nivel 4 — error
-
----
 
 ## patrones-prohibidos
 
@@ -75,8 +70,6 @@ Total: 106 reglas.
 - [php-supresor-at] Supresor @ en PHP — error
 - [unsafe-process-shell] Proceso shell inseguro — error
 
----
-
 ## react-patrones
 
 - [acceso-api-sin-fallback] Acceso a data.campo sin fallback — warning
@@ -88,8 +81,10 @@ Total: 106 reglas.
 - [error-enmascarado] Error enmascarado como exito — error
 - [fallo-sin-feedback] Catch sin feedback al usuario — warning
 - [fetch-sin-timeout] fetch() sin timeout — hint
+- [formulario-config-sin-sistema-declarativo] Formulario de config manual sin sistema declarativo — warning
 - [handler-sin-trycatch] Handler async sin try-catch — warning
 - [html-nativo-en-vez-de-componente] HTML nativo en vez de componente — warning
+- [html-sin-origen-declarado] Productor HTML sin declarar en allowlist — error
 - [inline-style-prohibido] CSS inline con style={{}} — warning
 - [key-index-lista] key={index} en lista — hint
 - [listen-sin-cleanup] listen() sin cleanup — warning
@@ -110,19 +105,27 @@ Total: 106 reglas.
 - [zustand-objeto-selector] Zustand selector crea ref nueva — warning
 - [zustand-sin-selector] Zustand sin selector — warning
 
----
-
 ## rust-patrones
 
-- [axum-ruta-sintaxis-rs] Sintaxis de parametro de ruta axum incorrecta para el stack (`:param` en matchit 0.7/axum 0.7, `{param}` en matchit 0.8/axum 0.8+; legacy ante stack desconocido) — error
+- [axum-ruta-sintaxis-rs] Sintaxis de parametro de ruta axum incorrecta para el stack — error
+- [block-en-async-rs] block_on dentro de contexto async — error
 - [broadcast-mutex-riesgo-rs] tokio::sync::broadcast usa Mutex interno — error
+- [clone-bajo-lock-rs] .clone() bajo lock sincrono — warning
+- [expect-produccion-rs] .expect() en produccion — error
 - [funcion-larga-rs] Funcion Rust excede 100 lineas — warning
+- [god-object-rs] Archivo god-object (>500 warn, >800 error) — warning
 - [handler-accede-bd-rs] Handler Rust accede BD directamente — warning
-- [panic-produccion-rs] panic!/todo!/unimplemented! en produccion (ignora fichero solo-test `#![cfg(test)]`, 079A-1 F6) — warning
+- [lock-a-traves-await-rs] MutexGuard sincrono vivo a traves de .await — warning
+- [panic-produccion-rs] panic!/todo!/unimplemented! en produccion — warning
 - [parametros-excesivos-rs] Funcion Rust con 9+ parametros — hint
-- [unwrap-produccion-rs] .unwrap() en produccion (ignora fichero solo-test `#![cfg(test)]`, 079A-1 F6) — warning
-
----
+- [path-join-sin-canonicalize] Path.join() sin canonicalize() en el scope — error
+- [port-fs-duplicado-rs] Contenido .rs duplicado con otro crate del workspace — warning
+- [rusqlite-bloqueante-en-async] Mutex<Connection> rusqlite con .lock() en async — error
+- [ruta-post-sin-rate-limit] Ruta POST sin rate limiting visible — error
+- [secreto-en-log] Posible secreto interpolado en log — error
+- [shell-modelo-sin-allowlist] Shell interactivo con argumento no literal — error
+- [sqlite-carga-N-consultas] 3+ .await secuenciales sin join en la misma funcion — warning
+- [unwrap-produccion-rs] .unwrap() en produccion — warning
 
 ## seguridad-sql
 
@@ -131,8 +134,6 @@ Total: 106 reglas.
 - [repository-sin-whitelist-columnas] SELECT * sin columnas — hint
 - [toctou-select-insert] TOCTOU select-insert — error
 - [wpdb-sin-prepare] $wpdb sin prepare() — error
-
----
 
 ## wordpress-php
 
@@ -150,4 +151,3 @@ Total: 106 reglas.
 - [retorno-ignorado-repo] Retorno repo ignorado — warning
 - [sanitizacion-faltante] Request sin sanitizar — warning
 - [temp-sin-finally] tempnam sin finally — warning
-

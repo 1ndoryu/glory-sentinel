@@ -10,7 +10,8 @@
     "url": "https://github.com/1ndoryu/glory-sentinel"
   },
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.85.0",
+    "node": ">=20"
   },
   "categories": [
     "Linters",
@@ -125,9 +126,11 @@
     "check:core": "node scripts/check-core-no-vscode.mjs",
     "check:zed": "cargo check --manifest-path integrations/zed/Cargo.toml --target wasm32-wasip2",
     "smoke:lsp": "node scripts/smoke-lsp-stdio.mjs",
+    "docs:reglas": "node scripts/catalogo-reglas.mjs",
+    "check:reglas": "node scripts/catalogo-reglas.mjs --check",
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js",
-    "test:unit": "npm run compile && npm run check:core && npm run smoke:lsp && mocha"
+    "test:unit": "npm run compile && npm run check:core && npm run check:reglas && npm run smoke:lsp && mocha"
   },
   "devDependencies": {
     "@types/glob": "^8.1.0",
