@@ -29,10 +29,6 @@ Orden de ejecución: T1 → T6. Cada bloque: probar en la 89, documentar en `Age
   - Presupuestos: `scripts/module-budgets.json` fija 550–950 en barriles de 8–26 líneas; `staticCodeRules.ts` (704) se partirá; `apiContractIndexer.ts` (485) y `externalToolsAnalyzer.ts` (454) sin presupuesto.
   - `roadmap.md` sigue versionado: aplicar la misma decisión que en VarSense (sacarlo del repo).
   - `media/*.jpg` de 290 KB como icono (bajo); `src/core/guard/guardCommand.ts:77` con `readFileSync` en la ruta del guard (bajo).
-- [ ] **T6 Autogate y tests (medio).**
-  - `scripts/autogate.mjs:27` falla con cualquier hallazgo, sin umbral, y pasa si falta el campo (fail-open). `sentinel-autogate.json` lo referencia `package.json:135` pero no existe. Acción: archivo versionado, umbral explícito y fail-closed.
-  - `sentinel.config.json:38` excluye solo `fixtures/equivalence`. Aplicar la misma exclusión de código de prueba que VarSense (decisión de la usuaria).
-  - Timeout de 600000 ms en `scripts/autogate.mjs:18` (bajo).
 - Cierre del backlog: autogate 0 hallazgos en la 89, `check:reglas`, `check:core`, `test:unit`, compile y lint en verde, y una instalación de tercero siguiendo solo el README.
 
 
