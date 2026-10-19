@@ -4,9 +4,9 @@
  * mismo: reescribir o parchar un componente del sistema UI.
  */
 
-import { Violacion } from '../../types';
-import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
-import { tieneSentinelDisable, tieneSentinelDisableFile } from '../../utils/analisisHelpers';
+import { Violacion } from '../../../types';
+import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
+import { tieneSentinelDisable, tieneSentinelDisableFile } from '../../../utils/analisisHelpers';
 
 /*
  * Detecta patrones artesanales que reimplementan componentes

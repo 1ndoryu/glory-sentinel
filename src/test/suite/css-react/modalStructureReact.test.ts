@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { verificarModalEstructuraNoCanonica } from '../../../analyzers/react/reactComponentRules';
+import { verificarModalEstructuraNoCanonica } from '../../../analyzers/react/reglas/reactComponentRules';
 
 suite('modal-estructura-no-canonica', () => {
   test('detecta clase local en el contenedor de Modal', () => {

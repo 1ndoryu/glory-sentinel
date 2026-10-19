@@ -17,11 +17,11 @@ import { verificarMimeTypeCliente } from '../../../analyzers/php/phpSecurityRule
 import { verificarJsonDecodeInseguro } from '../../../analyzers/php/phpDataFlujoRules';
 
 /* Sprint 9: TS rules */
-import { verificarListenSinCleanup } from '../../../analyzers/react/reactHookRules';
-import { verificarStatusHttpGenerico } from '../../../analyzers/react/reactErrorRules';
-import { verificarHandlerSinTryCatch } from '../../../analyzers/react/reactErrorRules';
-import { verificarColaSinLimite } from '../../../analyzers/react/reactComponentRules';
-import { verificarObjetoMutableExportado } from '../../../analyzers/react/reactComponentRules';
+import { verificarListenSinCleanup } from '../../../analyzers/react/reglas/reactHookRules';
+import { verificarStatusHttpGenerico } from '../../../analyzers/react/reglas/reactErrorRules';
+import { verificarHandlerSinTryCatch } from '../../../analyzers/react/reglas/reactErrorRules';
+import { verificarColaSinLimite } from '../../../analyzers/react/reglas/reactComponentRules';
+import { verificarObjetoMutableExportado } from '../../../analyzers/react/reglas/reactComponentRules';
 
 /* Sprint 8 */
 

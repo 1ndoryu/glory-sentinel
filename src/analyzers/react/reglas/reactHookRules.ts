@@ -4,9 +4,9 @@
  * y uso incorrecto de stores Zustand (sin selector, objeto selector).
  */
 
-import { Violacion } from '../../types';
-import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
-import { esComentario, tieneSentinelDisable } from '../../utils/analisisHelpers';
+import { Violacion } from '../../../types';
+import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
+import { esComentario, tieneSentinelDisable } from '../../../utils/analisisHelpers';
 
 /*
  * Detecta useEffect con async/fetch pero sin AbortController en cleanup.

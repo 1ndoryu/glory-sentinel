@@ -12,7 +12,7 @@
     "src/core/gate/lease.ts": 550,
     "src/cli/args.ts": 550,
     "src/core/gate/scope.ts": 450,
-    "src/analyzers/react/reactComponentRules.ts": 950,
+    "src/analyzers/react/reglas/reactComponentRules.ts": 950,
     "src/analyzers/react/formularioConfigSystem.ts": 300,
     "src/analyzers/static/staticCssRules.ts": 700,
     "src/analyzers/static/staticCssDesignRules.ts": 400,

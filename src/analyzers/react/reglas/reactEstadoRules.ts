@@ -4,9 +4,9 @@
  * Agrupadas porque todas vigilan que un dato no cambie por efecto lateral.
  */
 
-import { Violacion } from '../../types';
-import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
-import { esComentario, tieneSentinelDisable, tieneSentinelDisableFile } from '../../utils/analisisHelpers';
+import { Violacion } from '../../../types';
+import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
+import { esComentario, tieneSentinelDisable, tieneSentinelDisableFile } from '../../../utils/analisisHelpers';
 
 /*
  * Detecta mutaciones directas de estado React.

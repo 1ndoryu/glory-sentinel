@@ -1,7 +1,7 @@
 /* [08AA-26] html-nativo-en-vez-de-componente no vigila los wrappers de components/ui
  * (sistema de diseno). Ver esWrapperSistemaDiseno. */
 import * as assert from 'assert';
-import { esDisparadorDisclosure, esWrapperSistemaDiseno } from '../../../analyzers/react/reactComponentRules';
+import { esDisparadorDisclosure, esWrapperSistemaDiseno } from '../../../analyzers/react/reglas/reactComponentRules';
 
 suite('08AA-26 html-nativo: wrappers del sistema de diseno', () => {
   test('ruta de components/ui queda fuera, en POSIX y Windows', () => {

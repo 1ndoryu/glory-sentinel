@@ -13,7 +13,7 @@ import * as assert from 'assert';
 import {
   verificarModalConTitulo,
   verificarModalAccionesNoCanonico,
-} from '../../../analyzers/react/reactModalRules';
+} from '../../../analyzers/react/reglas/reactModalRules';
 import {
   verificarMenuContextualOverride,
   verificarComponenteArtesanal,
@@ -21,7 +21,7 @@ import {
   verificarHtmlNativoEnVezDeComponente,
   verificarComponenteSinHook,
   verificarMutacionDirectaEstado,
-} from '../../../analyzers/react/reactComponentRules';
+} from '../../../analyzers/react/reglas/reactComponentRules';
 import {
   tieneSentinelDisable,
   tieneSentinelDisableFile,

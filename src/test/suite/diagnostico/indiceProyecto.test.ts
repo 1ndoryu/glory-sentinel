@@ -14,7 +14,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { CoreTextDocument } from '../../../core/runtime-proyecto/types';
 import { verificarCssAdhocButtonStyle, verificarCssElementoHTMLDirecto } from '../../../analyzers/static/staticCssRules';
-import { verificarModalAccionesNoCanonico, verificarModalEstructuraNoCanonica } from '../../../analyzers/react/reactComponentRules';
+import { verificarModalAccionesNoCanonico, verificarModalEstructuraNoCanonica } from '../../../analyzers/react/reglas/reactComponentRules';
 import { indiceProyecto } from '../../../utils/analisisHelpers';
 
 let contador = 0;

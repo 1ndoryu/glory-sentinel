@@ -3,9 +3,9 @@
  * que debe ir a un hook. Ambas miran como se organiza un componente, no el DS.
  */
 
-import { Violacion } from '../../types';
-import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
-import { esComentario, tieneSentinelDisable, tieneSentinelDisableFile } from '../../utils/analisisHelpers';
+import { Violacion } from '../../../types';
+import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
+import { esComentario, tieneSentinelDisable, tieneSentinelDisableFile } from '../../../utils/analisisHelpers';
 
 /*
  * Detecta key={index} en callbacks de .map().

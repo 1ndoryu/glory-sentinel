@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { verificarPromiseSinCatch } from '../../../analyzers/react/reactErrorRules';
+import { verificarPromiseSinCatch } from '../../../analyzers/react/reglas/reactErrorRules';
 
 suite('Promise sin catch [08AA-26]', () => {
   test('ignora lazy() con .then en la misma linea [124A-FP3]', () => {

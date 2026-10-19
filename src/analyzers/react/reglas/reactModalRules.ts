@@ -7,15 +7,15 @@
  * para no tocar ningun importador (reactAnalyzer, tests).
  */
 
-import { Violacion } from '../../types';
-import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
+import { Violacion } from '../../../types';
+import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
 import {
   bloqueDefineSemanticaModal,
   esComentario,
   indiceProyecto,
   tieneSentinelDisable,
   tieneSentinelDisableFile,
-} from '../../utils/analisisHelpers';
+} from '../../../utils/analisisHelpers';
 
 /*
  * Detecta titulos (<h1-h6>) que son hijos directos de un bloque <Modal>.

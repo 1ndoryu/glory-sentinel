@@ -18,7 +18,7 @@ import {
   verificarZustandSinSelector,
   verificarZustandObjetoSelector,
   verificarListenSinCleanup,
-} from './reactHookRules';
+} from './reglas/reactHookRules';
 import {
   verificarConsoleEnCatch,
   verificarErrorEnmascarado,
@@ -27,7 +27,7 @@ import {
   verificarFetchSinTimeout,
   verificarStatusHttpGenerico,
   verificarHandlerSinTryCatch,
-} from './reactErrorRules';
+} from './reglas/reactErrorRules';
 import {
   verificarMutacionDirectaEstado,
   verificarKeyIndexLista,
@@ -45,7 +45,7 @@ import {
   verificarMenuContextualOverride,
   configurarWorkspaceRootsReact,
   obtenerWorkspaceRootsReact,
-} from './reactComponentRules';
+} from './reglas/reactComponentRules';
 import { verificarFormularioConfigSinSistema } from './formularioConfigSystem';
 import { verificarAccesoApiSinFallback } from '../glory/api/apiFallbackRules';
 

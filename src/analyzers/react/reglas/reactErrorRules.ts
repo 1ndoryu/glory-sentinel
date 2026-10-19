@@ -4,9 +4,9 @@
  * promise sin catch, fallo sin feedback, fetch sin timeout.
  */
 
-import { Violacion } from '../../types';
-import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
-import { esComentario, tieneSentinelDisable } from '../../utils/analisisHelpers';
+import { Violacion } from '../../../types';
+import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
+import { esComentario, tieneSentinelDisable } from '../../../utils/analisisHelpers';
 
 /* Detecta console.log/warn generico en bloques catch */
 export function verificarConsoleEnCatch(lineas: string[]): Violacion[] {

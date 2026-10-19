@@ -11,7 +11,7 @@ import {
   verificarKeyIndexLista,
   verificarMenuContextualOverride,
   verificarModalEstructuraNoCanonica,
-} from '../../../analyzers/react/reactComponentRules';
+} from '../../../analyzers/react/reglas/reactComponentRules';
 
 function docCss(fileName: string, content: string) {
   return createCoreDocument({ uri: `file://${fileName}`, fileName, languageId: 'css', content });

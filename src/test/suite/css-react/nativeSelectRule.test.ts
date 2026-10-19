@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { verificarHtmlNativoEnVezDeComponente, configurarWorkspaceRootsReact } from '../../../analyzers/react/reactComponentRules';
+import { verificarHtmlNativoEnVezDeComponente, configurarWorkspaceRootsReact } from '../../../analyzers/react/reglas/reactComponentRules';
 
 suite('select-nativo-prohibido', () => {
   test('detecta select nativo aunque no exista componente Select con nombre literal', () => {

@@ -4,9 +4,9 @@
  * fuera porque construyen el elemento nativo a proposito.
  */
 
-import { Violacion } from '../../types';
-import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
-import { esComentario, tieneSentinelDisable, tieneSentinelDisableFile } from '../../utils/analisisHelpers';
+import { Violacion } from '../../../types';
+import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
+import { esComentario, tieneSentinelDisable, tieneSentinelDisableFile } from '../../../utils/analisisHelpers';
 import { existeComponenteUi } from './reactUiCatalog';
 
 /* [08AA-26] components/ui es el sistema de diseno: sus wrappers construyen el elemento
