@@ -1,4 +1,4 @@
-/*
+/* sentinel-disable-file eval-prohibido todo-prosa-sin-marcador: esta tabla define las reglas; sus textos citan eval() y TODO como etiquetas, no como deuda.
  * Reglas estaticas por defecto organizadas por categoria.
  * Cada regla tiene su regex, severidad y tipos de archivo a los que aplica.
  * Basado en las secciones 1.2, 1.3, 1.4 del protocolo.

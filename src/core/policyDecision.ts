@@ -2,8 +2,10 @@
  * Extraído de scripts/quality/policy-decision.mjs de wandori.us: decide
  * modo/acción a partir del descubrimiento de política (no-policy, legacy-v1,
  * policy v2, invalid-policy). Puro: sin I/O ni dependencias del proyecto. */
-export const DECISION_STATUSES = new Set(['no-policy', 'legacy-v1', 'policy', 'invalid-policy']);
-export const MODES = new Set(['enforce', 'observe', 'pass-through']);
+import { conjuntoConstante } from '../utils/conjuntoConstante';
+
+export const DECISION_STATUSES: ReadonlySet<string> = conjuntoConstante(['no-policy', 'legacy-v1', 'policy', 'invalid-policy']);
+export const MODES: ReadonlySet<string> = conjuntoConstante(['enforce', 'observe', 'pass-through']);
 
 export interface DiscoveredPolicy {
   status?: unknown;

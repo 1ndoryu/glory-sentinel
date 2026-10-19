@@ -14,8 +14,9 @@ import {
   tieneSentinelDisable,
   tieneSentinelDisableFile,
 } from '../../utils/analisisHelpers';
+import { conjuntoConstante } from '../../utils/conjuntoConstante';
 
-export const CLASES_BOTON_SISTEMA = new Set([
+export const CLASES_BOTON_SISTEMA: ReadonlySet<string> = conjuntoConstante([
   'menuContextualBoton',
   'boton', 'botonBase', 'botonPrimario', 'botonSecundario', 'botonOutline', 'botonTexto',
   'botonExito', 'botonExitoSuave', 'botonPeligro', 'botonPeligroSuave',

@@ -9,11 +9,12 @@ import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { writeAtomic } from './atomicFile';
+import { conjuntoConstante } from '../utils/conjuntoConstante';
 
 const execFileAsync = promisify(execFile);
 
 /** Perfiles con etapa ejecutable que el orquestador puede seleccionar. */
-export const EXECUTABLE_PROFILES = new Set(['rust', 'frontend', 'css', 'docs']);
+export const EXECUTABLE_PROFILES: ReadonlySet<string> = conjuntoConstante(['rust', 'frontend', 'css', 'docs']);
 
 export interface ScopeQualityConfig {
   fullPatterns: string[];

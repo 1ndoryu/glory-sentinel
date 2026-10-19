@@ -1,4 +1,4 @@
-/*
+/* sentinel-disable-file eval-prohibido: descripciones de categoria; citan eval() como etiqueta, no como llamada.
  * Categorias y metadata de las reglas.
  * Proporciona informacion descriptiva para el panel de resumen.
  */

@@ -1,4 +1,4 @@
-/*
+/* sentinel-disable-file eval-prohibido: este archivo define los detectores; el regex de eval() es el patron, no una llamada.
  * Patrones regex reutilizables para el analisis estatico.
  * Organizados por categoria y tipo de archivo.
  */
