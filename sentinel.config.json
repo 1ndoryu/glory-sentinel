@@ -4,6 +4,23 @@
   "project": {
     "primaryBranch": "main"
   },
+  "includePatterns": [],
+  "directoryExceptions": [],
+  "portableBoundaries": {},
+  "rules": {},
+  "guard": {
+    "directCommands": {
+      "npmScripts": ["lint", "test", "build", "check"],
+      "npxTools": ["eslint", "tsc", "typescript"],
+      "cargoSubcommands": [],
+      "tools": []
+    }
+  },
+  "runtime": {
+    "minimumVersion": "",
+    "protocolVersion": 0,
+    "lockFile": ""
+  },
   "analyzers": {
     "sentinel": {
       "enabled": true,
