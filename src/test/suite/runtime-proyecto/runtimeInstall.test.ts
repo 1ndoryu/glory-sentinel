@@ -18,9 +18,22 @@ import {
 } from '../../../core/runtime-proyecto/runtimeInstall';
 import { PROFILE_MARKER_START, PROFILE_MARKER_END } from '../../../core/shims/interceptorShims';
 
+// Directorios temporales creados por los tests; cada suite los borra tras cada test.
+const temporales: string[] = [];
+function tempDir(prefijo: string): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefijo));
+  temporales.push(dir);
+  return dir;
+}
+function limpiarTemporales(): void {
+  for (const dir of temporales.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
+}
+
 suite('Sentinel core runtimeInstall (contrato de actualización)', () => {
+  teardown(limpiarTemporales);
+
   function makeSource(version: string): string {
-    const source = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-runtime-src-'));
+    const source = tempDir('sentinel-runtime-src-');
     fs.mkdirSync(path.join(source, 'out', 'cli'), { recursive: true });
     fs.writeFileSync(path.join(source, 'package.json'), `${JSON.stringify({ name: 'glory-sentinel', version }, null, 2)}\n`, 'utf8');
     fs.writeFileSync(path.join(source, 'out', 'cli', 'index.js'), `if (process.argv.includes('--version')) console.log('${version}');\n`, 'utf8');
@@ -29,7 +42,7 @@ suite('Sentinel core runtimeInstall (contrato de actualización)', () => {
 
   test('instala versión con current atómico y hash verificable', async () => {
     const source = makeSource('1.2.3');
-    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-runtime-target-'));
+    const target = tempDir('sentinel-runtime-target-');
     try {
       const result = await installRuntime({ sourceRoot: source, targetRoot: target });
       assert.strictEqual(result.version, '1.2.3');
@@ -63,7 +76,7 @@ suite('Sentinel core runtimeInstall (contrato de actualización)', () => {
   test('el shim sh y current.js quedan ejecutables fuera de Windows', async function () {
     if (process.platform === 'win32') return this.skip();
     const source = makeSource('1.2.4');
-    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-runtime-mode-'));
+    const target = tempDir('sentinel-runtime-mode-');
     try {
       await installRuntime({ sourceRoot: source, targetRoot: target });
       for (const file of [path.join(target, 'bin', 'sentinel'), path.join(target, 'current.js')]) {
@@ -77,7 +90,7 @@ suite('Sentinel core runtimeInstall (contrato de actualización)', () => {
 
   test('update con la misma versión refresca sin romper el current', async () => {
     const source = makeSource('1.5.0');
-    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-runtime-samever-'));
+    const target = tempDir('sentinel-runtime-samever-');
     try {
       await installRuntime({ sourceRoot: source, targetRoot: target });
       /* [028A-6] Regresión: re-instalar la misma versión crasheaba con
@@ -95,7 +108,7 @@ suite('Sentinel core runtimeInstall (contrato de actualización)', () => {
 
   test('reinstalar la misma versión con otro artefacto actualiza el sha en current.json', async () => {
     const source = makeSource('1.6.0');
-    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-runtime-resha-'));
+    const target = tempDir('sentinel-runtime-resha-');
     try {
       const first = await installRuntime({ sourceRoot: source, targetRoot: target });
       /* [10AA-2] Regresión: current.json conservaba el sha antiguo si la versión
@@ -117,7 +130,7 @@ suite('Sentinel core runtimeInstall (contrato de actualización)', () => {
   test('update a nueva versión conserva la anterior para rollback', async () => {
     const sourceV1 = makeSource('1.0.0');
     const sourceV2 = makeSource('1.1.0');
-    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-runtime-update-'));
+    const target = tempDir('sentinel-runtime-update-');
     try {
       await installRuntime({ sourceRoot: sourceV1, targetRoot: target });
       const first = await runtimeStatus({ targetRoot: target });
@@ -140,7 +153,7 @@ suite('Sentinel core runtimeInstall (contrato de actualización)', () => {
   test('rollback restaura la versión anterior conservada', async () => {
     const sourceV1 = makeSource('2.0.0');
     const sourceV2 = makeSource('2.1.0');
-    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-runtime-rollback-'));
+    const target = tempDir('sentinel-runtime-rollback-');
     try {
       await installRuntime({ sourceRoot: sourceV1, targetRoot: target });
       await installRuntime({ sourceRoot: sourceV2, targetRoot: target });
@@ -163,7 +176,7 @@ suite('Sentinel core runtimeInstall (contrato de actualización)', () => {
   test('rollback rechaza una versión sin artifactSha256 (manifest ausente)', async () => {
     const sourceV1 = makeSource('4.0.0');
     const sourceV2 = makeSource('4.1.0');
-    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-runtime-nohash-'));
+    const target = tempDir('sentinel-runtime-nohash-');
     try {
       await installRuntime({ sourceRoot: sourceV1, targetRoot: target });
       await installRuntime({ sourceRoot: sourceV2, targetRoot: target });
@@ -188,7 +201,7 @@ suite('Sentinel core runtimeInstall (contrato de actualización)', () => {
   test('rollback rechaza una versión cuyo contenido no coincide con su hash', async () => {
     const sourceV1 = makeSource('5.0.0');
     const sourceV2 = makeSource('5.1.0');
-    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-runtime-tampered-'));
+    const target = tempDir('sentinel-runtime-tampered-');
     try {
       await installRuntime({ sourceRoot: sourceV1, targetRoot: target });
       await installRuntime({ sourceRoot: sourceV2, targetRoot: target });
@@ -212,7 +225,7 @@ suite('Sentinel core runtimeInstall (contrato de actualización)', () => {
 
   test('rollback sin versión anterior informa motivo y no muta', async () => {
     const source = makeSource('3.0.0');
-    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-runtime-noprev-'));
+    const target = tempDir('sentinel-runtime-noprev-');
     try {
       await installRuntime({ sourceRoot: source, targetRoot: target });
       const before = await runtimeStatus({ targetRoot: target });
@@ -228,7 +241,7 @@ suite('Sentinel core runtimeInstall (contrato de actualización)', () => {
 
   test('dry-run no escribe nada en el runtime', async () => {
     const source = makeSource('4.0.0');
-    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-runtime-dry-'));
+    const target = tempDir('sentinel-runtime-dry-');
     try {
       const result = await installRuntime({ sourceRoot: source, targetRoot: target, dryRun: true });
       assert.strictEqual(result.dryRun, true);
@@ -262,6 +275,8 @@ suite('Sentinel core runtimeInstall (contrato de actualización)', () => {
  * shims y opcionalmente bin/current/versions). PATH y perfiles se inyectan
  * para no tocar el entorno real. */
 suite('Sentinel core runtimeInstall (desinstalación)', () => {
+  teardown(limpiarTemporales);
+
   /* Construye un árbol de runtime administrado completo + un PATH con las
    * entradas shims/bin + un perfil con el bloque del guard. */
   function makeManaged(target: string): { pathValue: string; profile: string } {
@@ -283,7 +298,7 @@ suite('Sentinel core runtimeInstall (desinstalación)', () => {
   }
 
   test('dry-run reporta la retirada sin mutar nada', async () => {
-    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-uninstall-dry-'));
+    const target = tempDir('sentinel-uninstall-dry-');
     try {
       const { pathValue, profile } = makeManaged(target);
       const writes: string[] = [];
@@ -310,7 +325,7 @@ suite('Sentinel core runtimeInstall (desinstalación)', () => {
   });
 
   test('desinstala solo lo administrado y conserva la raíz', async () => {
-    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-uninstall-real-'));
+    const target = tempDir('sentinel-uninstall-real-');
     try {
       const { pathValue, profile } = makeManaged(target);
       fs.writeFileSync(path.join(target, 'mis-datos.txt'), 'no administrado\n', 'utf8');
@@ -346,7 +361,7 @@ suite('Sentinel core runtimeInstall (desinstalación)', () => {
   });
 
   test('--keep-runtime conserva versions/current/bin y solo retira la integración', async () => {
-    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-uninstall-keep-'));
+    const target = tempDir('sentinel-uninstall-keep-');
     try {
       const { pathValue, profile } = makeManaged(target);
       const result = await uninstallRuntime({
@@ -370,7 +385,7 @@ suite('Sentinel core runtimeInstall (desinstalación)', () => {
   });
 
   test('propaga el error del PATH como acción error sin mutar el resto', async () => {
-    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-uninstall-err-'));
+    const target = tempDir('sentinel-uninstall-err-');
     try {
       const { pathValue, profile } = makeManaged(target);
       const result = await uninstallRuntime({
@@ -389,7 +404,7 @@ suite('Sentinel core runtimeInstall (desinstalación)', () => {
   });
 
   test('sin integración instalada reporta unchanged y no muta', async () => {
-    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-uninstall-none-'));
+    const target = tempDir('sentinel-uninstall-none-');
     try {
       const profile = path.join(target, 'perfil-sin-marcadores.ps1');
       fs.writeFileSync(profile, '# contenido normal\n', 'utf8');
@@ -413,7 +428,7 @@ suite('Sentinel core runtimeInstall (desinstalación)', () => {
      * un directorio de proyecto) con shims/bin/versions que existan por
      * casualidad NO debe borrarlos: solo se retiran directorios cuando el
      * target tiene marcador de runtime (current.json/current.js/versions). */
-    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-uninstall-marker-'));
+    const target = tempDir('sentinel-uninstall-marker-');
     try {
       fs.mkdirSync(path.join(target, 'shims'), { recursive: true });
       fs.mkdirSync(path.join(target, 'bin'), { recursive: true });
