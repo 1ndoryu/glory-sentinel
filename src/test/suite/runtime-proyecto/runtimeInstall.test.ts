@@ -58,6 +58,23 @@ suite('Sentinel core runtimeInstall (contrato de actualización)', () => {
     }
   });
 
+  /* El shim sh y current.js deben ser ejecutables fuera de Windows; writeAtomic
+   * no fija el modo, así que puntero.ts lo fija. En Windows el modo no aplica. */
+  test('el shim sh y current.js quedan ejecutables fuera de Windows', async function () {
+    if (process.platform === 'win32') return this.skip();
+    const source = makeSource('1.2.4');
+    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-runtime-mode-'));
+    try {
+      await installRuntime({ sourceRoot: source, targetRoot: target });
+      for (const file of [path.join(target, 'bin', 'sentinel'), path.join(target, 'current.js')]) {
+        assert.ok((fs.statSync(file).mode & 0o111) !== 0, `${file} debe tener bit de ejecución`);
+      }
+    } finally {
+      fs.rmSync(source, { recursive: true, force: true });
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+  });
+
   test('update con la misma versión refresca sin romper el current', async () => {
     const source = makeSource('1.5.0');
     const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-runtime-samever-'));

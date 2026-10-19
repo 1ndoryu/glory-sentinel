@@ -96,6 +96,8 @@ El manifest indica qué herramientas forman parte del gate. Por ejemplo, este ma
 
 Después puedes añadir ESLint, tests, compilación, VarSense u otra herramienta que emita el contrato estructurado. Sentinel conserva una sola decisión final y un solo lugar para consultar la evidencia.
 
+Reglas del manifest: `reportPath` se resuelve dentro de `reportRoot` y `cwd` dentro del workspace; una etapa debe salir con código 0 y dejar un reporte válido (si sale distinto de 0 es `tool-error`, aunque exista el JSON). Contrato completo y claves admitidas: [docs/stage-manifest-contract.md](docs/stage-manifest-contract.md).
+
 ## Sentinel, gate y wrappers: la diferencia
 
 - **Sentinel** es el producto: motor de reglas, CLI, reportes, orquestación y coordinación opcional.
@@ -106,6 +108,13 @@ Después puedes añadir ESLint, tests, compilación, VarSense u otra herramienta
 En otras palabras: Sentinel contiene el gate. No son dos productos separados.
 
 Los consumidores antiguos pueden conservar temporalmente `task:check` o `scripts/quality`, pero no deben añadirles lógica nueva. Sentinel incluye un inventario de migración para retirar esas copias sin perder cobertura.
+
+## Requisitos
+
+- Node.js 20 o superior (`engines.node` y CI usan 20).
+- `git` en el PATH.
+- Windows: el shim `sentinel.cmd` se ejecuta con `cmd`; `--with-path` escribe el PATH de usuario.
+- Fuera de Windows: el shim `bin/sentinel` (sh) se marca ejecutable al instalar.
 
 ## Instalación desde un release
 
@@ -129,6 +138,12 @@ sentinel doctor --json
 ```
 
 La versión visible no basta para garantizar capacidades. Los proyectos que dependen de Sentinel deben fijar también el commit, el protocolo y el hash del artefacto en su lock.
+
+Destino por defecto: `%LOCALAPPDATA%\GlorySentinel` en Windows; si no existe `LOCALAPPDATA`, `~/.glory-sentinel`. `--target-root` lo cambia.
+
+- `--with-path` añade al PATH de usuario de Windows los directorios de shims y `bin`. Fuera de Windows no toca el PATH: el dry-run informa `[path] unsupported` y hay que añadir `<destino>/bin` a tu shell a mano.
+- `sentinel doctor` lee el `sentinel.lock.json` del workspace; si falta, informa `lock-missing`. Un proyecto consumidor debe tenerlo; el repo de Sentinel no es un consumidor.
+- Desinstalar: `sentinel uninstall --dry-run` primero. Retira solo entradas administradas (PATH, shims, marcadores de perfil, versiones y `current`). `--keep-runtime` conserva `versions/`, `current` y `bin/`.
 
 ## Añadir Sentinel a un proyecto nuevo
 
@@ -217,6 +232,8 @@ npm run compile
 npm run test:unit
 node out/cli/index.js --help
 ```
+
+Autogate: Sentinel se analiza a sí mismo con `node out/cli/index.js analyze --workspace . --format markdown` (tras `npm run compile`). `npm run test:unit` cubre compilación, `check:core`, `check:reglas`, `smoke:lsp` y mocha. El CI (`.github/workflows/ci.yml`) ejecuta lint, compilación, `check:core`, `smoke:lsp` y mocha, pero no `check:reglas` ni el autogate; añadirlos es una decisión pendiente en el roadmap.
 
 El CLI compilado vive en `out/cli/index.js`; el LSP en `out/lsp/server.js`. Un release destinado a otros proyectos debe compilarse y probarse desde un staging limpio antes de publicarse o fijarse en un lock.
 

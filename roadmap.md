@@ -5,16 +5,18 @@ Orden de ejecución: de arriba abajo. Cada bloque: probar en la 89, documentar, 
 
 ## Pendiente
 
+- [ ] **R1 Hallazgos de la revisión de terceros (2026-10-19).** Lista viva en `Agente/planes/plan-revision-tercero-2026-10-19.md`. Corregir ahora: permiso de `bin/sentinel`, README de instalación (requisitos, destino, PATH, doctor, desinstalación, stages), skill y referencias desfasadas del roadmap. Después: agnosticismo (reglas WordPress/Glory activas por defecto, rutas `/Glory/`), budget de `staticCodeRules.ts`, repo (`extension.wasm`, `Agente/`) y la versión del README (reservado a la usuaria: tag/release).
+
 - [ ] **S9 Autogate en Arranque.** El análisis se ejecuta bien en la 89 (`analyze`, ver S13), pero falta la ficha de Arranque / endpoint `POST /api/gate/analizar`. Bloqueo: cambio en workspace-manager (registro y backend), fuera de este repo.
 
 - Gate de RESTAURANTE (10AA-3, 2026-10-19): Sentinel se ejecuta en la 89 desde `/var/tmp/gate-tools/sentinel` (archive de `b4d043b`, versión 0.7.26; el adaptador comprueba `.quality-pin` y `--version` antes de cada análisis), no desde `tools/sentinel` de los submódulos de la 89, que están sucios por otra sesión. Pendiente de quien lleva Sentinel: decidir si el submódulo de la 89 se fija a ese pin o el pin se declara de otra forma. No tocado desde RESTAURANTE.
 
 ## Decisiones pendientes de la usuaria
-- Tags y release: crear `v0.7.26` (o declarar 0.7.23 vigente). Reservado a la usuaria (AGENTS §3).
+- Tags y release: crear `v0.7.26` (o declarar 0.7.23 vigente). Reservado a la usuaria (AGENTS §3 del protocolo de `area-trabajo`).
 
 ## Bloqueos
 - Verificación en la 89: clon de `HEAD` en `/var/tmp/glory-sentinel-verify` (no toca `~/taller`).
-- Publicar o hacer release a terceros: reservado a la usuaria (AGENTS §3).
+- Publicar o hacer release a terceros: reservado a la usuaria (AGENTS §3 del protocolo de `area-trabajo`).
 
 ## Hecho
 - S15.7 `src/analyzers/react/` (2026-10-19, verificado en la 89): las nueve reglas React pasan a `src/analyzers/react/reglas/` (con `git mv`, sin cambio de lógica); `reactAnalyzer.ts` y `formularioConfigSystem.ts` quedan en la raíz del directorio (2 archivos). Imports relativos ajustados, rutas de tests y `module-budgets.json` actualizados. Verificación: compile, tsc, mocha 911/0/2, lint, check:core, check:reglas rc 0; `--version` 0.7.26; `--help` rc 0; autogate 0 errores y 0 warnings (antes 1). **S15 cerrado: autogate a 0 warnings y 0 errores.**
@@ -27,8 +29,8 @@ Orden de ejecución: de arriba abajo. Cada bloque: probar en la 89, documentar, 
 - S6 Arquitectura (2026-10-19, verificado): core no importa analyzers; `check:core` lo impide (regla S6 de `scripts/check-core-no-vscode.mjs`) y la composición vive en `src/analyzers/pipeline.ts`. Sin cambios de código en este bloque.
 - S7 Optimización (2026-10-19, verificado): `scope.ts` usa `GIT_SALIDA_MAX_BYTES = 8 MiB` (antes 64 MB); `externalToolsAnalyzer.ts` acota salida a 5 MiB y timeout a 120 s. Sin cambios de código en este bloque.
 - S8 Docs de dominio (2026-10-19, verificado): README sin narrativa interna (039A-1); enlaza a `docs/pruebas.md`. Sin cambios de código en este bloque.
-- S13 Directorio-abarrotado en tests (2026-10-19): 73 tests de `src/test/suite` agrupados por dominio; 911 pasan, 0 fallan en la 89. Autogate: 0 hallazgos en tests; 13 warnings heredados (límites de líneas, mixed-barrel) en la cola de arriba.
-- S10 Temporales agnósticos (2026-10-19, e2e2f5a): `src/core/tmpDir.ts` (`tmpBaseDir`; `SENTINEL_TMP_DIR` sustituye C:/tmp). Guard log, scheduler y tests lo usan.
+- S13 Directorio-abarrotado en tests (2026-10-19): 72 archivos `*.test.ts` de `src/test/suite` agrupados por dominio; 911 pasan, 0 fallan en la 89. Autogate: 0 hallazgos en tests; 13 warnings heredados (límites de líneas, mixed-barrel) en la cola de arriba.
+- S10 Temporales agnósticos (2026-10-19, e2e2f5a): `src/core/seguridad-rutas/tmpDir.ts` (`tmpBaseDir`; `SENTINEL_TMP_DIR` sustituye C:/tmp). Guard log, scheduler y tests lo usan.
 - S11 Shells (2026-10-19, 80f3621): causa real = en bash `glory_sentinel_host_path` convertía `/var/tmp/x` a `\var\tmp\x`; el CLI no hallaba la política y el guard dejaba pasar (fail-open). Corregido: solo las rutas con unidad se convierten. `shellMatrix` 12 pasan en la 89, sin tests condicionados.
 - S12 Lint (2026-10-19, d7a708f): 0 errores y 0 warnings en la 89. `check:core` requirió no crecer `interceptorShims.ts` (presupuesto 783).
 - S2 Versión única (2026-10-19): `package.json` 0.7.26 es la fuente; `README.md` declara 0.7.23 como último tag y 0.7.26 sin etiquetar; CHANGELOG `[Unreleased]` recoge 0.7.24–0.7.26. La ayuda no lleva versión fija.

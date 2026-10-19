@@ -64,6 +64,9 @@ if (args[0] === 'guard' && fs.existsSync(guardEntry)) {
   written.push(cmd);
   const sh = path.join(bin, 'sentinel');
   await writeAtomic(sh, `#!/bin/sh\nnode "${targetRoot}/current.js" "$@"\n`);
+  // writeAtomic no fija el modo de ejecución: sin +x el shim sh no arranca en Linux/macOS.
+  await fs.chmod(sh, 0o755);
+  await fs.chmod(currentJs, 0o755);
   written.push(sh);
   return written;
 }
