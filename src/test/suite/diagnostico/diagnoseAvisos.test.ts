@@ -2,7 +2,7 @@
  * política que alguna shell no intercepta y runtime instalado desfasado. No
  * cambian `ready` ni el preflight. */
 import * as assert from 'assert';
-import { avisosDeCobertura, avisosDeRuntime } from '../../../core/diagnostico/diagnoseAvisos';
+import { avisosDeCobertura, avisosDeRuntime } from '../../../core/diagnostico/detalle/diagnoseAvisos';
 import type { GuardPolicy } from '../../../core/guard/guardCommand';
 import type { RuntimeStatusResult } from '../../../core/runtime-proyecto/runtimeInstall';
 

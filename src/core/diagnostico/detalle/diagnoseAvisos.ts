@@ -1,10 +1,10 @@
 /* [10AA-2 F11.2] Avisos no bloqueantes de `sentinel doctor`. Viven fuera de
  * diagnose.ts para no crecer su budget de tamaño (ADR 0001 §8). Solo informan:
  * no cambian `ready` ni el preflight. */
-import type { DiagnoseAviso } from './diagnose';
-import type { GuardPolicy } from '../guard/guardCommand';
-import { SHIM_COVERAGE } from '../shims/interceptorShims';
-import type { RuntimeStatusResult } from '../runtime-proyecto/runtimeInstall';
+import type { DiagnoseAviso } from '../diagnose';
+import type { GuardPolicy } from '../../guard/guardCommand';
+import { SHIM_COVERAGE } from '../../shims/interceptorShims';
+import type { RuntimeStatusResult } from '../../runtime-proyecto/runtimeInstall';
 
 function normalizarEjecutable(value: string): string {
   return value.toLowerCase().replace(/\.(cmd|exe)$/u, '');
