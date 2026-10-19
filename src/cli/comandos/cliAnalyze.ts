@@ -2,6 +2,8 @@
  * analiza cada documento y renderiza el reporte en markdown o JSON. */
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { Minimatch } from 'minimatch';
 import { analizarDocumento } from '../../analyzers/pipeline';
 import { inicializarGloryAnalyzer } from '../../analyzers/gloryAnalyzer';
@@ -11,6 +13,8 @@ import { CoreAnalysisConfig, createCoreDocument } from '../../core/runtime-proye
 import { languageIdForFile } from '../../core/runtime-proyecto/language';
 import { CliAnalysisResult, ParsedCliArgs, SENTINEL_JSON_SCHEMA_VERSION } from '../parseo/argsTypes';
 import { readConfig } from './cliShared';
+
+const execFileAsync = promisify(execFile);
 
 function normalizarRuta(ruta: string): string {
   return ruta.replace(/\\/g, '/');
@@ -30,10 +34,64 @@ function matchesAny(relativePath: string, matchers: Minimatch[]): boolean {
   );
 }
 
+/* [por que] Lo que git ignora (dist/, build, generados) no es código del proyecto: analizarlo
+ * solo mete ruido en el reporte (p. ej. bundles minificados con «acceso DOM»). Sin git, o si
+ * git falla, se recorre el árbol como antes. Devuelve null en ese caso. */
+async function listarNoIgnorados(rootPath: string): Promise<string[] | null> {
+  try {
+    const { stdout } = await execFileAsync(
+      'git',
+      ['-C', rootPath, 'ls-files', '--cached', '--others', '--exclude-standard', '--deduplicate', '-z'],
+      { maxBuffer: 64 * 1024 * 1024 },
+    );
+    const existentes = await Promise.all(
+      stdout.split('\0').filter(Boolean).map(async rel => {
+        const absolutePath = path.join(rootPath, rel);
+        /* [por que] ls-files también lista tracked borrados en el árbol: se descartan para no leer un fichero inexistente. */
+        return (await fs.stat(absolutePath).then(s => s.isFile(), () => false)) ? absolutePath : null;
+      }),
+    );
+    return existentes.filter((ruta): ruta is string => ruta !== null);
+  } catch {
+    return null;
+  }
+}
+
+/* [por que] Traduce una línea de .gitignore a glob de minimatch. Sin barra interna vale en cualquier
+ * nivel (`dist/` → `**` + `/dist`); con barra se ancla a la raíz (`/out` o `a/b`). Las negaciones (`!`)
+ * no se aplican: es el límite conocido de este recorrido sin git. */
+export function globDeGitignore(linea: string): string | null {
+  const patron = linea.trim();
+  if (!patron || patron.startsWith('#') || patron.startsWith('!')) return null;
+  const sinBarraFinal = patron.replace(/\/$/, '');
+  if (!sinBarraFinal) return null;
+  return sinBarraFinal.includes('/') ? sinBarraFinal.replace(/^\//, '') : `**/${sinBarraFinal}`;
+}
+
+/* [por que] Sin .git (la réplica de la 89 no lo trae) nadie aplica el .gitignore: el recorrido lo
+ * lee de la raíz. Cada patrón cubre el elemento y su contenido, para podar también el directorio. */
+async function patronesGitignore(rootPath: string): Promise<string[]> {
+  const texto = await fs.readFile(path.join(rootPath, '.gitignore'), 'utf8').catch(() => '');
+  return texto
+    .split(/\r?\n/)
+    .map(globDeGitignore)
+    .filter((glob): glob is string => glob !== null)
+    .flatMap(glob => [glob, `${glob}/**`]);
+}
+
 async function collectFiles(rootPath: string, config: CoreAnalysisConfig): Promise<string[]> {
-  const files: string[] = [];
-  const excluir = compilarPatrones(config.excludePatterns);
   const incluir = compilarPatrones(config.includePatterns);
+  const noIgnorados = await listarNoIgnorados(rootPath);
+  if (noIgnorados) {
+    const excluir = compilarPatrones(config.excludePatterns);
+    return noIgnorados.filter(absolutePath => {
+      const relativePath = normalizarRuta(path.relative(rootPath, absolutePath));
+      return !matchesAny(relativePath, excluir) && matchesAny(relativePath, incluir);
+    });
+  }
+
+  const excluir = compilarPatrones([...config.excludePatterns, ...await patronesGitignore(rootPath)]);
+  const files: string[] = [];
 
   async function walk(currentPath: string): Promise<void> {
     const entries = await fs.readdir(currentPath, { withFileTypes: true });
