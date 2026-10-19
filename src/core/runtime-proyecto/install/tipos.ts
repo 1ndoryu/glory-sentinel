@@ -1,6 +1,5 @@
 /* [028A-6] tipos públicos del runtime (opciones, resultados y versiones). Extraído de runtimeInstall.ts. */
 import type { PathEntryOptions, PathEntryResult, ProfilePaths, ProfileResult } from '../../shims/interceptorShims';
-import { defaultProfilePaths } from '../../shims/interceptorShims';
 
 export interface RuntimeInstallOptions {
   targetRoot?: string;

@@ -5,7 +5,6 @@ import { assertSafeRuntimePath, defaultProfilePaths, uninstallPathEntry, uninsta
 import type { RuntimeUninstallOptions, RuntimeUninstallResult } from './tipos';
 import { resolveRuntimeRoot } from './rutas';
 import { readCurrent } from './puntero';
-import { installRuntime } from './instalar';
 
 async function removeManagedDir(targetRoot: string, name: string, dryRun: boolean): Promise<boolean> {
   const dir = path.join(targetRoot, name);
