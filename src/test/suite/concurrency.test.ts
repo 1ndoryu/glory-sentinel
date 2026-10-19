@@ -7,8 +7,8 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { claimTask } from '../../core/taskCoordinator';
-import { runProcess } from '../../core/toolRunner';
+import { claimTask } from '../../core/task/taskCoordinator';
+import { runProcess } from '../../core/runtime-proyecto/toolRunner';
 
 const PRIMARY_BRANCH = 'wandorius';
 const CLI = path.resolve(__dirname, '../../cli/index.js');

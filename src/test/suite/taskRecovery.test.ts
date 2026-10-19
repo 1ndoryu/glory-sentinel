@@ -4,8 +4,8 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
-import { claimTask, TASK_TTL_MS, taskStatus } from '../../core/taskCoordinator';
-import { recoverTask } from '../../core/taskRecovery';
+import { claimTask, TASK_TTL_MS, taskStatus } from '../../core/task/taskCoordinator';
+import { recoverTask } from '../../core/task/taskRecovery';
 
 function git(root: string, args: string[]): string {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();

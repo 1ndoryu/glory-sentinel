@@ -7,7 +7,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { inspectDirectCommand, QUALITY_GUARD_EXIT_CODE } from '../../core/guardCommand';
+import { inspectDirectCommand, QUALITY_GUARD_EXIT_CODE } from '../../core/guard/guardCommand';
 import { copyFixtureToTmp } from './guardMatrixCommon';
 
 interface MatrixCase {

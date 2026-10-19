@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Violacion } from '../../../types';
 import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
-import { obtenerWorkspaceRoots, resolverWorkspaceRoot } from '../../../core/workspaceRoots';
+import { obtenerWorkspaceRoots, resolverWorkspaceRoot } from '../../../core/seguridad-rutas/workspaceRoots';
 import { tieneSentinelDisableFile } from '../../../utils/analisisHelpers';
 import { esArchivoSoloTest } from '../rustTestScope';
 import { REGLA_PORT_FS } from './rustReglasCompartidas';

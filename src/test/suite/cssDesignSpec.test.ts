@@ -2,10 +2,10 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CoreTextDocument } from '../../core/types';
+import { CoreTextDocument } from '../../core/runtime-proyecto/types';
 import { verificarCssEspecificacionDisenoLocal } from '../../analyzers/static/staticCssRules';
 import { analizarDocumento } from '../../analyzers/pipeline';
-import { createCoreDocument, CoreFinding } from '../../core/types';
+import { createCoreDocument, CoreFinding } from '../../core/runtime-proyecto/types';
 import { analyzeCliTarget, parseCliArgs } from '../../cli';
 
 interface ExpectedFindingSummary {

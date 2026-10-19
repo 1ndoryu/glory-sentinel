@@ -11,8 +11,8 @@ import * as path from 'path';
 import { analizarRust } from '../../analyzers/rust/rustAnalyzer';
 import { analizarEstatico } from '../../analyzers/static/staticAnalyzer';
 import { configurarOverridesReglas } from '../../config/ruleRegistry';
-import { configurarWorkspaceRoots } from '../../core/workspaceRoots';
-import { createCoreDocument } from '../../core/types';
+import { configurarWorkspaceRoots } from '../../core/seguridad-rutas/workspaceRoots';
+import { createCoreDocument } from '../../core/runtime-proyecto/types';
 
 const REGLAS_RUST = [
   'rusqlite-bloqueante-en-async',

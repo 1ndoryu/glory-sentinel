@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { CoreTextDocument } from '../../core/types';
+import { CoreTextDocument } from '../../core/runtime-proyecto/types';
 import { verificarModalSemanticaNoCanonica } from '../../analyzers/static/staticCssRules';
 
 function crearDocumento(fileName: string) {

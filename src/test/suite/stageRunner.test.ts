@@ -2,7 +2,7 @@
  * scripts/quality/tests/stage-runner.test.mjs): orden, concurrencia y
  * drenaje ante error/cancelación. */
 import * as assert from 'assert';
-import { runBoundedStages } from '../../core/stageRunner';
+import { runBoundedStages } from '../../core/gate/stageRunner';
 
 suite('Sentinel core stage runner (orquestador agnóstico)', () => {
   test('conserva orden y respeta concurrencia', async () => {

@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { DEFAULT_INCLUDE_PATTERNS, buildCoreConfig, patronesDeInclusion, validateSentinelConfig } from '../../core/config';
+import { DEFAULT_INCLUDE_PATTERNS, buildCoreConfig, patronesDeInclusion, validateSentinelConfig } from '../../core/runtime-proyecto/config';
 
 suite('Portable boundary config', () => {
   test('accepts boundary arrays and maps them to core config', () => {

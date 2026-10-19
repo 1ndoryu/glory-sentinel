@@ -2,9 +2,9 @@
  * política que alguna shell no intercepta y runtime instalado desfasado. No
  * cambian `ready` ni el preflight. */
 import * as assert from 'assert';
-import { avisosDeCobertura, avisosDeRuntime } from '../../core/diagnoseAvisos';
-import type { GuardPolicy } from '../../core/guardCommand';
-import type { RuntimeStatusResult } from '../../core/runtimeInstall';
+import { avisosDeCobertura, avisosDeRuntime } from '../../core/diagnostico/diagnoseAvisos';
+import type { GuardPolicy } from '../../core/guard/guardCommand';
+import type { RuntimeStatusResult } from '../../core/runtime-proyecto/runtimeInstall';
 
 function politica(overrides: Partial<GuardPolicy> = {}): GuardPolicy {
   return { status: 'policy', ...overrides };

@@ -7,8 +7,8 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { readV2GuardPolicy } from '../../core/guardCommand';
-import { validateSentinelConfig } from '../../core/config';
+import { readV2GuardPolicy } from '../../core/guard/guardCommand';
+import { validateSentinelConfig } from '../../core/runtime-proyecto/config';
 import {
   STACK_PRESETS,
   applyInit,
@@ -16,7 +16,7 @@ import {
   discoverLegacy,
   planInit,
   planUninit,
-} from '../../core/projectInit';
+} from '../../core/runtime-proyecto/projectInit';
 
 const CLI = path.resolve(__dirname, '../../cli/index.js');
 

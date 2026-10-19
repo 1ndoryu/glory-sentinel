@@ -3,7 +3,7 @@
  * Cada test cita el sitio del oraculo que lo motivo. */
 import * as assert from 'assert';
 import { reglasEstaticas } from '../../config/defaultRules';
-import { createCoreDocument } from '../../core/types';
+import { createCoreDocument } from '../../core/runtime-proyecto/types';
 import { esRutaGlory, proyectoTieneModalCanonico } from '../../utils/analisisHelpers';
 import { verificarReglasPortables } from '../../analyzers/static/portableRules';
 import { verificarCssHardcoded, verificarModalSemanticaNoCanonica } from '../../analyzers/static/staticCssRules';

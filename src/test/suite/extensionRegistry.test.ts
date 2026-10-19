@@ -8,7 +8,7 @@ import {
   assertNoUndeclaredExecutables,
   ExtensionRegistration,
   validateExtensionRegistry,
-} from '../../core/extensionRegistry';
+} from '../../core/runtime-proyecto/extensionRegistry';
 
 const BASE: ExtensionRegistration = {
   id: 'varsense',

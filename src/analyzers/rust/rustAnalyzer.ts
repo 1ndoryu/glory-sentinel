@@ -15,7 +15,7 @@
  */
 
 import { Violacion } from '../../types';
-import { CoreTextDocument } from '../../core/types';
+import { CoreTextDocument } from '../../core/runtime-proyecto/types';
 import { reglaHabilitada, obtenerSeveridadRegla } from '../../config/ruleRegistry';
 import { detectarStackAxum } from './rustAxumStack';
 import { calcularRangosTest, esArchivoSoloTest, esRutaDeTestRust } from './rustTestScope';

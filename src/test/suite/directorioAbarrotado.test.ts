@@ -14,8 +14,8 @@ import {
   invalidarCacheDirectorios,
   verificarDirectorioAbarrotado,
 } from '../../analyzers/static/staticCodeRules';
-import { createCoreDocument } from '../../core/types';
-import { tmpBaseDir } from '../../core/tmpDir';
+import { createCoreDocument } from '../../core/runtime-proyecto/types';
+import { tmpBaseDir } from '../../core/seguridad-rutas/tmpDir';
 
 function crearDirTemporal(nombre: string): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `sentinel-dir-${nombre}-`));

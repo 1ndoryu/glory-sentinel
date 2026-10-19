@@ -2,7 +2,7 @@
  * scripts/quality/runner.mjs): env allowlist, captura acotada, timeout y
  * cancelación. */
 import * as assert from 'assert';
-import { cancelAll, runProcess, safeEnvironment } from '../../core/toolRunner';
+import { cancelAll, runProcess, safeEnvironment } from '../../core/runtime-proyecto/toolRunner';
 
 suite('Sentinel core tool runner (orquestador agnóstico)', () => {
   test('env allowlist conserva solo claves del proyecto y extras', () => {

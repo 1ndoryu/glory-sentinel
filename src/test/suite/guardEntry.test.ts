@@ -2,7 +2,7 @@
  * Debe aceptar exactamente lo que acepta `sentinel guard` (args.ts): opciones
  * antes de `--` y argumentos de la herramienta después. */
 import * as assert from 'assert';
-import { parseGuardArgv } from '../../core/guardEntry';
+import { parseGuardArgv } from '../../core/guard/guardEntry';
 
 suite('Sentinel core guardEntry (entrada in-process del guard)', () => {
   test('separa opciones de los argumentos de la herramienta tras --', () => {

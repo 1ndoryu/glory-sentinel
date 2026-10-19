@@ -7,7 +7,7 @@
 
 import * as path from 'path';
 import { Violacion } from '../../types';
-import { CoreTextDocument } from '../../core/types';
+import { CoreTextDocument } from '../../core/runtime-proyecto/types';
 import { reglaHabilitada } from '../../config/ruleRegistry';
 import { esRutaGlory, indiceProyecto, proyectoTieneModalCanonico } from '../../utils/analisisHelpers';
 

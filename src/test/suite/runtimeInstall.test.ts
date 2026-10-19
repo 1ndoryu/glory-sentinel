@@ -15,8 +15,8 @@ import {
   rollbackRuntime,
   runtimeStatus,
   uninstallRuntime,
-} from '../../core/runtimeInstall';
-import { PROFILE_MARKER_START, PROFILE_MARKER_END } from '../../core/interceptorShims';
+} from '../../core/runtime-proyecto/runtimeInstall';
+import { PROFILE_MARKER_START, PROFILE_MARKER_END } from '../../core/shims/interceptorShims';
 
 suite('Sentinel core runtimeInstall (contrato de actualización)', () => {
   function makeSource(version: string): string {

@@ -5,12 +5,12 @@
  */
 
 import {ReglaEstatica, Violacion} from '../../types';
-import { CoreTextDocument, positionAtOffset } from '../../core/types';
+import { CoreTextDocument, positionAtOffset } from '../../core/runtime-proyecto/types';
 import {reglasEstaticas} from '../../config/defaultRules';
 import {reglaHabilitada, obtenerSeveridadRegla} from '../../config/ruleRegistry';
 import { proyectoTieneModalCanonico } from '../../utils/analisisHelpers';
-import { obtenerWorkspaceRoots } from '../../core/workspaceRoots';
-import { extensionCanonica } from '../../core/language';
+import { obtenerWorkspaceRoots } from '../../core/seguridad-rutas/workspaceRoots';
+import { extensionCanonica } from '../../core/runtime-proyecto/language';
 
 /* Submodulos */
 import {REGLAS_LIMITE_LINEAS, verificarLimiteLineas, verificarUseStateExcesivo, verificarImportsMuertos, verificarAnyType, verificarNonNullAssertion, verificarDirectorioAbarrotado, verificarHtmlSinOrigenDeclarado, verificarTodoProsaSinMarcador} from './staticCodeRules';

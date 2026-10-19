@@ -6,8 +6,8 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
-import { diagnoseWorkspace, formatDiagnose, formatStatus } from '../../core/diagnose';
-import { formatShims, resolveShimWinners } from '../../core/shimDiagnostics';
+import { diagnoseWorkspace, formatDiagnose, formatStatus } from '../../core/diagnostico/diagnose';
+import { formatShims, resolveShimWinners } from '../../core/shims/shimDiagnostics';
 import { runCli } from '../../cli/index';
 
 function policy(): object {

@@ -6,11 +6,11 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { isPathInside, physicallyContained, ensureContainedDirectory } from '../../core/pathContainment';
-import { redact, truncate, sanitize } from '../../core/redaction';
-import { writeAtomic } from '../../core/atomicFile';
-import { runProcess } from '../../core/toolRunner';
-import { claimTask } from '../../core/taskCoordinator';
+import { isPathInside, physicallyContained, ensureContainedDirectory } from '../../core/seguridad-rutas/pathContainment';
+import { redact, truncate, sanitize } from '../../core/seguridad-rutas/redaction';
+import { writeAtomic } from '../../core/seguridad-rutas/atomicFile';
+import { runProcess } from '../../core/runtime-proyecto/toolRunner';
+import { claimTask } from '../../core/task/taskCoordinator';
 
 const PRIMARY_BRANCH = 'wandorius';
 

@@ -23,13 +23,14 @@ const vscodeImportPattern = /import\s+(?:type\s+)?[\s\S]*?from\s+['"]vscode['"]|
 /* [108A-1 Fase 2] DIP: el núcleo/CLI no dependen de los módulos del editor
  * (handlers/providers/services/platform/extension) ni de scripts/quality del
  * consumidor. El gate depende de puertos estructurados, no de concretos. */
-const editorModulePattern = /from\s+['"]\.\.\/(?:handlers|providers|services|platform|extension)(?:['"/])/g;
+/* Acepta cualquier profundidad (`../`, `../../`…): el núcleo tiene subcarpetas. */
+const editorModulePattern = /from\s+['"](?:\.\.\/)+(?:handlers|providers|services|platform|extension)(?:['"/])/g;
 const consumerScriptsPattern = /from\s+['"][^'"]*scripts[\\/]quality[^'"]*['"]/g;
 
 /* [108A-1 Fase 2] `sentinel check` es independiente de shims, perfiles y
  * worktrees: gateRun no puede acoplarse a interceptorShims ni taskCoordinator. */
 const checkIndependenceRules = [
-  { file: path.join(coreRoot, 'gateRun.ts'), forbidden: ['interceptorShims', 'taskCoordinator'] },
+  { file: path.join(coreRoot, 'gate', 'gateRun.ts'), forbidden: ['interceptorShims', 'taskCoordinator'] },
 ];
 
 /* [108A-1 Fase 2] Budget de tamaño por módulo (ADR 0001 +
@@ -91,7 +92,7 @@ for (const protectedPath of protectedPaths) {
 
 /* [S6] El núcleo no importa analyzers: el conjunto de analizadores se inyecta
  * desde src/analyzers/pipeline.ts, así que la dependencia va en un solo sentido. */
-const coreAnalyzersPattern = /from\s+['"]\.\.\/analyzers\//g;
+const coreAnalyzersPattern = /from\s+['"](?:\.\.\/)+analyzers\//g;
 for (const filePath of walk(coreRoot)) {
   checkFile(filePath, [coreAnalyzersPattern], 'core no debe importar analyzers: la composición vive en src/analyzers/pipeline.ts (S6)');
 }
@@ -99,7 +100,8 @@ for (const filePath of walk(coreRoot)) {
 for (const rule of checkIndependenceRules) {
   const text = fs.readFileSync(rule.file, 'utf8');
   for (const forbidden of rule.forbidden) {
-    const pattern = new RegExp(`from\\s+['"]\\./${forbidden}['"]`, 'u');
+    /* Cualquier import relativo cuyo último segmento sea el módulo prohibido. */
+    const pattern = new RegExp(`from\\s+['"](?:\\.{1,2}/)+(?:[\\w-]+/)*${forbidden}['"]`, 'u');
     if (pattern.test(text)) {
       violations.push({
         filePath: rule.file,
@@ -112,7 +114,11 @@ for (const rule of checkIndependenceRules) {
 
 for (const [modulePath, budget] of Object.entries(moduleBudgets.modules)) {
   const full = path.join(repoRoot, modulePath);
-  if (!fs.existsSync(full)) continue;
+  if (!fs.existsSync(full)) {
+    /* Un budget sin archivo es un movimiento sin actualizar: no se omite en silencio. */
+    violations.push({ filePath: path.join(repoRoot, 'scripts', 'module-budgets.json'), line: 1, message: `budget de ruta inexistente: ${modulePath}` });
+    continue;
+  }
   const lines = fs.readFileSync(full, 'utf8').split(/\r?\n/).length;
   if (lines > budget) {
     violations.push({

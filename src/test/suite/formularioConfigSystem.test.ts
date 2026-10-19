@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { CoreTextDocument } from '../../core/types';
+import { CoreTextDocument } from '../../core/runtime-proyecto/types';
 import { verificarFormularioConfigSinSistema } from '../../analyzers/react/formularioConfigSystem';
 import { verificarCssHardcoded } from '../../analyzers/static/staticCssRules';
 

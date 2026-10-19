@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { spawnSync } from 'node:child_process';
-import { writeInterceptorShims } from '../../core/interceptorShims';
+import { writeInterceptorShims } from '../../core/shims/interceptorShims';
 
 export function fixtureSourceDir(name: string): string {
   return path.resolve(__dirname, '../../../src/test/fixtures/guard-matrix', name);

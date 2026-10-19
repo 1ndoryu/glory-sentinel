@@ -6,7 +6,7 @@
 
 import * as fs from 'fs';
 import { Violacion } from '../../types';
-import { CoreTextDocument, positionAtOffset } from '../../core/types';
+import { CoreTextDocument, positionAtOffset } from '../../core/runtime-proyecto/types';
 import { contarLineasEfectivas, obtenerLimiteArchivo } from '../../utils/lineCounter';
 import { tieneSentinelDisableFile } from '../../utils/analisisHelpers';
 import { obtenerSeveridadRegla, reglaHabilitada } from '../../config/ruleRegistry';

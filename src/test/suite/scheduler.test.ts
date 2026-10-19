@@ -12,7 +12,7 @@ import {
   HeavyRunLease,
   inspectHeavyRun,
   isHeavyCargoCommand,
-} from '../../core/scheduler';
+} from '../../core/gate/scheduler';
 
 function guardRootFor(targetBase: string): string {
   return path.join(path.dirname(path.resolve(targetBase)), 'glory-quality-guard');

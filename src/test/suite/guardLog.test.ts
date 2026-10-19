@@ -3,9 +3,9 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
-import type { GuardDecision } from '../../core/guardCommand';
-import { clasificarDecision, GUARD_LOG_MAX_BYTES, registrarDecision, resumenComando } from '../../core/guardLog';
-import { tmpBaseDir } from '../../core/tmpDir';
+import type { GuardDecision } from '../../core/guard/guardCommand';
+import { clasificarDecision, GUARD_LOG_MAX_BYTES, registrarDecision, resumenComando } from '../../core/guard/guardLog';
+import { tmpBaseDir } from '../../core/seguridad-rutas/tmpDir';
 import { removeTmpRoots } from './guardMatrixCommon';
 
 const cleanup: string[] = [];

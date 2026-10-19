@@ -14,7 +14,7 @@ import {
   listLeases,
   pruneExpiredLeases,
   keyPresent,
-} from '../../core/lease';
+} from '../../core/gate/lease';
 
 function makeGuardRoot(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-lease-guard-'));

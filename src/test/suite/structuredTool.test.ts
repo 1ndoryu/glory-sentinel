@@ -5,7 +5,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { normalizeEntries, runStructuredTool, StructuredToolOptions } from '../../core/structuredTool';
+import { normalizeEntries, runStructuredTool, StructuredToolOptions } from '../../core/runtime-proyecto/structuredTool';
 
 function optionsFor(root: string, isCancelled?: () => boolean): StructuredToolOptions {
   const logs = path.join(root, 'logs');

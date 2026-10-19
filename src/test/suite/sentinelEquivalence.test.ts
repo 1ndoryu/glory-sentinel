@@ -3,8 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { analyzeCliTarget, parseCliArgs } from '../../cli';
 import { analizarDocumento } from '../../analyzers/pipeline';
-import { languageIdForFile } from '../../core/language';
-import { CoreFinding, createCoreDocument } from '../../core/types';
+import { languageIdForFile } from '../../core/runtime-proyecto/language';
+import { CoreFinding, createCoreDocument } from '../../core/runtime-proyecto/types';
 
 interface ExpectedFindingSummary {
   ruleId: string;

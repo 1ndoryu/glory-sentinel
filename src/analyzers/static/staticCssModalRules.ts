@@ -9,7 +9,7 @@
  */
 
 import { Violacion } from '../../types';
-import { CoreTextDocument } from '../../core/types';
+import { CoreTextDocument } from '../../core/runtime-proyecto/types';
 import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
 import {
   bloqueDefineSemanticaModal,

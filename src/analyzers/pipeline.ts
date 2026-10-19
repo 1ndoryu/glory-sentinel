@@ -1,8 +1,8 @@
 /* [S6] Composición por defecto del análisis de documento.
  * Vive fuera de core: el núcleo recibe este conjunto inyectado (CoreAnalyzerPipeline)
  * y no importa analyzers, así que core no depende de los analizadores concretos. */
-import { analyzeDocument, AnalyzeDocumentOptions, CoreAnalysisContext } from '../core/analyzeDocument';
-import { CoreAnalysisConfig, CoreFinding, CoreTextDocument, CoreWorkspaceContext } from '../core/types';
+import { analyzeDocument, AnalyzeDocumentOptions, CoreAnalysisContext } from '../core/diagnostico/analyzeDocument';
+import { CoreAnalysisConfig, CoreFinding, CoreTextDocument, CoreWorkspaceContext } from '../core/runtime-proyecto/types';
 import { obtenerTipoArchivo, Violacion } from '../types';
 import { analizarEstatico } from './static/staticAnalyzer';
 import { analizarPhp } from './php/phpAnalyzer';

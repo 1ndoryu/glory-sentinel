@@ -6,7 +6,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { compactLines, createReport, GateReportResult } from '../../core/gateReport';
+import { compactLines, createReport, GateReportResult } from '../../core/gate/gateReport';
 
 suite('Sentinel core gate report (orquestador agnóstico)', () => {
   test('la salida compacta conserva estado, siguiente accion y limite de contexto', () => {

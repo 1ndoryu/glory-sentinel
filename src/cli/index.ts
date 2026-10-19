@@ -8,7 +8,7 @@
  * resolviendo aquí. */
 export * from './args';
 export * from './commands';
-export { languageIdForFile } from '../core/language';
+export { languageIdForFile } from '../core/runtime-proyecto/language';
 import { runCli } from './commands';
 
 if (require.main === module) {

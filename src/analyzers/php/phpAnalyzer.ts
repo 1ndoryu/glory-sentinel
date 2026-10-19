@@ -4,7 +4,7 @@
  */
 
 import { Violacion } from '../../types';
-import { CoreTextDocument } from '../../core/types';
+import { CoreTextDocument } from '../../core/runtime-proyecto/types';
 import { reglaHabilitada } from '../../config/ruleRegistry';
 
 import { verificarControllerSinTryCatch, verificarLockSinFinally, verificarCatchCriticoSoloLog } from './phpControllerRules';

@@ -11,7 +11,7 @@ import {
   writeCachedPass,
   StageCacheContext,
   StageCacheScope,
-} from '../../core/stageCache';
+} from '../../core/gate/stageCache';
 
 function baseContext(projectRoot: string): StageCacheContext {
   return {

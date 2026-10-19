@@ -1,8 +1,8 @@
 /* [108A-1 Fase 2] Capa de parsing del CLI único de Sentinel: argumentos,
  * usage y despacho por comandos separado de la ejecución (./commands). El
  * contrato público del módulo '../../cli' no cambia (index.ts re-exporta). */
-import type { SentinelConfigFile } from '../core/config';
-import type { CoreReportEntry } from '../core/report';
+import type { SentinelConfigFile } from '../core/runtime-proyecto/config';
+import type { CoreReportEntry } from '../core/diagnostico/report';
 
 export type TaskAction = 'claim' | 'start' | 'heartbeat' | 'status' | 'gate' | 'integrate' | 'cleanup' | 'release' | 'recover';
 

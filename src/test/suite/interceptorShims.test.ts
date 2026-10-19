@@ -23,7 +23,7 @@ import {
   PROFILE_MARKER_START,
   uninstallProfiles,
   writeInterceptorShims,
-} from '../../core/interceptorShims';
+} from '../../core/shims/interceptorShims';
 
 suite('Sentinel core interceptorShims (shims y perfiles)', () => {
   const target = () => fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-shims-'));

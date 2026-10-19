@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
-import { runCheck } from '../../core/gateRun';
+import { runCheck } from '../../core/gate/gateRun';
 
 function gitRepo(): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-gate-envelope-'));

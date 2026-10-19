@@ -15,7 +15,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { logInfo, logWarn } from '../../../utils/logger';
-import { obtenerWorkspaceRoots } from '../../../core/workspaceRoots';
+import { obtenerWorkspaceRoots } from '../../../core/seguridad-rutas/workspaceRoots';
 
 /* Un campo de una interface/type TS */
 export interface CampoTipo {

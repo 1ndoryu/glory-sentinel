@@ -10,8 +10,8 @@ import * as path from 'path';
 import { Violacion } from '../types';
 import { reglaHabilitada } from '../config/ruleRegistry';
 import { normalizarRuta } from '../utils/analisisHelpers';
-import { CoreTextDocument } from '../core/types';
-import { configurarWorkspaceRoots } from '../core/workspaceRoots';
+import { CoreTextDocument } from '../core/runtime-proyecto/types';
+import { configurarWorkspaceRoots } from '../core/seguridad-rutas/workspaceRoots';
 
 /* Submodulos */
 import { cargarSchema, obtenerMapaCols, obtenerMapaEnums } from './glory/schema/schemaLoader';

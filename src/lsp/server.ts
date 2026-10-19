@@ -15,9 +15,9 @@ import {
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { analizarDocumento } from '../analyzers/pipeline';
-import { buildCoreConfig, SentinelConfigFile } from '../core/config';
-import { createCoreDocument } from '../core/types';
-import { languageIdForFile } from '../core/language';
+import { buildCoreConfig, SentinelConfigFile } from '../core/runtime-proyecto/config';
+import { createCoreDocument } from '../core/runtime-proyecto/types';
+import { languageIdForFile } from '../core/runtime-proyecto/language';
 import { inicializarGloryAnalyzer } from '../analyzers/gloryAnalyzer';
 import { logError } from '../utils/logger';
 import { invalidarOpenapiIndex } from '../analyzers/externos/apiEndpointAnalyzer';

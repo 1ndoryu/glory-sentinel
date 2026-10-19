@@ -6,23 +6,23 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { Minimatch } from 'minimatch';
 import { analizarDocumento } from '../analyzers/pipeline';
-import { buildCoreConfig, validateSentinelConfig } from '../core/config';
-import { generarReporteMarkdown, CoreReportEntry } from '../core/report';
-import { CoreAnalysisConfig, createCoreDocument } from '../core/types';
-import { languageIdForFile } from '../core/language';
-import { runGuardCommand } from '../core/guardEntry';
-import { diagnoseWorkspace, formatDiagnose, formatStatus } from '../core/diagnose';
-import { formatShims } from '../core/shimDiagnostics';
-import { runCheck, CheckRunResult } from '../core/gateRun';
-import { cancelAll } from '../core/toolRunner';
-import { resolveGuardRoot, resolveTargetBase } from '../core/scheduler';
+import { buildCoreConfig, validateSentinelConfig } from '../core/runtime-proyecto/config';
+import { generarReporteMarkdown, CoreReportEntry } from '../core/diagnostico/report';
+import { CoreAnalysisConfig, createCoreDocument } from '../core/runtime-proyecto/types';
+import { languageIdForFile } from '../core/runtime-proyecto/language';
+import { runGuardCommand } from '../core/guard/guardEntry';
+import { diagnoseWorkspace, formatDiagnose, formatStatus } from '../core/diagnostico/diagnose';
+import { formatShims } from '../core/shims/shimDiagnostics';
+import { runCheck, CheckRunResult } from '../core/gate/gateRun';
+import { cancelAll } from '../core/runtime-proyecto/toolRunner';
+import { resolveGuardRoot, resolveTargetBase } from '../core/gate/scheduler';
 import {
   formatLeaseList,
   issueLease,
   listLeases,
   revokeLease,
   verifyLease,
-} from '../core/lease';
+} from '../core/gate/lease';
 import {
   installRuntime,
   rollbackRuntime,
@@ -31,7 +31,7 @@ import {
   RuntimeInstallResult,
   RuntimeRollbackResult,
   RuntimeUninstallResult,
-} from '../core/runtimeInstall';
+} from '../core/runtime-proyecto/runtimeInstall';
 import {
   defaultProfilePaths,
   formatPathEntryResult,
@@ -40,7 +40,7 @@ import {
   installProfiles,
   uninstallPathEntry,
   writeInterceptorShims,
-} from '../core/interceptorShims';
+} from '../core/shims/interceptorShims';
 import { inicializarGloryAnalyzer } from '../analyzers/gloryAnalyzer';
 import {
   claimTask,
@@ -51,7 +51,7 @@ import {
   startTask,
   taskStatus,
   verifyTaskWorktree,
-} from '../core/taskCoordinator';
+} from '../core/task/taskCoordinator';
 import {
   CliAnalysisResult,
   ParsedCliArgs,
@@ -411,7 +411,7 @@ export async function taskCliTarget(args: TaskCliArgs): Promise<TaskCliExecution
     case 'release': await releaseTask({ projectRoot: workspace, taskId, agent, primaryBranch }); result = { taskId, state: 'RELEASED' }; break;
     case 'recover': {
       if (!primaryBranch) throw new Error('task recover requiere project.primaryBranch en sentinel.config.json');
-      const { recoverTask } = await import('../core/taskRecovery');
+      const { recoverTask } = await import('../core/task/taskRecovery');
       result = { ...(await recoverTask({ projectRoot: workspace, taskId, recoveredBy: agent, primaryBranch, dryRun: args.dryRun, worktreesRoot: args.worktreesRoot })) };
       break;
     }

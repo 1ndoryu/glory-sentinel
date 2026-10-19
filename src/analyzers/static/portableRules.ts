@@ -7,11 +7,11 @@
  * hint y dejan la decisión de bloqueo a la política del consumidor.
  */
 
-import { CoreTextDocument } from '../../core/types';
+import { CoreTextDocument } from '../../core/runtime-proyecto/types';
 import { obtenerSeveridadRegla, reglaHabilitada } from '../../config/ruleRegistry';
 import { Violacion } from '../../types';
 import { tieneSentinelDisable, tieneSentinelDisableFile } from '../../utils/analisisHelpers';
-import { extensionCanonica } from '../../core/language';
+import { extensionCanonica } from '../../core/runtime-proyecto/language';
 
 export interface PortableBoundaryConfig {
   dom?: string[];

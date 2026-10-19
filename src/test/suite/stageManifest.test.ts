@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { loadStageManifest } from '../../core/stageManifest';
+import { loadStageManifest } from '../../core/gate/stageManifest';
 
 function fixtureRoot(): string { return fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-stage-manifest-')); }
 function stage(name: string, reportPath = 'nested/report.json', cwd = '.'): object {

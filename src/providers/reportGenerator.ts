@@ -6,8 +6,8 @@
 
 import * as vscode from 'vscode';
 import { logInfo, logWarn } from '../utils/logger';
-import { generarReporteMarkdown, severidadTextoCore } from '../core/report';
-import { diagnosticSeverityToSeverity, diagnosticToFinding } from '../core/vscodeAdapter';
+import { generarReporteMarkdown, severidadTextoCore } from '../core/diagnostico/report';
+import { diagnosticSeverityToSeverity, diagnosticToFinding } from '../core/runtime-proyecto/vscodeAdapter';
 
 /*
  * Genera un archivo markdown con el resumen de todas las violaciones

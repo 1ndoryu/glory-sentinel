@@ -2,7 +2,7 @@
 /* [289A-1] todo-prosa-sin-marcador: migrada desde VarSense
  * (TodoProsaSinMarcador [149A-1 F3.13]). Paridad de guardas 0 FP. */
 import * as assert from 'assert';
-import { createCoreDocument } from '../../core/types';
+import { createCoreDocument } from '../../core/runtime-proyecto/types';
 import { verificarTodoProsaSinMarcador } from '../../analyzers/static/staticCodeRules';
 import {
   configurarOverridesReglas,

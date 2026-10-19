@@ -2,7 +2,7 @@
  * scripts/quality/tests/policy-decision.test.mjs): modos de política v2,
  * fallback legacy y no-policy. */
 import * as assert from 'assert';
-import { decisionForGuard, policyDecision } from '../../core/policyDecision';
+import { decisionForGuard, policyDecision } from '../../core/guard/policyDecision';
 
 suite('Sentinel core policy decision (orquestador agnóstico)', () => {
   test('expone pass-through para no-policy sin bloquear', () => {

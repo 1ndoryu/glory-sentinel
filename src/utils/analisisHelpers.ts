@@ -8,7 +8,7 @@
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
-import { CoreTextDocument } from '../core/types';
+import { CoreTextDocument } from '../core/runtime-proyecto/types';
 
 /*
  * Retorna true si la linea es un comentario (PHP, JS/TS, CSS).

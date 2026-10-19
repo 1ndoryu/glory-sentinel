@@ -5,7 +5,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { checkAndRecordHeavyRun, classifyHeavy, defaultBudgets, readBudgets } from '../../core/heavyBudget';
+import { checkAndRecordHeavyRun, classifyHeavy, defaultBudgets, readBudgets } from '../../core/gate/heavyBudget';
 
 function makeRoots(config?: unknown, extra?: string): { projectRoot: string; reportRoot: string; cleanup: () => void } {
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-budget-proj-'));

@@ -1,5 +1,5 @@
 import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver/node';
-import { CoreFinding, CoreSeverity } from '../core/types';
+import { CoreFinding, CoreSeverity } from '../core/runtime-proyecto/types';
 
 export function coreSeverityToLspSeverity(severity: CoreSeverity): DiagnosticSeverity {
   switch (severity) {

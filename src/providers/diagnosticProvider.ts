@@ -19,8 +19,8 @@ import {
 import { cargarConfiguracion, debeExcluirse, lenguajeHabilitado, invalidarCacheReglas } from '../services/ruleLoader';
 import { generarReporteWorkspace } from './reportGenerator';
 import { analizarDocumento } from '../analyzers/pipeline';
-import { CoreAnalysisConfig, CoreWorkspaceContext } from '../core/types';
-import { documentFromVsCode, findingToDiagnostic } from '../core/vscodeAdapter';
+import { CoreAnalysisConfig, CoreWorkspaceContext } from '../core/runtime-proyecto/types';
+import { documentFromVsCode, findingToDiagnostic } from '../core/runtime-proyecto/vscodeAdapter';
 
 /* DiagnosticCollection global de la extension */
 let coleccionDiagnosticos: vscode.DiagnosticCollection;

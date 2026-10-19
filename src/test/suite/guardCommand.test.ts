@@ -5,9 +5,9 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { cargoSubcommand, formatBlockMessage, inspectDirectCommand, QUALITY_GUARD_EXIT_CODE } from '../../core/guardCommand';
-import { LEASE_ENV_VAR, issueLease } from '../../core/lease';
-import { tmpBaseDir } from '../../core/tmpDir';
+import { cargoSubcommand, formatBlockMessage, inspectDirectCommand, QUALITY_GUARD_EXIT_CODE } from '../../core/guard/guardCommand';
+import { LEASE_ENV_VAR, issueLease } from '../../core/gate/lease';
+import { tmpBaseDir } from '../../core/seguridad-rutas/tmpDir';
 
 /* [10AA-2] Los temporales van a C:\tmp en Windows, no a %TEMP% (AGENTS.md §0.2). */
 const TMP_BASE = tmpBaseDir();

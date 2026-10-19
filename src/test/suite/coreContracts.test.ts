@@ -2,10 +2,10 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { createCoreDocument, createCoreRange, serializeCoreFindings, CoreFinding } from '../../core/types';
-import { findingToDiagnostic } from '../../core/vscodeAdapter';
+import { createCoreDocument, createCoreRange, serializeCoreFindings, CoreFinding } from '../../core/runtime-proyecto/types';
+import { findingToDiagnostic } from '../../core/runtime-proyecto/vscodeAdapter';
 import { analizarDocumento } from '../../analyzers/pipeline';
-import { generarReporteMarkdown } from '../../core/report';
+import { generarReporteMarkdown } from '../../core/diagnostico/report';
 import { analyzeCliTarget, languageIdForFile, parseCliArgs } from '../../cli';
 import { findingToLspDiagnostic } from '../../lsp/diagnostics';
 

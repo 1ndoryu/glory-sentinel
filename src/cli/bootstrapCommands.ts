@@ -17,7 +17,7 @@ import {
   formatUninitPlan,
   planInit,
   planUninit,
-} from '../core/projectInit';
+} from '../core/runtime-proyecto/projectInit';
 
 export interface InitCliResult {
   output: string;

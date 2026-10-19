@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { analyzeCliTarget, parseCliArgs, parseTaskCliArgs } from '../../cli';
-import { validateSentinelConfig } from '../../core/config';
+import { validateSentinelConfig } from '../../core/runtime-proyecto/config';
 
 suite('Sentinel CLI contract', () => {
   test('acepta una lista de archivos relativa al workspace', async () => {

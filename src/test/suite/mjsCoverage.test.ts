@@ -9,9 +9,9 @@
  */
 
 import * as assert from 'assert';
-import { extensionCanonica, languageIdForFile } from '../../core/language';
+import { extensionCanonica, languageIdForFile } from '../../core/runtime-proyecto/language';
 import { analizarEstatico } from '../../analyzers/static/staticAnalyzer';
-import { createCoreDocument } from '../../core/types';
+import { createCoreDocument } from '../../core/runtime-proyecto/types';
 import { obtenerLimiteArchivo } from '../../utils/lineCounter';
 
 function documento(fileName: string, contenido: string) {

@@ -9,7 +9,7 @@ import * as fs from 'fs';
 import {Violacion} from '../../../types';
 import {obtenerSeveridadRegla} from '../../../config/ruleRegistry';
 import {logInfo, logWarn} from '../../../utils/logger';
-import { obtenerWorkspaceRoots } from '../../../core/workspaceRoots';
+import { obtenerWorkspaceRoots } from '../../../core/seguridad-rutas/workspaceRoots';
 
 /* Cache de islas registradas en appIslands.tsx */
 let cacheIslasRegistradas: Set<string> | null = null;

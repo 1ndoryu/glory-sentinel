@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { createCoreDocument } from '../../core/types';
+import { createCoreDocument } from '../../core/runtime-proyecto/types';
 import { verificarReglasPortables } from '../../analyzers/static/portableRules';
 import { configurarOverridesReglas } from '../../config/ruleRegistry';
 

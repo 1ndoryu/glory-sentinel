@@ -12,7 +12,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CoreTextDocument } from '../../core/types';
+import { CoreTextDocument } from '../../core/runtime-proyecto/types';
 import { verificarCssAdhocButtonStyle, verificarCssElementoHTMLDirecto } from '../../analyzers/static/staticCssRules';
 import { verificarModalAccionesNoCanonico, verificarModalEstructuraNoCanonica } from '../../analyzers/react/reactComponentRules';
 import { indiceProyecto } from '../../utils/analisisHelpers';

@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
-import { provisionTaskInputs, validateIgnoredInputs } from '../../core/envManifest';
+import { provisionTaskInputs, validateIgnoredInputs } from '../../core/runtime-proyecto/envManifest';
 import {
   TASK_TTL_MS,
   claimTask,
@@ -14,7 +14,7 @@ import {
   releaseTask,
   startTask,
   taskStatus,
-} from '../../core/taskCoordinator';
+} from '../../core/task/taskCoordinator';
 
 function git(root: string, args: string[]): string {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();

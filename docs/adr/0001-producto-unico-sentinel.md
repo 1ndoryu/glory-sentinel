@@ -28,11 +28,11 @@ deben cumplir las extensiones para que añadir una no rompa el núcleo
 
    | Módulo | Responsabilidad | Archivos actuales |
    | --- | --- | --- |
-   | `analysis` | Analizadores agnósticos y reglas | `src/analyzers/`, `core/analyzeDocument.ts`, `core/report.ts`, `core/violacionAdapter.ts`, `core/language.ts` |
-   | `gate` | Alcance, scheduler, cache, etapas, reporte, lease, preflight | `core/gateRun.ts`, `core/scope.ts`, `core/scheduler.ts`, `core/stageRunner.ts`, `core/stageCache.ts`, `core/stageManifest.ts`, `core/gateReport.ts`, `core/structuredTool.ts`, `core/toolRunner.ts`, `core/guardCommand.ts`, `core/lease.ts`, `core/pathContainment.ts`, `core/diagnose.ts` |
-   | `runtime` | Instalación global, shims | `core/runtimeInstall.ts`, `core/interceptorShims.ts` |
-   | `task` | Orquestación de tareas (opcional) | `core/taskCoordinator.ts`, `core/taskRecovery.ts`, `core/branchValidation.ts` |
-   | `editor` | Integración VS Code/LSP | `src/extension.ts`, `src/lsp/`, `src/platform/`, `src/providers/`, `src/services/`, `src/handlers/`, `core/vscodeAdapter.ts`, `analyzers/externalToolsAnalyzer.ts` |
+   | `analysis` | Analizadores agnósticos y reglas | `src/analyzers/`, `core/diagnostico/analyzeDocument.ts`, `core/diagnostico/report.ts`, `core/diagnostico/violacionAdapter.ts`, `core/runtime-proyecto/language.ts` |
+   | `gate` | Alcance, scheduler, cache, etapas, reporte, lease, preflight | `core/gate/gateRun.ts`, `core/gate/scope.ts`, `core/gate/scheduler.ts`, `core/gate/stageRunner.ts`, `core/gate/stageCache.ts`, `core/gate/stageManifest.ts`, `core/gate/gateReport.ts`, `core/runtime-proyecto/structuredTool.ts`, `core/runtime-proyecto/toolRunner.ts`, `core/guard/guardCommand.ts`, `core/gate/lease.ts`, `core/seguridad-rutas/pathContainment.ts`, `core/diagnostico/diagnose.ts` |
+   | `runtime` | Instalación global, shims | `core/runtime-proyecto/runtimeInstall.ts`, `core/shims/interceptorShims.ts` |
+   | `task` | Orquestación de tareas (opcional) | `core/task/taskCoordinator.ts`, `core/task/taskRecovery.ts`, `core/task/branchValidation.ts` |
+   | `editor` | Integración VS Code/LSP | `src/extension.ts`, `src/lsp/`, `src/platform/`, `src/providers/`, `src/services/`, `src/handlers/`, `core/runtime-proyecto/vscodeAdapter.ts`, `analyzers/externos/externalToolsAnalyzer.ts` |
    | `cli` | Comandos del producto | `src/cli/` |
    | transversal | Config, tipos, utils | `src/config/`, `src/types/`, `src/utils/`, `src/errors/` |
 
@@ -44,7 +44,7 @@ deben cumplir las extensiones para que añadir una no rompa el núcleo
    **capabilities opcionales** del doctor (requeridas: `analyze`, `check`,
    `doctor`, `status`).
 6. **Una regla, un dueño.** `src/config/ruleRegistry.ts` es la única fuente
-   de las reglas del núcleo; `src/core/extensionRegistry.ts` valida las
+   de las reglas del núcleo; `src/core/runtime-proyecto/extensionRegistry.ts` valida las
    extensiones: identidad, owner, rule IDs, entrypoint, fixtures, budgets y
    condición de retirada. Se rechazan colisiones de rule IDs (entre
    extensiones o contra el núcleo) y extensiones ejecutables no declaradas.
@@ -110,7 +110,7 @@ deben cumplir las extensiones para que añadir una no rompa el núcleo
   refactor, rollback).
 - Auditoría §14 Fase 6 (concurrencia, shims, seguridad, alcance).
 - `scripts/check-core-no-vscode.mjs` (fronteras + budgets).
-- `src/core/extensionRegistry.ts` y `src/test/suite/extensionRegistry.test.ts`.
-- `src/core/shimDiagnostics.ts`, `src/core/securityFixtures` (tests),
-  `src/core/redaction.ts` (fix de backtracking catastrófico de URL_CREDENTIALS
+- `src/core/runtime-proyecto/extensionRegistry.ts` y `src/test/suite/extensionRegistry.test.ts`.
+- `src/core/shims/shimDiagnostics.ts`, `src/core/securityFixtures` (tests),
+  `src/core/seguridad-rutas/redaction.ts` (fix de backtracking catastrófico de URL_CREDENTIALS
   y de `Authorization: Bearer <token>`).

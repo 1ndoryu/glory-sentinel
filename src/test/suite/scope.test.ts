@@ -12,7 +12,7 @@ import {
   matches,
   resolveExplicitProfiles,
   resolveFullDecision,
-} from '../../core/scope';
+} from '../../core/gate/scope';
 
 suite('Sentinel core scope (orquestador agnóstico)', () => {
   test('scope usa globs deterministas y normaliza separadores', () => {
