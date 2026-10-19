@@ -9,3 +9,6 @@ target/
 # Binario del adaptador de Zed: se genera con `npm run build:zed`, no se versiona
 integrations/zed/extension.wasm
 *.lock
+
+# Registro de trabajo del protocolo del área: local, no versionado
+Agente/
