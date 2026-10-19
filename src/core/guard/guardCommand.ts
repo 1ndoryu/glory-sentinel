@@ -11,6 +11,8 @@ import { findQualityRoot, hasQualityMarker } from '../gate/scheduler';
 import { LEASE_ENV_VAR, verifyLease } from '../gate/lease';
 
 export const QUALITY_GUARD_EXIT_CODE = 78;
+// Tope de la política v2: una configuración real pesa unos KB; más de 1 MiB no es una política válida.
+const TAMANO_MAX_POLITICA_BYTES = 1024 * 1024;
 
 /* Defaults genéricos de herramientas que deben entrar por el gate. La
  * política v2 de un proyecto puede sobrescribirlos. */
@@ -72,6 +74,8 @@ export function readV2GuardPolicy(root: string): GuardPolicy {
     return { status: 'invalid-policy' };
   }
   if (metadata.isSymbolicLink() || !metadata.isFile()) return { status: 'invalid-policy' };
+  // El guard corre en cada comando del agente y lee de forma síncrona: un tope de tamaño evita leer un fichero desbocado.
+  if (metadata.size > TAMANO_MAX_POLITICA_BYTES) return { status: 'invalid-policy' };
   let raw: unknown;
   try {
     raw = JSON.parse(readFileSync(policyPath, 'utf8'));
