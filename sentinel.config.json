@@ -1,0 +1,14 @@
+{
+  "excludePatterns": [
+    "**/node_modules/**",
+    "**/vendor/**",
+    "**/dist/**",
+    "**/_generated/**",
+    "**/out/**",
+    "**/.vitepress/cache/**",
+    "**/build/**",
+    "**/.agent/**",
+    "**/target/**",
+    "**/fixtures/equivalence/**"
+  ]
+}
