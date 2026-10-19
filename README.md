@@ -136,8 +136,15 @@ Abre una terminal nueva y verifica la instalación real:
 ```bash
 sentinel --version
 sentinel --help
-sentinel doctor --json
 ```
+
+Para comprobar el primer análisis de un proyecto (desde su carpeta raíz; escribe el informe en la ruta que indiques):
+
+```bash
+sentinel analyze --workspace . --format json --output sentinel-reporte.json
+```
+
+`sentinel doctor --json` comprueba un proyecto consumidor: lee su `sentinel.lock.json` y sale 1 con `lock-missing` si no lo tiene. No es un paso de la instalación del propio Sentinel.
 
 La versión visible no basta para garantizar capacidades. Los proyectos que dependen de Sentinel deben fijar también el commit, el protocolo y el hash del artefacto en su lock.
 
