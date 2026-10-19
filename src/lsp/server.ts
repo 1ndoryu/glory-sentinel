@@ -123,6 +123,27 @@ function ensureWorkspaceInitialized(rootPath: string, rutasGlory?: CoreRutasGlor
   inicializarGloryAnalyzer([rootPath], rutasGlory);
 }
 
+/* [por que] Cada tecla dispara onDidChangeContent: se espera a que la edición pare
+ * (mismo valor por defecto que la extensión) antes de releer la config y analizar. */
+const DEBOUNCE_CAMBIO_MS = 500;
+const timersCambio = new Map<string, ReturnType<typeof setTimeout>>();
+
+function cancelarValidacionPendiente(uri: string): void {
+  const timer = timersCambio.get(uri);
+  if (timer) clearTimeout(timer);
+  timersCambio.delete(uri);
+}
+
+function validarConDebounce(uri: string): void {
+  cancelarValidacionPendiente(uri);
+  timersCambio.set(uri, setTimeout(() => {
+    timersCambio.delete(uri);
+    /* Se busca el documento al disparar: si se cerró entretanto, no hay nada que validar. */
+    const document = documents.get(uri);
+    if (document) void validateTextDocument(document);
+  }, DEBOUNCE_CAMBIO_MS));
+}
+
 function validateAllOpenDocuments(): void {
   for (const document of documents.all()) {
     void validateTextDocument(document);
@@ -163,7 +184,7 @@ documents.onDidOpen(event => {
 });
 
 documents.onDidChangeContent(event => {
-  void validateTextDocument(event.document);
+  validarConDebounce(event.document.uri);
 });
 
 documents.onDidSave(event => {
@@ -171,6 +192,7 @@ documents.onDidSave(event => {
 });
 
 documents.onDidClose(event => {
+  cancelarValidacionPendiente(event.document.uri);
   connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
 });
 

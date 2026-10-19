@@ -26,7 +26,6 @@ Orden de ejecución: T1 → T6. Cada bloque: probar en la 89, documentar en `Age
   - [x] `reactUiCatalog.ts` (`carpetasUi`) y `apiContractIndexer.ts` (`controladores`): rutas de design system y controllers configurables con `rutasGlory` en `sentinel.config.json` (validado en `config.ts`; sin clave = defaults idénticos). Cobertura: `src/test/suite/runtime-proyecto/rutasGlory.test.ts`. Verificado en la 89: compile rc 0, `test:unit` 939 passing / 0 failing, `check:reglas` y autogate 0 archivos con hallazgos.
 - [ ] **T5 Arquitectura, repo y optimización (medio).**
   - Unos 19 recorridos de directorio propios (p. ej. `cliAnalyze.ts:96-118`, `install/artefacto.ts:25-33`, `utils/analisis/indiceProyecto.ts:13-27`). Acción: un solo recorredor con reglas de exclusión.
-  - `src/lsp/server.ts:159-161`: sin debounce (la extensión sí lo tiene); relee la config y analiza de forma síncrona en `:91`.
   - Presupuestos: `scripts/module-budgets.json` fija 550–950 en barriles de 8–26 líneas; `staticCodeRules.ts` (704) se partirá; `apiContractIndexer.ts` (485) y `externalToolsAnalyzer.ts` (454) sin presupuesto.
   - `roadmap.md` sigue versionado: aplicar la misma decisión que en VarSense (sacarlo del repo).
   - `media/*.jpg` de 290 KB como icono (bajo); `src/core/guard/guardCommand.ts:77` con `readFileSync` en la ruta del guard (bajo).
