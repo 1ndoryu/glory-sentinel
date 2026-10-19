@@ -36,6 +36,11 @@ Las reglas de WordPress y de Glory vienen desactivadas por defecto, porque en un
 positivos. Si Sentinel detecta el perfil (carpeta `Glory`, `wp-content`, `wp-config.php` o un tema con
 `Theme Name:`), el informe del gate lo indica y sugiere la ruta exacta para activarlas. Nunca las activa solo.
 
+Las reglas portables de arquitectura usan fronteras por fragmento de ruta en `portableBoundaries`:
+`dom`, `window`, `services` y `loggerModules`. Si una clave se declara, sustituye su valor por defecto
+(`src/analyzers/static/portableRules.ts`, p. ej. `/platform/` y `/adapters/` en `dom`); una lista vacía
+desactiva esa frontera. `tooling` se suma a las carpetas de herramientas de serie (`/test/`, `/scripts/`…).
+
 ## Tools y capabilities
 
 `quality-tools.json` fija repository, `sourcePath`, commit, versión, CLI, scripts de build/test y
