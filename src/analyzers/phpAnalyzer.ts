@@ -1,6 +1,6 @@
 ﻿/*
  * Analyzer PHP/WordPress  Fachada.
- * Delega en submodulos: phpControllerRules, phpDataRules, phpSecurityRules.
+ * Delega en submodulos: phpControllerRules, phpDataRules, phpDataFlujoRules, phpSecurityRules.
  */
 
 import { Violacion } from '../types';
@@ -10,14 +10,16 @@ import { reglaHabilitada } from '../config/ruleRegistry';
 import { verificarControllerSinTryCatch, verificarLockSinFinally, verificarCatchCriticoSoloLog } from './php/phpControllerRules';
 import {
   verificarWpdbSinPrepareContextual,
+  verificarRetornoIgnoradoRepo,
+} from './php/phpDataRules';
+import {
   verificarRequestJsonDirecto,
   verificarJsonDecodeInseguro,
   verificarToctouSelectInsert,
   verificarCadenaIssetUpdate,
   verificarQueryDobleVerificacion,
   verificarJsonSinLimiteBd,
-  verificarRetornoIgnoradoRepo,
-} from './php/phpDataRules';
+} from './php/phpDataFlujoRules';
 import {
   verificarExecSinEscape,
   verificarCurlSinVerificacion,

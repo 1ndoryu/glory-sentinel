@@ -9,12 +9,12 @@ import * as assert from 'assert';
 /* Sprint 8: PHP rules */
 import { verificarLockSinFinally } from '../../analyzers/php/phpControllerRules';
 import { verificarCatchCriticoSoloLog } from '../../analyzers/php/phpControllerRules';
-import { verificarToctouSelectInsert } from '../../analyzers/php/phpDataRules';
-import { verificarCadenaIssetUpdate } from '../../analyzers/php/phpDataRules';
-import { verificarJsonSinLimiteBd } from '../../analyzers/php/phpDataRules';
+import { verificarToctouSelectInsert } from '../../analyzers/php/phpDataFlujoRules';
+import { verificarCadenaIssetUpdate } from '../../analyzers/php/phpDataFlujoRules';
+import { verificarJsonSinLimiteBd } from '../../analyzers/php/phpDataFlujoRules';
 import { verificarRetornoIgnoradoRepo } from '../../analyzers/php/phpDataRules';
 import { verificarMimeTypeCliente } from '../../analyzers/php/phpSecurityRules';
-import { verificarJsonDecodeInseguro } from '../../analyzers/php/phpDataRules';
+import { verificarJsonDecodeInseguro } from '../../analyzers/php/phpDataFlujoRules';
 
 /* Sprint 9: TS rules */
 import { verificarListenSinCleanup } from '../../analyzers/react/reactHookRules';
