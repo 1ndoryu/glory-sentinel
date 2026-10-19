@@ -67,6 +67,8 @@ sentinel analyze --workspace . --format markdown
 sentinel analyze --file src/app.ts --format json
 ```
 
+Códigos de salida de `analyze`: `0` si no hay hallazgos `error` (los `warning` no bloquean), `1` si hay al menos uno de severidad `error` y `2` por error de uso o de ejecución (por ejemplo, un archivo inexistente o una opción desconocida).
+
 Este modo es útil en cualquier carpeta y no necesita coordinación de tareas ni un gate completo.
 
 ### 2. Quality gate
@@ -139,10 +141,11 @@ sentinel doctor --json
 
 La versión visible no basta para garantizar capacidades. Los proyectos que dependen de Sentinel deben fijar también el commit, el protocolo y el hash del artefacto en su lock.
 
-Destino por defecto: `%LOCALAPPDATA%\GlorySentinel` en Windows; si no existe `LOCALAPPDATA`, `~/.glory-sentinel`. `--target-root` lo cambia.
+Destino por defecto: `%LOCALAPPDATA%\GlorySentinel` en Windows; si no existe `LOCALAPPDATA`, `~/.glory-sentinel`. `--target-root` existe en `install`, `update`, `rollback` y `uninstall`; para fijar el destino, pásalo explícitamente.
 
 - `--with-path` añade al PATH de usuario de Windows los directorios de shims y `bin`. Fuera de Windows no toca el PATH: el dry-run informa `[path] unsupported` y hay que añadir `<destino>/bin` a tu shell a mano.
-- `sentinel doctor` lee el `sentinel.lock.json` del workspace; si falta, informa `lock-missing`. Un proyecto consumidor debe tenerlo; el repo de Sentinel no es un consumidor.
+- `--with-shims` intercepta solo algunos comandos: `npm`, `npx` y `cargo` en `cmd`; `cargo`, `cargo.exe`, `rustfmt`, `npm`, `npx`, `vitest`, `tsc`, `eslint` y `prettier` en bash y PowerShell. Cualquier otro comando no pasa por Sentinel.
+- `sentinel doctor` lee el `sentinel.lock.json` del workspace; si falta, informa `lock-missing` y sale 1. Un proyecto consumidor debe tenerlo; el repo de Sentinel no es un consumidor. `doctor` no acepta `--target-root` (sale 2 si se pasa) y reporta el runtime global, no el de un destino personalizado.
 - Desinstalar: `sentinel uninstall --dry-run` primero. Retira solo entradas administradas (PATH, shims, marcadores de perfil, versiones y `current`). `--keep-runtime` conserva `versions/`, `current` y `bin/`.
 
 ## Añadir Sentinel a un proyecto nuevo
