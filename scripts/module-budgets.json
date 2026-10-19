@@ -16,7 +16,6 @@
     "src/analyzers/react/formularioConfigSystem.ts": 300,
     "src/analyzers/static/staticCssRules.ts": 700,
     "src/analyzers/static/staticCssDesignRules.ts": 400,
-    "src/analyzers/static/staticCodeRules.ts": 705,
     "src/analyzers/glory/api/apiContractIndexer.ts": 550
   }
 }
