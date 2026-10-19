@@ -19,7 +19,8 @@ Origen: prueba de instalación como tercero (FALLA) y revisión de diez puntos. 
 - [ ] **Versión del README (reservado).** `README.md:117-120` fija `v0.7.23`, el HEAD está en 0.7.26. Crear o no el tag y releases es decisión de la usuaria. Pendiente: alinear el README con la versión que se publique.
 - [ ] **Agnosticismo.** Reglas WordPress (`src/config/ruleRegistry.ts:62-87`) y Glory (`:91-96`, `:128-150`) activas por defecto (`:305`); rutas `'/Glory/'` fijas en `src/analyzers/gloryAnalyzer.ts:102,110,137` y `src/analyzers/static/analisis/staticOrquestador.ts:93`; nombres de proyecto en comentarios del núcleo (`src/core/runtime-proyecto/config.ts:236-241`). Mover a configuración; requiere decisión de la usuaria sobre el comportamiento por defecto.
 - [ ] **SOLID.** `src/analyzers/static/staticCodeRules.ts` 494 líneas sin budget en `scripts/module-budgets.json`. Dividir o registrar el budget.
-- [ ] **Repo limpio.** `integrations/zed/extension.wasm` versionado (binario); `Agente/` versionado; `.gitignore:7` con ruta de Zed de origen incierto (verificar). Decidir qué sale del repo.
+- [x] **Repo limpio (wasm).** `integrations/zed/extension.wasm` sale del repo (79904b3); `npm run build:zed` lo genera. Verificado en la 89: `check:zed` rc 0, `build:zed` rc 0 y artefacto WebAssembly componente. `.gitignore:7` (ruta antigua `.agent/code-sentinel/...`) retirada: `target/` ya la cubre.
+- [ ] **Repo limpio (Agente/).** `Agente/` sigue versionado. Decidir con la usuaria si sale del repo.
 - [ ] **Optimización.** Sin perfilado; hay cachés de índice y de etapas. Medir antes de tocar.
 - [ ] **Historia.** Reescritura de commits `9b42adf` y `eb4819e`: reservado a la usuaria; no se hace.
 

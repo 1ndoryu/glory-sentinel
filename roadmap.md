@@ -5,7 +5,7 @@ Orden de ejecución: de arriba abajo. Cada bloque: probar en la 89, documentar, 
 
 ## Pendiente
 
-- [ ] **R2 Hallazgos aplazados de la revisión de terceros (2026-10-19).** Lista viva en `Agente/planes/plan-revision-tercero-2026-10-19.md`. Pendiente: agnosticismo (reglas WordPress/Glory activas por defecto, rutas `/Glory/`; requiere decisión de la usuaria), budget de `staticCodeRules.ts` (494 líneas), repo limpio (`extension.wasm`, `Agente/` versionado), y la versión del README (reservado a la usuaria: tag/release).
+- [ ] **R2 Hallazgos aplazados de la revisión de terceros (2026-10-19).** Lista viva en `Agente/planes/plan-revision-tercero-2026-10-19.md`. Pendiente: agnosticismo (decidido: reglas WordPress/Glory desactivadas por defecto y recomendación de activarlas al detectar el proyecto; rutas `/Glory/` y comentarios a configuración), budget de `staticCodeRules.ts` (494 líneas), `Agente/` versionado (decidir con la usuaria), y la versión del README (reservado a la usuaria: tag/release). Hecho: `extension.wasm` sale del repo (79904b3).
 
 - [ ] **S9 Autogate en Arranque.** El análisis se ejecuta bien en la 89 (`analyze`, ver S13), pero falta la ficha de Arranque / endpoint `POST /api/gate/analizar`. Bloqueo: cambio en workspace-manager (registro y backend), fuera de este repo.
 
