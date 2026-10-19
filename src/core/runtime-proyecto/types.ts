@@ -53,6 +53,8 @@ export interface CoreAnalysisConfig {
   excludePatterns: string[];
   ruleOverrides: Record<string, CoreRuleOverride>;
   directoryExceptions?: string[];
+  /* Carpetas que marcan el framework Glory; vacio o ausente = por defecto */
+  marcadoresGlory?: string[];
   useConfiguredRuleProvider?: boolean;
   portableBoundaries?: {
     dom?: string[];

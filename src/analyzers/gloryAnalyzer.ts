@@ -9,7 +9,7 @@
 import * as path from 'path';
 import { Violacion } from '../types';
 import { reglaHabilitada } from '../config/ruleRegistry';
-import { normalizarRuta } from '../utils/analisisHelpers';
+import { esRutaGlory, normalizarRuta } from '../utils/analisisHelpers';
 import { CoreTextDocument } from '../core/runtime-proyecto/types';
 import { configurarWorkspaceRoots } from '../core/seguridad-rutas/workspaceRoots';
 
@@ -99,7 +99,7 @@ export function analizarGlory(documento: CoreTextDocument): Violacion[] {
   }
 
   /* Glory/ es framework externo  estas reglas no aplican a su codigo */
-  if (reglaHabilitada('return-void-critico') && !rutaNormalizada.includes('/Glory/')) {
+  if (reglaHabilitada('return-void-critico') && !esRutaGlory(rutaNormalizada)) {
     violaciones.push(...verificarReturnVoidCritico(texto, lineas));
   }
 
@@ -107,7 +107,7 @@ export function analizarGlory(documento: CoreTextDocument): Violacion[] {
   if (reglaHabilitada('n-plus-1-query')) {
     violaciones.push(...verificarNPlus1Query(lineas, rutaNormalizada));
   }
-  if (reglaHabilitada('controller-fqn-inline') && !rutaNormalizada.includes('/Glory/')) {
+  if (reglaHabilitada('controller-fqn-inline') && !esRutaGlory(rutaNormalizada)) {
     violaciones.push(...verificarFqnInline(lineas));
   }
   if (reglaHabilitada('php-sin-return-type')) {
@@ -134,7 +134,7 @@ export function analizarGlory(documento: CoreTextDocument): Violacion[] {
   if (reglaHabilitada('php-array-asociativo-como-lista')) {
     violaciones.push(...verificarArrayAsociativoComoLista(lineas));
   }
-  if (reglaHabilitada('php-service-retorna-asociativo') && !rutaNormalizada.includes('/Glory/')) {
+  if (reglaHabilitada('php-service-retorna-asociativo') && !esRutaGlory(rutaNormalizada)) {
     violaciones.push(...verificarServiceRetornaAsociativo(lineas));
   }
 

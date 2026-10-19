@@ -7,7 +7,7 @@
 import * as path from 'path';
 import { Violacion } from '../../../types';
 import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
-import { esComentario, tieneSentinelDisable } from '../../../utils/analisisHelpers';
+import { esComentario, esRutaGlory, tieneSentinelDisable } from '../../../utils/analisisHelpers';
 
 /*
  * Detecta queries directas en controllers/endpoints.
@@ -19,7 +19,7 @@ export function verificarEndpointAccedeBd(lineas: string[], rutaArchivo: string)
   const nombreArchivo = path.basename(rutaArchivo);
   if (!/Controller|Endpoints/i.test(nombreArchivo)) { return violaciones; }
 
-  if (rutaArchivo.includes('/Glory/') || rutaArchivo.includes('/Repositories/') ||
+  if (esRutaGlory(rutaArchivo) || rutaArchivo.includes('/Repositories/') ||
       rutaArchivo.includes('/Database/') || rutaArchivo.includes('BaseRepository')) {
     return violaciones;
   }

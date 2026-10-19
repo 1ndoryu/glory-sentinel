@@ -3,7 +3,7 @@ import { ReglaEstatica, Violacion } from '../../../types';
 import { CoreTextDocument } from '../../../core/runtime-proyecto/types';
 import { reglasEstaticas } from '../../../config/defaultRules';
 import { reglaHabilitada } from '../../../config/ruleRegistry';
-import { proyectoTieneModalCanonico } from '../../../utils/analisisHelpers';
+import { esRutaGlory, proyectoTieneModalCanonico } from '../../../utils/analisisHelpers';
 import { obtenerWorkspaceRoots } from '../../../core/seguridad-rutas/workspaceRoots';
 import { extensionCanonica } from '../../../core/runtime-proyecto/language';
 import { REGLAS_LIMITE_LINEAS, verificarLimiteLineas, verificarUseStateExcesivo, verificarImportsMuertos, verificarAnyType, verificarNonNullAssertion, verificarDirectorioAbarrotado, verificarHtmlSinOrigenDeclarado, verificarTodoProsaSinMarcador } from '../staticCodeRules';
@@ -90,7 +90,7 @@ export function analizarEstatico(
         /* Excluir barras-decorativas en Glory/ */
         if (regla.id === 'barras-decorativas') {
             const rutaNorm = documento.fileName.replace(/\\/g, '/');
-            if (rutaNorm.includes('/Glory/')) {
+            if (esRutaGlory(rutaNorm)) {
                 continue;
             }
         }
@@ -105,7 +105,7 @@ export function analizarEstatico(
     /* Limites de lineas (excluir Glory/) */
     if (REGLAS_LIMITE_LINEAS.some(reglaId => reglaHabilitada(reglaId))) {
         const rutaNormLimite = documento.fileName.replace(/\\/g, '/');
-        if (!rutaNormLimite.includes('/Glory/')) {
+        if (!esRutaGlory(rutaNormLimite)) {
             violaciones.push(...verificarLimiteLineas(documento, nombreArchivo));
         }
     }
@@ -165,7 +165,7 @@ export function analizarEstatico(
     /* Reglas CSS */
     if (['.css', '.scss'].includes(extension)) {
         const rutaNormCss = documento.fileName.replace(/\\/g, '/');
-        if (reglaHabilitada('nomenclatura-css-ingles') && !rutaNormCss.includes('/Glory/')) {
+        if (reglaHabilitada('nomenclatura-css-ingles') && !esRutaGlory(rutaNormCss)) {
             violaciones.push(...verificarNomenclaturaCssIngles(texto, documento, nombreArchivo));
         }
         if (reglaHabilitada('css-adhoc-button-style')) {

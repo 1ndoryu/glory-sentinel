@@ -10,6 +10,7 @@ import {Violacion} from '../../../types';
 import {obtenerSeveridadRegla} from '../../../config/ruleRegistry';
 import {logInfo, logWarn} from '../../../utils/logger';
 import { obtenerWorkspaceRoots } from '../../../core/seguridad-rutas/workspaceRoots';
+import { esRutaGlory } from '../../../utils/analisisHelpers';
 
 /* Cache de islas registradas en appIslands.tsx */
 let cacheIslasRegistradas: Set<string> | null = null;
@@ -118,7 +119,7 @@ export function verificarIslaNoRegistrada(rutaArchivo: string, texto: string): V
     }
 
     /* Glory tiene su propio registro de islas (main.tsx), no usa appIslands.tsx */
-    if (rutaArchivo.includes('/Glory/')) {
+    if (esRutaGlory(rutaArchivo)) {
         return [];
     }
 

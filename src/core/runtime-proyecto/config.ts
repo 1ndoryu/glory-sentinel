@@ -7,6 +7,8 @@ export interface SentinelConfigFile {
   includePatterns?: string[];
   excludePatterns?: string[];
   directoryExceptions?: string[];
+  /* Carpetas que marcan el framework Glory (por defecto /Glory/ y /glory-core/) */
+  marcadoresGlory?: string[];
   rules?: Record<string, ConfigReglaUsuario>;
   portableBoundaries?: {
     dom?: string[];
@@ -65,7 +67,7 @@ export const DEFAULT_EXCLUDE_PATTERNS = [
   '**/target/**',
 ];
 
-const CONFIG_KEYS = new Set(['includePatterns', 'excludePatterns', 'directoryExceptions', 'rules', 'portableBoundaries', 'project', 'schemaVersion', 'mode', 'gate', 'guard', 'runtime', 'analyzers', 'budgets']);
+const CONFIG_KEYS = new Set(['includePatterns', 'excludePatterns', 'directoryExceptions', 'marcadoresGlory', 'rules', 'portableBoundaries', 'project', 'schemaVersion', 'mode', 'gate', 'guard', 'runtime', 'analyzers', 'budgets']);
 const PORTABLE_BOUNDARY_KEYS = new Set(['dom', 'window', 'services', 'loggerModules', 'tooling']);
 const RULE_KEYS = new Set(['habilitada', 'severidad']);
 const VALID_SEVERITIES = new Set(['error', 'warning', 'information', 'hint']);
@@ -148,7 +150,7 @@ export function validateSentinelConfig(value: unknown): asserts value is Sentine
     validateSentinelConfig(analyzerSentinel.config);
   }
 
-  for (const key of ['includePatterns', 'excludePatterns', 'directoryExceptions'] as const) {
+  for (const key of ['includePatterns', 'excludePatterns', 'directoryExceptions', 'marcadoresGlory'] as const) {
     if (config[key] !== undefined) {
       assertStringArray(config[key], key);
     }
@@ -316,6 +318,7 @@ export function buildCoreConfig(config: SentinelConfigFile): CoreAnalysisConfig 
     includePatterns: patronesDeInclusion(analyzerConfig.includePatterns),
     excludePatterns: analyzerConfig.excludePatterns ?? DEFAULT_EXCLUDE_PATTERNS,
     directoryExceptions: analyzerConfig.directoryExceptions ?? [],
+    marcadoresGlory: analyzerConfig.marcadoresGlory,
     ruleOverrides: Object.fromEntries(
       Object.entries(analyzerConfig.rules ?? {}).map(([ruleId, override]) => [ruleId, {
         enabled: override.habilitada,

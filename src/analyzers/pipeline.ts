@@ -10,10 +10,13 @@ import { analizarReact } from './react/reactAnalyzer';
 import { analizarRust } from './rust/rustAnalyzer';
 import { analizarGlory } from './gloryAnalyzer';
 import { analizarApiEndpoints } from './externos/apiEndpointAnalyzer';
+import { configurarMarcadoresGlory } from '../utils/analisis/rutasYContenido';
 
 /* Ejecuta todos los analizadores que aplican al tipo del documento. */
 export function pipelineAnalizadores(document: CoreTextDocument, contexto: CoreAnalysisContext): Violacion[] {
   const { config, workspace } = contexto;
+  // Los marcadores de framework llegan de la config del proyecto; sin ella, los de por defecto
+  configurarMarcadoresGlory(config.marcadoresGlory);
   const workspaceRoots = workspace ? [workspace.rootPath] : [];
   const tipo = obtenerTipoArchivo(document.languageId, document.fileName);
   const violaciones: Violacion[] = [];

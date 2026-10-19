@@ -28,6 +28,10 @@ Cada regla se ajusta con `habilitada` (boolean) y `severidad`. Los ids y su cate
 }
 ```
 
+Las reglas que tratan `/Glory/` y `/glory-core/` como código del framework (exentas de las reglas de proyecto)
+usan esos marcadores por defecto. Un proyecto con otro nombre de framework los declara en
+`marcadoresGlory` (lista de fragmentos de ruta, junto a `rules`); una lista vacía vuelve al defecto.
+
 Las reglas de WordPress y de Glory vienen desactivadas por defecto, porque en un proyecto ajeno dan falsos
 positivos. Si Sentinel detecta el perfil (carpeta `Glory`, `wp-content`, `wp-config.php` o un tema con
 `Theme Name:`), el informe del gate lo indica y sugiere la ruta exacta para activarlas. Nunca las activa solo.
