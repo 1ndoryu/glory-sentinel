@@ -8,7 +8,7 @@ import * as assert from 'assert';
 import { verificarApiResponseMismatch } from '../../analyzers/glory/apiContractRules';
 import { verificarAccesoApiSinFallback } from '../../analyzers/glory/apiFallbackRules';
 
-/* ============== acceso-api-sin-fallback ============== */
+/* acceso-api-sin-fallback */
 
 suite('acceso-api-sin-fallback', () => {
 
@@ -93,7 +93,7 @@ suite('acceso-api-sin-fallback', () => {
   });
 });
 
-/* ============== api-response-mismatch ============== */
+/* api-response-mismatch */
 
 /*
  * Las pruebas de api-response-mismatch requieren que el indice de contratos

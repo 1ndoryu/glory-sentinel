@@ -1,8 +1,9 @@
 import * as assert from 'assert';
+import { CoreTextDocument } from '../../core/types';
 import { verificarModalSemanticaNoCanonica } from '../../analyzers/static/staticCssRules';
 
 function crearDocumento(fileName: string) {
-  return { fileName } as any;
+  return { fileName } as CoreTextDocument;
 }
 
 const RUTA_MODAL = '/repo/frontend/src/components/servicios/ModalCompra.css';

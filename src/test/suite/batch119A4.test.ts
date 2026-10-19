@@ -1,3 +1,4 @@
+/* sentinel-disable-file todo-pendiente todo-prosa-sin-marcador: archivo de muestras; los TODO son texto de prueba del detector. */
 /* [119A-4] Regression batch: falsos positivos verificados contra oraculo 0.7.10.
  * Cada test cita el sitio del oraculo que lo motivo. */
 import * as assert from 'assert';

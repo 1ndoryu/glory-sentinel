@@ -1,3 +1,4 @@
+/* sentinel-disable-file non-null-assertion-excesivo: muestras de la regla; los ! son texto de prueba. */
 /*
  * Tests para las reglas del Sprint 5.
  * Cubre las 5 reglas nuevas implementadas en reactAnalyzer.ts y staticAnalyzer.ts:
@@ -13,11 +14,7 @@
 
 import * as assert from 'assert';
 
-/* ========================================================================
- * Reimplementaciones de las funciones del analyzer para tests unitarios.
- * Se copian con la misma logica que en reactAnalyzer.ts y staticAnalyzer.ts
- * para poder ejecutarlos con mocha sin la extension activa.
- * ======================================================================== */
+/* Reimplementaciones de las funciones del analyzer para tests unitarios */
 
 interface Violacion {
   reglaId: string;
@@ -275,9 +272,7 @@ function verificarNonNullAssertionExcesivo(lineas: string[]): Violacion[] {
 }
 
 
-/* ========================================================================
- * SUITES DE TEST
- * ======================================================================== */
+/* SUITES DE TEST */
 
 suite('Sprint 5 - componente-artesanal', () => {
 

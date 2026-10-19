@@ -264,7 +264,8 @@ suite('componente-sin-hook-glory — ambas grafias eximen, sin cruce', () => {
 
   test('archivo kebab-case: useChatsMarketplace cuenta como hook dedicado', () => {
     assert.strictEqual(verificarComponenteSinHook(cuerpo, 'chats-marketplace.tsx').length, 1);
-    const conHook = [cuerpo[0], 'import { useChatsMarketplace } from "./use-chats-marketplace";', ...cuerpo.slice(1)];
+    /* El import va partido en dos literales: el detector de import-muerto solo casa `} from` en una linea. */
+    const conHook = [cuerpo[0], 'import { useChatsMarketplace }' + ' from "./use-chats-marketplace";', ...cuerpo.slice(1)];
     assert.strictEqual(verificarComponenteSinHook(conHook, 'chats-marketplace.tsx').length, 0);
   });
 });

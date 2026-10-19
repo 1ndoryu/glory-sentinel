@@ -240,6 +240,8 @@ export function verificarAnyType(texto: string, _documento: CoreTextDocument): V
  * Solo reporta si el archivo tiene 5 o mas instancias.
  */
 export function verificarNonNullAssertion(texto: string, _documento: CoreTextDocument): Violacion[] {
+  /* Waiver de archivo, igual que el resto de detectores de este modulo. */
+  if (tieneSentinelDisableFile(texto, 'non-null-assertion-excesivo')) { return []; }
   const lineas = texto.split('\n');
   const instancias: number[] = [];
 

@@ -1,3 +1,4 @@
+/* sentinel-disable-file eval-prohibido innerhtml-variable catch-vacio hardcoded-secret: archivo de muestras de detectores; las líneas son entradas de prueba. */
 /*
  * Tests unitarios para regexPatterns.ts.
  * Verifica que cada patron regex exportado detecta correctamente

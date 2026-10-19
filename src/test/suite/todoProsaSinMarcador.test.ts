@@ -1,3 +1,4 @@
+/* sentinel-disable-file todo-pendiente todo-prosa-sin-marcador: archivo de muestras del detector de TODO; los marcadores son texto de prueba. */
 /* [289A-1] todo-prosa-sin-marcador: migrada desde VarSense
  * (TodoProsaSinMarcador [149A-1 F3.13]). Paridad de guardas 0 FP. */
 import * as assert from 'assert';

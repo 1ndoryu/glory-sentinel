@@ -1,9 +1,10 @@
 import * as assert from 'assert';
+import { CoreTextDocument } from '../../core/types';
 import { verificarFormularioConfigSinSistema } from '../../analyzers/react/formularioConfigSystem';
 import { verificarCssHardcoded } from '../../analyzers/static/staticCssRules';
 
 function crearDocumento(fileName: string) {
-  return { fileName } as any;
+  return { fileName } as CoreTextDocument;
 }
 
 suite('formulario-config-sin-sistema-declarativo', () => {

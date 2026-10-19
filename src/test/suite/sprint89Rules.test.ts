@@ -23,7 +23,7 @@ import { verificarHandlerSinTryCatch } from '../../analyzers/react/reactErrorRul
 import { verificarColaSinLimite } from '../../analyzers/react/reactComponentRules';
 import { verificarObjetoMutableExportado } from '../../analyzers/react/reactComponentRules';
 
-/* ============================= Sprint 8 ============================= */
+/* Sprint 8 */
 
 suite('Sprint 8 — PHP Rules', () => {
 
@@ -276,7 +276,7 @@ suite('Sprint 8 — PHP Rules', () => {
   });
 });
 
-/* ============================= Sprint 9 ============================= */
+/* Sprint 9 */
 
 suite('Sprint 9 — TypeScript Rules', () => {
 

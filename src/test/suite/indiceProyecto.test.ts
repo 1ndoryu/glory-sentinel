@@ -12,6 +12,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { CoreTextDocument } from '../../core/types';
 import { verificarCssAdhocButtonStyle, verificarCssElementoHTMLDirecto } from '../../analyzers/static/staticCssRules';
 import { verificarModalAccionesNoCanonico, verificarModalEstructuraNoCanonica } from '../../analyzers/react/reactComponentRules';
 import { indiceProyecto } from '../../utils/analisisHelpers';
@@ -31,7 +32,7 @@ function crearProyecto(archivos: Record<string, string>): string {
 }
 
 function crearDocumento(fileName: string) {
-  return { fileName } as any;
+  return { fileName } as CoreTextDocument;
 }
 
 suite('css-adhoc-button-style — veredicto por elemento', () => {

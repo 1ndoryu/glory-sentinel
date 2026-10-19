@@ -1,3 +1,4 @@
+/* sentinel-disable-file eval-prohibido innerhtml-variable catch-vacio hardcoded-secret: archivo de muestras de detectores; las líneas son entradas de prueba. */
 /*
  * Tests para las reglas estaticas (regex patterns).
  * Verifica que cada patron detecta violaciones correctamente

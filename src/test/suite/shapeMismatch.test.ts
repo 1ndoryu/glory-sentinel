@@ -10,7 +10,7 @@
 import * as assert from 'assert';
 import { verificarArrayAsociativoComoLista, verificarServiceRetornaAsociativo } from '../../analyzers/php/phpArrayShapeRules';
 
-/* ============== php-array-asociativo-como-lista ============== */
+/* php-array-asociativo-como-lista */
 
 suite('php-array-asociativo-como-lista', () => {
 
@@ -138,7 +138,7 @@ suite('php-array-asociativo-como-lista', () => {
   });
 });
 
-/* ============== php-service-retorna-asociativo ============== */
+/* php-service-retorna-asociativo */
 
 suite('php-service-retorna-asociativo', () => {
 
@@ -248,7 +248,7 @@ suite('php-service-retorna-asociativo', () => {
   });
 });
 
-/* ============== api-response-mismatch ampliado (regex patterns) ============== */
+/* api-response-mismatch ampliado (regex patterns) */
 
 suite('api-response-mismatch — useWordPressApi patterns', () => {
 

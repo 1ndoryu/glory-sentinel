@@ -425,7 +425,7 @@ export function detectarLockATravesAwait(
  * `self.conn.lock()` con conn: Mutex<Connection> (rusqlite es sincrono;
  * bajo tokio el lock bloquea el worker entero).
  * Limite conocido (H11): no se resuelven tipos; si el fichero declara
- * Mutex<Connection>, TODO .lock() sincrono en async se flaggea. Waiver:
+ * Mutex<Connection>, cualquier .lock() sincrono en async se flaggea. Waiver:
  * sentinel-disable-next-line / sentinel-disable-file. */
 const PATRON_MUTEX_CONNECTION = /Mutex\s*<\s*(?:[\w:]+\s*::\s*)*Connection\s*>/;
 const PATRON_LOCK_SINCRONO_SUELTO = /\.lock\s*\(\s*\)(?!\s*\.await)/g;

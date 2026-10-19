@@ -763,6 +763,7 @@ suite('[149A-1] html-sin-origen-declarado (TS)', () => {
   test('no dispara con consumidor con allowlist sin literal HTML propio', () => {
     const findings = analyzeTsDoc([
       'export function renderizar(el: HTMLElement, html: string): void {',
+      /* sentinel-disable-next-line innerhtml-variable: muestra de prueba */
       '  el.innerHTML = sanitizar(html);',
       '}',
     ].join('\n'));

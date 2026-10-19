@@ -112,6 +112,7 @@ suite('inline-style-prohibido con CSS vars', () => {
 
   test('no reporta style inline en un comentario de bloque C-style', () => {
     const texto = [
+      /* sentinel-disable-next-line todo-pendiente: texto de prueba */
       '/* TODO: sustituir style={{color: "red"}} por una clase CSS */',
       "<div className=\"real\" />",
     ].join('\n');

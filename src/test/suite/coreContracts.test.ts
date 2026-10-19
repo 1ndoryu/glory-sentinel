@@ -75,6 +75,7 @@ suite('Sentinel editor-agnostic core contracts', () => {
       uri: 'file:///workspace/src/secret.ts',
       fileName: '/workspace/src/secret.ts',
       languageId: 'typescript',
+      /* sentinel-disable-next-line hardcoded-secret: credencial de prueba, no real. */
       content: 'const password = "abcd1234";',
     });
 
@@ -127,6 +128,7 @@ suite('Sentinel editor-agnostic core contracts', () => {
   test('analyzes a workspace through the CLI core path', async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-cli-'));
     fs.mkdirSync(path.join(root, 'src'));
+    /* sentinel-disable-next-line hardcoded-secret: credencial de prueba, no real. */
     fs.writeFileSync(path.join(root, 'src', 'secret.ts'), 'const password = "abcd1234";');
 
     try {
