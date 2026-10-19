@@ -22,19 +22,19 @@ import { extraerRegionesComentarioTodoProsa } from './todoProsaRegiones';
  *   - formas con `:`/`(`/`[` → marcador valido, no marca;
  *   - prosa con articulo (el|la|los|las|lo) → no marca;
  *   - cuantificador en ultima posicion del comentario → en minusculas es
- *     prosa española, no marca; la forma mayuscula sola (TODO) si marca
+ *     prosa española, no marca; la forma mayuscula sola si marca
  *     porque se exige la forma con dos puntos;
  *   - compuestos con guion (tipo todo-list) → no marca;
  *   - `/todo` (URL/ruta dentro del comentario) → no marca;
  *   - cuantificador a mitad de frase ("…, todo centrado)") → no marca: el
  *     marcador informal abre el comentario o su linea ("// todo revisar esto",
  *     "* todo revisar"); dentro de la oracion, "todo" es el cuantificador.
- *     La forma en mayusculas (TODO) si marca en cualquier posicion.
+ *     La forma en mayusculas si marca en cualquier posicion.
  *   - FIXME/XXX nunca marcan (son marcadores validos por si mismos).
  * Nota de paridad: HACK no exime por si solo (igual que en VarSense); solo
  * exime si la mencion lleva marcador (`TODO:` etc.).
  * Honra sentinel-disable-file, sentinel-disable-next-line e inline.
- */
+ */
 /* Abre el comentario o su linea: solo blancos y los adornos de comentario
  * (`*` de bloque, `/` de linea) entre el inicio de la linea y la mencion.
  * [Falso positivo real, 16A-4] "Variantes: … (icono destacado encima del
@@ -103,9 +103,9 @@ function esTodoProsaSinMarcador(textoComentario: string, indice: number, forma: 
   }
 
   /* Ultima palabra del comentario ("re-parsear todo.", "todo, …"): en
-   * minusculas es el cuantificador español ("todo" = "everything"), no
-   * una tarea; en mayusculas (TODO) es la taquigrafia de tarea y marca
-   * porque se exige TODO: con dos puntos. */
+   * minusculas es el cuantificador español (equivale a "everything"), no
+   * una tarea; en mayusculas es la taquigrafia de tarea y marca porque
+   * se exige el marcador con dos puntos. */
   const resto = textoComentario.slice(k);
   if (/^[\s.,;!?…)\]}]*$/.test(resto)) {
     return forma === 'TODO';
