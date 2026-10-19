@@ -29,7 +29,7 @@ export function pipelineAnalizadores(document: CoreTextDocument, contexto: CoreA
   if (tipo === 'php') {
     violaciones.push(...analizarPhp(document));
   } else if (tipo === 'tsx' || tipo === 'jsx') {
-    violaciones.push(...analizarReact(document, { workspaceRoots }));
+    violaciones.push(...analizarReact(document, { workspaceRoots, carpetasUi: config.rutasGlory?.carpetasUi }));
   } else if (tipo === 'rust') {
     violaciones.push(...analizarRust(document));
   }

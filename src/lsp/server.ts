@@ -16,7 +16,7 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { analizarDocumento } from '../analyzers/pipeline';
 import { buildCoreConfig, SentinelConfigFile } from '../core/runtime-proyecto/config';
-import { createCoreDocument } from '../core/runtime-proyecto/types';
+import { CoreRutasGlory, createCoreDocument } from '../core/runtime-proyecto/types';
 import { languageIdForFile } from '../core/runtime-proyecto/language';
 import { inicializarGloryAnalyzer } from '../analyzers/gloryAnalyzer';
 import { logError } from '../utils/logger';
@@ -28,6 +28,8 @@ const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
 let workspaceRoot: string | undefined;
 let initializedWorkspaceRoot: string | undefined;
+/* Rutas Glory con las que se indexó; si el config cambia, hay que reindexar aunque la raíz sea la misma. */
+let initializedRutasGlory = '';
 
 function fsPathFromUri(uri: string): string {
   try {
@@ -87,8 +89,8 @@ async function validateTextDocument(document: TextDocument): Promise<void> {
   const rootPath = workspaceRoot ?? path.dirname(fileName);
 
   try {
-    ensureWorkspaceInitialized(rootPath);
     const config = buildCoreConfig(await readConfig(rootPath));
+    ensureWorkspaceInitialized(rootPath, config.rutasGlory);
     const findings = analizarDocumento(
       coreDocumentFromLsp(document),
       config,
@@ -110,13 +112,15 @@ async function validateTextDocument(document: TextDocument): Promise<void> {
   }
 }
 
-function ensureWorkspaceInitialized(rootPath: string): void {
-  if (initializedWorkspaceRoot === rootPath) {
+function ensureWorkspaceInitialized(rootPath: string, rutasGlory?: CoreRutasGlory): void {
+  const claveRutas = JSON.stringify(rutasGlory ?? {});
+  if (initializedWorkspaceRoot === rootPath && initializedRutasGlory === claveRutas) {
     return;
   }
 
   initializedWorkspaceRoot = rootPath;
-  inicializarGloryAnalyzer([rootPath]);
+  initializedRutasGlory = claveRutas;
+  inicializarGloryAnalyzer([rootPath], rutasGlory);
 }
 
 function validateAllOpenDocuments(): void {

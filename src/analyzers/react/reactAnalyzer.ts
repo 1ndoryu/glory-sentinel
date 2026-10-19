@@ -44,6 +44,7 @@ import {
   verificarModalEstructuraNoCanonica,
   verificarMenuContextualOverride,
   configurarWorkspaceRootsReact,
+  configurarBasesUiReact,
   obtenerWorkspaceRootsReact,
 } from './reglas/reactComponentRules';
 import { verificarFormularioConfigSinSistema } from './formularioConfigSystem';
@@ -51,6 +52,8 @@ import { verificarAccesoApiSinFallback } from '../glory/api/apiFallbackRules';
 
 export interface ReactAnalysisOptions {
   workspaceRoots?: string[];
+  /* Carpetas del design system (rutasGlory.carpetasUi); ausente = defaults. */
+  carpetasUi?: string[][];
 }
 
 /*
@@ -59,6 +62,7 @@ export interface ReactAnalysisOptions {
  */
 export function analizarReact(documento: CoreTextDocument, opciones: ReactAnalysisOptions = {}): Violacion[] {
   configurarWorkspaceRootsReact(opciones.workspaceRoots ?? []);
+  configurarBasesUiReact(opciones.carpetasUi);
   const texto = documento.getText();
   const lineas = texto.split('\n');
   const nombreArchivo = path.basename(documento.fileName);

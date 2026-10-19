@@ -1,5 +1,5 @@
 import { ConfigReglaUsuario, obtenerIdsReglas } from '../../config/ruleRegistry';
-import { CoreAnalysisConfig, CoreApiRutas } from './types';
+import { CoreAnalysisConfig, CoreApiRutas, CoreRutasGlory } from './types';
 import { isSafeBranch } from '../task/branchValidation';
 import { HEAVY_BUDGET_CLASSES } from '../gate/heavyBudget';
 
@@ -11,6 +11,8 @@ export interface SentinelConfigFile {
   marcadoresGlory?: string[];
   /* Rutas legacy -> openapi del analizador de endpoints; sin esta clave se usan los defaults del analizador. */
   apiRutas?: CoreApiRutas;
+  /* Carpetas del framework Glory (controllers PHP y design system React); sin esta clave, los defaults. */
+  rutasGlory?: CoreRutasGlory;
   rules?: Record<string, ConfigReglaUsuario>;
   portableBoundaries?: {
     dom?: string[];
@@ -69,9 +71,10 @@ export const DEFAULT_EXCLUDE_PATTERNS = [
   '**/target/**',
 ];
 
-const CONFIG_KEYS = new Set(['includePatterns', 'excludePatterns', 'directoryExceptions', 'marcadoresGlory', 'apiRutas', 'rules', 'portableBoundaries', 'project', 'schemaVersion', 'mode', 'gate', 'guard', 'runtime', 'analyzers', 'budgets']);
+const CONFIG_KEYS = new Set(['includePatterns', 'excludePatterns', 'directoryExceptions', 'marcadoresGlory', 'apiRutas', 'rutasGlory', 'rules', 'portableBoundaries', 'project', 'schemaVersion', 'mode', 'gate', 'guard', 'runtime', 'analyzers', 'budgets']);
 const PORTABLE_BOUNDARY_KEYS = new Set(['dom', 'window', 'services', 'loggerModules', 'tooling']);
 const API_RUTAS_KEYS = new Set(['mapa', 'mantener', 'prefijosMantener', 'prefijosMapa']);
+const RUTAS_GLORY_KEYS = new Set(['controladores', 'carpetasUi']);
 const RULE_KEYS = new Set(['habilitada', 'severidad']);
 const VALID_SEVERITIES = new Set(['error', 'warning', 'information', 'hint']);
 
@@ -90,6 +93,15 @@ function assertStringArray(value: unknown, key: string): asserts value is string
 function assertStringRecord(value: unknown, key: string): void {
   if (!value || typeof value !== 'object' || Array.isArray(value) || Object.values(value).some(item => typeof item !== 'string')) {
     throw new Error(`sentinel.config.json: '${key}' debe ser un objeto de strings`);
+  }
+}
+
+/* Lista de rutas por segmentos (p. ej. [['App','Api']]); cada ruta debe ser un string[] no vacio. */
+function assertSegmentosList(value: unknown, key: string): void {
+  const valido = Array.isArray(value) && value.every(ruta =>
+    Array.isArray(ruta) && ruta.length > 0 && ruta.every(segmento => typeof segmento === 'string' && segmento.length > 0));
+  if (!valido) {
+    throw new Error(`sentinel.config.json: '${key}' debe ser una lista de rutas (string[][]) no vacias`);
   }
 }
 
@@ -209,6 +221,20 @@ export function validateSentinelConfig(value: unknown): asserts value is Sentine
     if (rutas.prefijosMapa !== undefined) assertStringRecord(rutas.prefijosMapa, 'apiRutas.prefijosMapa');
     if (rutas.mantener !== undefined) assertStringArray(rutas.mantener, 'apiRutas.mantener');
     if (rutas.prefijosMantener !== undefined) assertStringArray(rutas.prefijosMantener, 'apiRutas.prefijosMantener');
+  }
+
+  if (config.rutasGlory !== undefined) {
+    if (!config.rutasGlory || typeof config.rutasGlory !== 'object' || Array.isArray(config.rutasGlory)) {
+      throw new Error("sentinel.config.json: 'rutasGlory' debe ser un objeto");
+    }
+    const rutas = config.rutasGlory as Record<string, unknown>;
+    for (const key of Object.keys(rutas)) {
+      if (!RUTAS_GLORY_KEYS.has(key)) {
+        throw new Error(`sentinel.config.json: clave desconocida 'rutasGlory.${key}'`);
+      }
+    }
+    if (rutas.controladores !== undefined) assertSegmentosList(rutas.controladores, 'rutasGlory.controladores');
+    if (rutas.carpetasUi !== undefined) assertSegmentosList(rutas.carpetasUi, 'rutasGlory.carpetasUi');
   }
 
   if (config.rules === undefined) {
@@ -347,6 +373,7 @@ export function buildCoreConfig(config: SentinelConfigFile): CoreAnalysisConfig 
     directoryExceptions: analyzerConfig.directoryExceptions ?? [],
     marcadoresGlory: analyzerConfig.marcadoresGlory,
     apiRutas: analyzerConfig.apiRutas,
+    rutasGlory: analyzerConfig.rutasGlory,
     ruleOverrides: Object.fromEntries(
       Object.entries(analyzerConfig.rules ?? {}).map(([ruleId, override]) => [ruleId, {
         enabled: override.habilitada,

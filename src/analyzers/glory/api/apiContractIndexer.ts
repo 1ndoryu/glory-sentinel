@@ -39,14 +39,24 @@ export function obtenerContratos(): Map<string, ContratoEndpoint> | null {
 }
 
 /*
- * Rutas donde pueden vivir controllers PHP en el proyecto.
- * Se escanean todos en orden. Si el proyecto crece con nuevas
- * ubicaciones, agregarlas aqui.
+ * Rutas por defecto donde pueden vivir controllers PHP en el proyecto.
+ * Se escanean todos en orden; `rutasGlory.controladores` del sentinel.config.json las sustituye.
  */
-export const RUTAS_CONTROLLERS = [
+const RUTAS_CONTROLLERS_POR_DEFECTO: string[][] = [
   ['App', 'Api'],                               /* controllers generales */
   ['App', 'Kamples', 'Api', 'Controladores'],   /* controllers modulo Kamples */
 ];
+
+let rutasControllers: string[][] = RUTAS_CONTROLLERS_POR_DEFECTO;
+
+/* Lista vacia o ausente = defaults. Solo cambia la lista activa; `cargarContratos` la aplica al reindexar. */
+export function configurarRutasControllers(rutas?: string[][]): void {
+  rutasControllers = rutas && rutas.length > 0 ? rutas : RUTAS_CONTROLLERS_POR_DEFECTO;
+}
+
+export function obtenerRutasControllers(): string[][] {
+  return rutasControllers;
+}
 
 /*
  * Escanea todos los *Controller.php en las rutas configuradas y construye el mapa.
@@ -55,7 +65,7 @@ export function cargarContratos(): void {
   cacheContratos = new Map();
 
   for (const root of obtenerWorkspaceRoots()) {
-    for (const segmentos of RUTAS_CONTROLLERS) {
+    for (const segmentos of rutasControllers) {
       const rutaApi = path.join(root, ...segmentos);
       if (!fs.existsSync(rutaApi)) { continue; }
 

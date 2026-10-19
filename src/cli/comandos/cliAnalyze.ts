@@ -175,7 +175,7 @@ export async function analyzeCliTarget(args: ParsedCliArgs): Promise<CliAnalysis
   const workspacePath = path.resolve(args.workspacePath ?? process.cwd());
   const configFile = await readConfig(args.configPath, workspacePath);
   const config = buildCoreConfig(configFile);
-  inicializarGloryAnalyzer([workspacePath]);
+  inicializarGloryAnalyzer([workspacePath], config.rutasGlory);
 
   const files = args.filePath
     ? [path.resolve(args.filePath)]

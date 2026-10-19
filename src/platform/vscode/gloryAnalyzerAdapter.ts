@@ -5,7 +5,7 @@ import { inicializarGloryAnalyzer } from '../../analyzers/gloryAnalyzer';
 import { recargarSchema } from '../../analyzers/glory/schema/schemaLoader';
 import { recargarIslasRegistradas } from '../../analyzers/glory/calidad/islandTracker';
 import { actualizarArchivoEnIndice, recargarIndiceConstantes } from '../../analyzers/glory/constantes/phpConstantIndexer';
-import { recargarContratos, RUTAS_CONTROLLERS } from '../../analyzers/glory/api/apiContractIndexer';
+import { recargarContratos, obtenerRutasControllers } from '../../analyzers/glory/api/apiContractIndexer';
 import { recargarTipos } from '../../analyzers/glory/schema/tsTypeResolver';
 import { invalidarOpenapiIndex } from '../../analyzers/externos/apiEndpointAnalyzer';
 
@@ -84,7 +84,7 @@ function registrarWatchersConstantes(context: vscode.ExtensionContext, root: str
 }
 
 function registrarWatchersContratos(context: vscode.ExtensionContext, root: string): void {
-  for (const segmentos of RUTAS_CONTROLLERS) {
+  for (const segmentos of obtenerRutasControllers()) {
     const controllerPath = path.join(root, ...segmentos);
     if (!fs.existsSync(controllerPath)) {
       continue;

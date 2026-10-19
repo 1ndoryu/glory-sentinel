@@ -10,7 +10,7 @@ import * as path from 'path';
 import { Violacion } from '../types';
 import { reglaHabilitada } from '../config/ruleRegistry';
 import { esRutaGlory, normalizarRuta } from '../utils/analisisHelpers';
-import { CoreTextDocument } from '../core/runtime-proyecto/types';
+import { CoreRutasGlory, CoreTextDocument } from '../core/runtime-proyecto/types';
 import { configurarWorkspaceRoots } from '../core/seguridad-rutas/workspaceRoots';
 
 /* Submodulos */
@@ -22,17 +22,19 @@ import { verificarReturnVoidCritico, verificarNPlus1Query, verificarFqnInline, v
 import { verificarDefaultContentClaves, REGLA_IDS_DEFAULT_CONTENT } from './glory/calidad/defaultContentRules';
 import { cargarIndiceConstantes, obtenerIndiceConstantes } from './glory/constantes/phpConstantIndexer';
 import { verificarUndefinedClassConstant } from './glory/constantes/gloryConstantRules';
-import { cargarContratos, obtenerContratos } from './glory/api/apiContractIndexer';
+import { cargarContratos, configurarRutasControllers, obtenerContratos } from './glory/api/apiContractIndexer';
 import { verificarApiResponseMismatch } from './glory/api/apiContractRules';
 import { cargarTipos } from './glory/schema/tsTypeResolver';
 import { verificarArrayAsociativoComoLista, verificarServiceRetornaAsociativo } from './php/phpArrayShapeRules';
 
 /*
  * Inicializa el analyzer Glory: recibe raices de workspace y carga indices.
+ * `rutasGlory` (sentinel.config.json) fija las carpetas de controllers antes de indexar; ausente = defaults.
  * Los watchers viven en platform/vscode/gloryAnalyzerAdapter.ts.
  */
-export function inicializarGloryAnalyzer(workspaceRoots: string[]): void {
+export function inicializarGloryAnalyzer(workspaceRoots: string[], rutasGlory?: CoreRutasGlory): void {
   configurarWorkspaceRoots(workspaceRoots);
+  configurarRutasControllers(rutasGlory?.controladores);
   cargarSchema();
   cargarIslasRegistradas();
   cargarIndiceConstantes();

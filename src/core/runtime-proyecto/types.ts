@@ -56,6 +56,13 @@ export interface CoreApiRutas {
   prefijosMapa?: Record<string, string>;
 }
 
+/* Rutas del framework Glory: carpetas (segmentos desde la raiz del workspace) donde estan los
+ * controllers PHP de la API y el design system React. Ausente o vacio = defaults del analizador. */
+export interface CoreRutasGlory {
+  controladores?: string[][];
+  carpetasUi?: string[][];
+}
+
 export interface CoreAnalysisConfig {
   enabled: boolean;
   includePatterns: string[];
@@ -66,6 +73,7 @@ export interface CoreAnalysisConfig {
   marcadoresGlory?: string[];
   /* Traduccion de rutas legacy a rutas del openapi (analizador de endpoints). Ausente = defaults del analizador. */
   apiRutas?: CoreApiRutas;
+  rutasGlory?: CoreRutasGlory;
   useConfiguredRuleProvider?: boolean;
   portableBoundaries?: {
     dom?: string[];
