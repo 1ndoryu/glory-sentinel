@@ -35,7 +35,7 @@
           "**/build/**",
           "**/.agent/**",
           "**/target/**",
-          "**/fixtures/equivalence/**"
+          "**/fixtures/**"
         ]
       }
     }

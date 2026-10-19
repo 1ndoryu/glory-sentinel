@@ -30,7 +30,7 @@ jobs:
       # Autogate: Sentinel se analiza a sí mismo; falla si quedan archivos con hallazgos.
       - name: Autogate
         run: |
-          node scripts/autogate.mjs sentinel-autogate.json
+          node scripts/autogate.mjs
 
       - name: Run unit tests
         id: unit
