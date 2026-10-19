@@ -50,6 +50,14 @@ const REGISTRO: DefinicionRegla[] = [
   { id: 'barras-decorativas', nombre: 'Barras decorativas', severidadDefault: 'information', categoria: CategoriaRegla.EstructuraNomenclatura },
   { id: 'at-generico-php', nombre: 'Supresor @ generico PHP', severidadDefault: 'warning', categoria: CategoriaRegla.PatronesProhibidos },
 
+  /* --- Regex Rust y CSS (defaultRules.ts): antes sin registro, por eso no eran configurables --- */
+  { id: 'sqlx-query-as-sin-macro', nombre: 'sqlx::query_as sin macro', severidadDefault: 'warning', categoria: CategoriaRegla.SeguridadSql },
+  { id: 'sqlx-query-sin-macro', nombre: 'sqlx::query sin macro', severidadDefault: 'warning', categoria: CategoriaRegla.SeguridadSql },
+  { id: 'css-adhoc-button-style', nombre: 'Estilo de boton ad-hoc en CSS', severidadDefault: 'warning', categoria: CategoriaRegla.EstructuraNomenclatura },
+
+  /* --- Analisis de endpoints contra openapi.json (apiEndpointAnalyzer.ts) --- */
+  { id: 'api-endpoint-faltante', nombre: 'Endpoint frontend ausente en openapi.json', severidadDefault: 'warning', categoria: CategoriaRegla.GlorySchema },
+
   /* --- Computed (staticAnalyzer.ts) --- */
   { id: 'limite-lineas', nombre: 'Limite de lineas', severidadDefault: 'warning', categoria: CategoriaRegla.LimitesArchivo },
   { id: 'limite-lineas-nivel-2', nombre: 'Limite de lineas nivel 2', severidadDefault: 'warning', categoria: CategoriaRegla.LimitesArchivo },

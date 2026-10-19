@@ -3,7 +3,7 @@
 Catalogo generado desde src/config/ruleRegistry.ts (fuente unica de verdad). No editar a mano: `node scripts/catalogo-reglas.mjs`.
 Formato: [id] nombre — severidad por defecto (desactivada por defecto).
 
-Total: 121 reglas.
+Total: 125 reglas.
 
 ---
 
@@ -13,6 +13,7 @@ Total: 121 reglas.
 - [barras-decorativas] Barras decorativas — information
 - [card-icono-debe-extender-base] CardIcono debe extender base compartida — warning
 - [controller-fqn-inline] FQN inline en PHP — hint
+- [css-adhoc-button-style] Estilo de boton ad-hoc en CSS — warning
 - [css-elemento-html-directo] Selector HTML directo en componente — warning
 - [css-especificacion-diseno-local] Especificacion de diseno local en CSS — warning
 - [css-hardcoded-value] Color CSS hardcodeado — warning
@@ -29,6 +30,7 @@ Total: 121 reglas.
 ## glory-schema
 
 - [api-call-outside-service] API fuera de servicio — warning (desactivada por defecto)
+- [api-endpoint-faltante] Endpoint frontend ausente en openapi.json — warning
 - [api-response-mismatch] Mismatch clave API PHP vs TS — error (desactivada por defecto)
 - [api-shape-mismatch] Shape mismatch array PHP vs TS — error (desactivada por defecto)
 - [endpoint-accede-bd] Controller accede a BD — warning (desactivada por defecto)
@@ -132,6 +134,8 @@ Total: 121 reglas.
 - [n-plus-1-query] Query N+1 en loop — warning
 - [query-doble-verificacion] Query doble verificacion — information
 - [repository-sin-whitelist-columnas] SELECT * sin columnas — hint
+- [sqlx-query-as-sin-macro] sqlx::query_as sin macro — warning
+- [sqlx-query-sin-macro] sqlx::query sin macro — warning
 - [toctou-select-insert] TOCTOU select-insert — error
 - [wpdb-sin-prepare] $wpdb sin prepare() — error (desactivada por defecto)
 

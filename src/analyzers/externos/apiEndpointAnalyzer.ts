@@ -25,6 +25,7 @@ import { Violacion } from '../../types';
 import { logInfo, logWarn } from '../../utils/logger';
 import { CoreTextDocument, CoreWorkspaceContext } from '../../core/runtime-proyecto/types';
 import { resolverWorkspaceRoot } from '../../core/seguridad-rutas/workspaceRoots';
+import { reglaHabilitada } from '../../config/ruleRegistry';
 
 /* --- Reglas de mapeo (replica de wpJsonStub.ts del frontend Kamples) --- */
 
@@ -195,6 +196,8 @@ function archivoAplica(fileName: string): boolean {
 
 export function analizarApiEndpoints(documento: CoreTextDocument, workspace?: CoreWorkspaceContext): Violacion[] {
   if (!archivoAplica(documento.fileName)) return [];
+  /* Desactivable desde la configuracion de reglas; sin ella no hay nada que comparar. */
+  if (!reglaHabilitada('api-endpoint-faltante')) return [];
 
   const rootPath = resolverWorkspaceRoot(documento.fileName, workspace?.rootPath);
   if (!rootPath) {
