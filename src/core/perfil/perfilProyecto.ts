@@ -92,6 +92,16 @@ async function reglasActivadasPorUsuario(raiz: string): Promise<Set<string>> {
   }
 }
 
+/* Ruta donde el motor lee las reglas: en v2 viven en analyzers.sentinel.config (la raiz se ignora) */
+async function rutaReglasConfig(raiz: string): Promise<string> {
+  try {
+    const crudo = JSON.parse(await fs.readFile(path.join(raiz, 'sentinel.config.json'), 'utf8')) as { schemaVersion?: unknown };
+    return crudo.schemaVersion === 2 ? 'analyzers.sentinel.config.rules' : 'rules';
+  } catch {
+    return 'rules';
+  }
+}
+
 /* Recordatorios para el informe del gate: uno por perfil detectado con reglas sin activar */
 export async function recomendacionesPerfil(raiz: string): Promise<string[]> {
   const perfil = await detectarPerfilProyecto(raiz);
@@ -101,9 +111,10 @@ export async function recomendacionesPerfil(raiz: string): Promise<string[]> {
     const pendientes = await reglasPerfilSinActivar(raiz, nombre);
     if (pendientes.length === 0) continue;
     const etiqueta = nombre === 'wordpress' ? 'WordPress' : 'Glory';
+    const ruta = await rutaReglasConfig(raiz);
     recomendaciones.push(
       `Proyecto ${etiqueta} detectado: ${pendientes.length} reglas desactivadas por defecto. ` +
-      'Para activarlas, en sentinel.config.json añade bajo "rules" { "<id>": { "habilitada": true } } (ids en rules.md).',
+      `Para activarlas, en sentinel.config.json añade bajo "${ruta}" { "<id>": { "habilitada": true } } (ids en rules.md).`,
     );
   }
   return recomendaciones;

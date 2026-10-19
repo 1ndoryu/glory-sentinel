@@ -13,6 +13,25 @@ Durante la transición, pueden existir `quality.config.json`, `quality-tools.jso
 y `quality-adapter.json`. Son superficies legacy: se conservan mientras el adapter las necesite y no se
 copian a proyectos nuevos.
 
+## Reglas y perfiles
+
+Cada regla se ajusta con `habilitada` (boolean) y `severidad`. Los ids y su categoría están en
+[rules.md](rules.md). La ruta depende de `schemaVersion`:
+
+- v2: `analyzers.sentinel.config.rules`.
+- v1: `rules` en la raíz.
+
+```json
+{
+  "schemaVersion": 2,
+  "analyzers": { "sentinel": { "config": { "rules": { "wpdb-sin-prepare": { "habilitada": true } } } } }
+}
+```
+
+Las reglas de WordPress y de Glory vienen desactivadas por defecto, porque en un proyecto ajeno dan falsos
+positivos. Si Sentinel detecta el perfil (carpeta `Glory`, `wp-content`, `wp-config.php` o un tema con
+`Theme Name:`), el informe del gate lo indica y sugiere la ruta exacta para activarlas. Nunca las activa solo.
+
 ## Tools y capabilities
 
 `quality-tools.json` fija repository, `sourcePath`, commit, versión, CLI, scripts de build/test y

@@ -46,6 +46,13 @@ suite('perfilProyecto', () => {
     assert.match(recomendaciones[0], /"habilitada": true/);
   });
 
+  test('en schemaVersion 2 la recomendacion apunta a analyzers.sentinel.config.rules', async () => {
+    const config = JSON.stringify({ schemaVersion: 2, analyzers: { sentinel: { config: {} } } });
+    const raiz = await proyectoTemporal({ 'wp-config.php': '<?php', 'sentinel.config.json': config });
+    const [recomendacion] = await recomendacionesPerfil(raiz);
+    assert.match(recomendacion, /bajo "analyzers\.sentinel\.config\.rules"/);
+  });
+
   test('una config invalida no rompe la recomendacion', async () => {
     const raiz = await proyectoTemporal({ 'wp-config.php': '<?php', 'sentinel.config.json': '{ no json' });
     const recomendaciones = await recomendacionesPerfil(raiz);
