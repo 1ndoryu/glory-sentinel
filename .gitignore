@@ -18,3 +18,4 @@ Agente/
 # Reporte que escribe la extensión (reportPath por defecto)
 .sentinel-report.md
 .sentinel-autogate-reporte.json
+roadmap.md
