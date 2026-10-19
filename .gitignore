@@ -12,3 +12,6 @@ integrations/zed/extension.wasm
 
 # Registro de trabajo del protocolo del área: local, no versionado
 Agente/
+# alta 10AA-2 F10
+.quality-reports/
+.runtime/
