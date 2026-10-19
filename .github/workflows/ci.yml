@@ -24,7 +24,14 @@ jobs:
       - run: npm run lint
       - run: npm run compile
       - run: npm run check:core
+      - run: npm run check:reglas
       - run: npm run smoke:lsp
+
+      # Autogate: Sentinel se analiza a sí mismo; falla si quedan archivos con hallazgos.
+      - name: Autogate
+        run: |
+          node out/cli/index.js analyze --workspace . --format json --output sentinel-autogate.json
+          node -e "const r=require('./sentinel-autogate.json'); if (r.totalArchivosConViolaciones) { console.error('Autogate: ' + r.totalArchivosConViolaciones + ' archivos con hallazgos'); process.exit(1); }"
 
       - name: Run unit tests
         id: unit

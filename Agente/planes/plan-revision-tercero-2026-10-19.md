@@ -11,7 +11,8 @@ Origen: prueba de instalación como tercero (FALLA) y revisión de diez puntos. 
 - [x] **README: desinstalación y stages.** (Stages: reglas del manifest y enlace al contrato; el ejemplo sigue siendo el mínimo, el repo no tiene manifest propio.) Añadir `sentinel uninstall` (`src/cli/parseo/argsUsage.ts:33`) y un ejemplo real de `sentinel-stages.json` (hoy solo el de `README.md:80-95`).
 - [x] **Skill sentinel.** `C:\Users\Owner\.agents\skills\sentinel\SKILL.md` (paso 3): `task:check` declarado como gate canónico contra `quality-gate-setup/SKILL.md:38` y `README.md:108`; corregir. Cita `latest-report.md`; el código escribe `latest.json` y `latest.md` (`src/core/gate/gateReport.ts:237-238`).
 - [x] **Roadmap desfasado.** `roadmap.md:13,17` cita un `AGENTS.md` inexistente; `roadmap.md:30` dice 73 tests frente a 72 `*.test.ts`; `roadmap.md:31` ubica `tmpDir.ts` en `src/core/tmpDir.ts` (real: `src/core/seguridad-rutas/tmpDir.ts`).
-- [x] **Autogate documentado.** Ningún README ni doc describe cómo Sentinel se gatea a sí mismo; `ci.yml` no ejecuta `check:reglas` ni `sentinel analyze`. Documentar el comando (sin inventarlo: tomarlo de `roadmap.md` y de los scripts reales).
+- [x] **Autogate documentado.**
+- [x] **CI con check:reglas y autogate.** Decidido por la usuaria: se añaden. `ci.yml` ejecuta `check:reglas` y el autogate, que falla si hay archivos con hallazgos. Verificado en la 89 tras el push. Ningún README ni doc describe cómo Sentinel se gatea a sí mismo; `ci.yml` no ejecuta `check:reglas` ni `sentinel analyze`. Documentar el comando (sin inventarlo: tomarlo de `roadmap.md` y de los scripts reales).
 
 ## Anotado para después (no se toca en este bloque)
 
