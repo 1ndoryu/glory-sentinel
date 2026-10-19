@@ -3,7 +3,6 @@
  * archivo ni formato. */
 import * as assert from 'assert';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import {
   fingerprint,
@@ -12,6 +11,7 @@ import {
   StageCacheContext,
   StageCacheScope,
 } from '../../../core/gate/stageCache';
+import { tempDir } from '../../temporales';
 
 function baseContext(projectRoot: string): StageCacheContext {
   return {
@@ -25,7 +25,7 @@ function baseContext(projectRoot: string): StageCacheContext {
 
 suite('Sentinel core stage cache (orquestador agnóstico)', () => {
   test('cache distingue pass, cambios de archivo y formato', async () => {
-    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-stage-cache-'));
+    const projectRoot = tempDir('sentinel-stage-cache-');
     try {
       fs.writeFileSync(path.join(projectRoot, 'input.ts'), 'export const value = 1;\n', 'utf8');
       const context = baseContext(projectRoot);
@@ -50,7 +50,7 @@ suite('Sentinel core stage cache (orquestador agnóstico)', () => {
   });
 
   test('cache separa el modo local del gate CI', async () => {
-    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-stage-cache-mode-'));
+    const projectRoot = tempDir('sentinel-stage-cache-mode-');
     try {
       fs.writeFileSync(path.join(projectRoot, 'input.ts'), 'export const value = 1;\n', 'utf8');
       const base = baseContext(projectRoot);
@@ -74,7 +74,7 @@ suite('Sentinel core stage cache (orquestador agnóstico)', () => {
   });
 
   test('cache usa el alcance efectivo del guard, no solo context.full (028A-8)', async () => {
-    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-stage-cache-effective-'));
+    const projectRoot = tempDir('sentinel-stage-cache-effective-');
     try {
       fs.writeFileSync(path.join(projectRoot, 'input.ts'), 'export const value = 1;\n', 'utf8');
       const base = baseContext(projectRoot);

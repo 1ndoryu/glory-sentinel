@@ -10,19 +10,19 @@
 
 import * as assert from 'assert';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { CoreTextDocument } from '../../../core/runtime-proyecto/types';
 import { verificarCssAdhocButtonStyle, verificarCssElementoHTMLDirecto } from '../../../analyzers/static/staticCssRules';
 import { verificarModalAccionesNoCanonico, verificarModalEstructuraNoCanonica } from '../../../analyzers/react/reglas/reactComponentRules';
 import { indiceProyecto } from '../../../utils/analisisHelpers';
+import { tempDir } from '../../temporales';
 
 let contador = 0;
 
 /* Cada proyecto va a su propio directorio: el indice se cachea por conjunto de
  * roots, asi que compartir ruta entre tests devolveria el indice del primero. */
 function crearProyecto(archivos: Record<string, string>): string {
-  const raiz = fs.mkdtempSync(path.join(os.tmpdir(), `sentinel-indice-${contador++}-`));
+  const raiz = tempDir(`sentinel-indice-${contador++}-`);
   for (const [relativa, contenido] of Object.entries(archivos)) {
     const destino = path.join(raiz, relativa);
     fs.mkdirSync(path.dirname(destino), { recursive: true });

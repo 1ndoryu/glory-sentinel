@@ -6,13 +6,13 @@
 
 import * as assert from 'assert';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { analizarRust } from '../../../analyzers/rust/rustAnalyzer';
 import { analizarEstatico } from '../../../analyzers/static/staticAnalyzer';
 import { configurarOverridesReglas } from '../../../config/ruleRegistry';
 import { configurarWorkspaceRoots } from '../../../core/seguridad-rutas/workspaceRoots';
 import { createCoreDocument } from '../../../core/runtime-proyecto/types';
+import { tempDir } from '../../temporales';
 
 const REGLAS_RUST = [
   'rusqlite-bloqueante-en-async',
@@ -169,7 +169,7 @@ suite('[149A-1] ruta-post-sin-rate-limit', () => {
   });
 
   test('[08AA-26] no dispara si el directorio trae rate_limit.rs cableado (caso MN handlers/)', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-rl-'));
+    const dir = tempDir('sentinel-rl-');
     try {
       fs.writeFileSync(path.join(dir, 'rate_limit.rs'), 'pub struct LimitadorTasa;\n');
       fs.writeFileSync(path.join(dir, 'mod.rs'), [
@@ -191,7 +191,7 @@ suite('[149A-1] ruta-post-sin-rate-limit', () => {
   });
 
   test('[08AA-26] sigue disparando con modulo rate_limit muerto (sin uso ni capa)', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-rl-'));
+    const dir = tempDir('sentinel-rl-');
     try {
       fs.writeFileSync(path.join(dir, 'rate_limit.rs'), 'pub struct LimitadorTasa;\n');
       fs.writeFileSync(path.join(dir, 'mod.rs'), 'mod rate_limit;\n');
@@ -207,7 +207,7 @@ suite('[149A-1] ruta-post-sin-rate-limit', () => {
   });
 
   test('[10AA-10] no dispara si un enrutador ancestro aplica rate_limit (caso MN handlers/marketplace)', () => {
-    const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-rl-anc-'));
+    const raiz = tempDir('sentinel-rl-anc-');
     try {
       const handlers = path.join(raiz, 'handlers');
       fs.mkdirSync(path.join(handlers, 'cuentas'), { recursive: true });
@@ -232,7 +232,7 @@ suite('[149A-1] ruta-post-sin-rate-limit', () => {
   });
 
   test('[10AA-10] sigue disparando si el enrutador que aplica rate_limit es hermano, no ancestro', () => {
-    const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-rl-hermano-'));
+    const raiz = tempDir('sentinel-rl-hermano-');
     try {
       const handlers = path.join(raiz, 'handlers');
       fs.mkdirSync(path.join(handlers, 'cuentas'), { recursive: true });
@@ -716,7 +716,7 @@ suite('[149A-1] port-fs-duplicado-rs', () => {
   });
 
   test('dispara con gemelo >80% en otro crate', () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'portfs-149a1-'));
+    const tmp = tempDir('portfs-149a1-');
     try {
       const compartidas = Array.from({ length: 25 }, (_, i) => `  let v${i} = ${i};`).join('\n');
       const a = ['fn f() {', compartidas, '  let solo_a = 1;', '  let _ = solo_a;', '}'].join('\n');
@@ -809,7 +809,7 @@ suite('[149A-1] html-sin-origen-declarado (TS)', () => {
 
 suite('[149A-1] H11 harness (precision 2026-09-14)', () => {
   test('port-fs no se compara consigo mismo aunque este en disco', () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'portself-149a1-'));
+    const tmp = tempDir('portself-149a1-');
     try {
       const contenido = [
         'use std::sync::Mutex;',

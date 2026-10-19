@@ -8,7 +8,6 @@
  */
 import * as assert from 'assert';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import {
   bashAvailable,
@@ -22,6 +21,7 @@ import {
   shellAvailable,
   writeSandboxRuntime,
 } from './guardMatrixCommon';
+import { tempDir } from '../../temporales';
 
 const REPO_ROOT = path.resolve(__dirname, '../../../..');
 
@@ -34,7 +34,7 @@ const shellSuite = suite('Sentinel guard matrix real de shells (Fase 4)', () => 
   const cleanup: string[] = [];
 
   suiteSetup(async () => {
-    targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-shell-target-'));
+    targetRoot = tempDir('sentinel-shell-target-');
     cleanup.push(targetRoot);
     shimDir = await writeSandboxRuntime(targetRoot, REPO_ROOT);
     nodeRoot = copyFixtureToTmp('node-project');

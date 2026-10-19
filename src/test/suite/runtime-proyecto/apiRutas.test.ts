@@ -1,10 +1,10 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { buildCoreConfig, validateSentinelConfig } from '../../../core/runtime-proyecto/config';
 import { analizarApiEndpoints } from '../../../analyzers/externos/apiEndpointAnalyzer';
 import { createCoreDocument } from '../../../core/runtime-proyecto/types';
+import { tempDir } from '../../temporales';
 
 /* [T2b] `apiRutas` del sentinel.config.json sustituye los defaults de mapeo legacy -> openapi.
  * Se prueba la validacion del contrato y que el analyzer usa la tabla configurada. */
@@ -23,7 +23,7 @@ suite('apiRutas configurable [T2b]', () => {
   });
 
   test('el analyzer usa la tabla configurada en vez de los defaults', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'api-rutas-'));
+    const root = tempDir('api-rutas-');
     try {
       fs.writeFileSync(path.join(root, 'openapi.json'), JSON.stringify({ paths: { '/api/users/me': { get: {} } } }));
       const fileName = path.join(root, 'legacy', 'services', 'perfil.ts');

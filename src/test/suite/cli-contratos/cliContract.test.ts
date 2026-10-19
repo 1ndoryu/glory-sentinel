@@ -1,13 +1,13 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { analyzeCliTarget, parseCliArgs, parseTaskCliArgs } from '../../../cli';
 import { validateSentinelConfig } from '../../../core/runtime-proyecto/config';
+import { tempDir } from '../../temporales';
 
 suite('Sentinel CLI contract', () => {
   test('acepta una lista de archivos relativa al workspace', async () => {
-    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-files-'));
+    const workspace = tempDir('sentinel-files-');
     const sourcePath = path.join(workspace, 'sample.ts');
     const listPath = path.join(workspace, 'files.txt');
     fs.writeFileSync(sourcePath, 'export const value = 1;\n', 'utf8');
@@ -24,8 +24,8 @@ suite('Sentinel CLI contract', () => {
   });
 
   test('rechaza archivos fuera del workspace', async () => {
-    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-scope-'));
-    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-outside-'));
+    const workspace = tempDir('sentinel-scope-');
+    const outside = tempDir('sentinel-outside-');
     const outsideFile = path.join(outside, 'outside.ts');
     const listPath = path.join(workspace, 'files.txt');
     fs.writeFileSync(outsideFile, 'export const value = 1;\n', 'utf8');

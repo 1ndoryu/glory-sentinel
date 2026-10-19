@@ -6,11 +6,11 @@
  */
 import * as assert from 'assert';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { spawnSync } from 'node:child_process';
 import { inspectDirectCommand, QUALITY_GUARD_EXIT_CODE } from '../../../core/guard/guardCommand';
 import { copyFixtureToTmp, v2Policy } from './guardMatrixCommon';
+import { tempDir } from '../../temporales';
 
 suite('Sentinel guard casos límite (Fase 4)', () => {
   const cleanup: string[] = [];
@@ -32,7 +32,7 @@ suite('Sentinel guard casos límite (Fase 4)', () => {
 
   test('repositorio movido: la política se re-descubre en la nueva ubicación', async () => {
     const root = copyFixtureToTmp('rust-project');
-    const movedParent = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-moved-'));
+    const movedParent = tempDir('sentinel-moved-');
     const moved = path.join(movedParent, 'moved-location');
     fs.renameSync(root, moved);
     cleanup.push(movedParent);
@@ -63,7 +63,7 @@ suite('Sentinel guard casos límite (Fase 4)', () => {
   test('junction al proyecto: el guard resuelve la ruta física y aplica la política', async () => {
     if (process.platform !== 'win32') return;
     const root = copyFixtureToTmp('node-project');
-    const junctionParent = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-junction-'));
+    const junctionParent = tempDir('sentinel-junction-');
     cleanup.push(path.dirname(root), junctionParent);
     const junction = path.join(junctionParent, 'linked-project');
     const created = spawnSync('cmd.exe', ['/c', 'mklink', '/J', junction, root], { encoding: 'utf8', windowsHide: true });

@@ -1,6 +1,5 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { createCoreDocument, createCoreRange, serializeCoreFindings, CoreFinding } from '../../../core/runtime-proyecto/types';
 import { findingToDiagnostic } from '../../../core/runtime-proyecto/vscodeAdapter';
@@ -8,6 +7,7 @@ import { analizarDocumento } from '../../../analyzers/pipeline';
 import { generarReporteMarkdown } from '../../../core/diagnostico/report';
 import { analyzeCliTarget, languageIdForFile, parseCliArgs } from '../../../cli';
 import { findingToLspDiagnostic } from '../../../lsp/diagnostics';
+import { tempDir } from '../../temporales';
 
 suite('Sentinel editor-agnostic core contracts', () => {
   test('creates a document with stable line helpers', () => {
@@ -126,7 +126,7 @@ suite('Sentinel editor-agnostic core contracts', () => {
   });
 
   test('analyzes a workspace through the CLI core path', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-cli-'));
+    const root = tempDir('sentinel-cli-');
     fs.mkdirSync(path.join(root, 'src'));
     /* sentinel-disable-next-line hardcoded-secret: credencial de prueba, no real. */
     fs.writeFileSync(path.join(root, 'src', 'secret.ts'), 'const password = "abcd1234";');

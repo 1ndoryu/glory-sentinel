@@ -3,7 +3,6 @@
  * descendiente), revocación, poda y auditoría. */
 import * as assert from 'assert';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { spawn } from 'child_process';
 import {
@@ -15,13 +14,14 @@ import {
   pruneExpiredLeases,
   keyPresent,
 } from '../../../core/gate/lease';
+import { tempDir } from '../../temporales';
 
 function makeGuardRoot(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-lease-guard-'));
+  return tempDir('sentinel-lease-guard-');
 }
 
 function makeProject(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-lease-proj-'));
+  return tempDir('sentinel-lease-proj-');
 }
 
 function auditLines(guardRoot: string): string[] {

@@ -13,6 +13,7 @@ import {
   inspectHeavyRun,
   isHeavyCargoCommand,
 } from '../../../core/gate/scheduler';
+import { tempDir } from '../../temporales';
 
 function guardRootFor(targetBase: string): string {
   return path.join(path.dirname(path.resolve(targetBase)), 'glory-quality-guard');
@@ -20,7 +21,7 @@ function guardRootFor(targetBase: string): string {
 
 suite('Sentinel core scheduler (orquestador agnóstico)', () => {
   test('el guard limita full a una ejecución cada 20 minutos y permite override explícito', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-heavy-guard-'));
+    const root = tempDir('sentinel-heavy-guard-');
     const targetBase = path.join(root, 'target');
     try {
       fs.writeFileSync(
@@ -45,7 +46,7 @@ suite('Sentinel core scheduler (orquestador agnóstico)', () => {
   });
 
   test('el guard bloquea dos ejecuciones pesadas simultáneas', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-heavy-active-'));
+    const root = tempDir('sentinel-heavy-active-');
     const targetBase = path.join(root, 'target');
     try {
       const first = await acquireHeavyRun({ projectRoot: root, targetBase, mode: 'full', allowHeavy: true });
@@ -61,8 +62,8 @@ suite('Sentinel core scheduler (orquestador agnóstico)', () => {
   });
 
   test('findQualityRoot resuelve el directorio físico y omite marcadores symlink', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-heavy-root-'));
-    const physical = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-heavy-physical-'));
+    const root = tempDir('sentinel-heavy-root-');
+    const physical = tempDir('sentinel-heavy-physical-');
     try {
       fs.mkdirSync(path.join(root, 'scripts', 'quality'), { recursive: true });
       fs.mkdirSync(path.join(root, 'nested'), { recursive: true });
@@ -73,7 +74,7 @@ suite('Sentinel core scheduler (orquestador agnóstico)', () => {
       assert.strictEqual(await findQualityRoot(path.join(linked, 'nested')), root);
 
       const candidate = path.join(root, 'child');
-      const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-heavy-marker-outside-'));
+      const outside = tempDir('sentinel-heavy-marker-outside-');
       fs.mkdirSync(path.join(candidate, 'scripts', 'quality'), { recursive: true });
       fs.writeFileSync(path.join(outside, 'quality.config.json'), '{}', 'utf8');
       fs.writeFileSync(path.join(outside, 'heavy-run-guard.mjs'), '', 'utf8');
@@ -120,8 +121,8 @@ suite('Sentinel core scheduler (orquestador agnóstico)', () => {
   });
 
   test('el cooldown de full no se comparte entre proyectos con el mismo targetBase', async () => {
-    const rootA = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-heavy-project-a-'));
-    const rootB = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-heavy-project-b-'));
+    const rootA = tempDir('sentinel-heavy-project-a-');
+    const rootB = tempDir('sentinel-heavy-project-b-');
     const targetBase = path.join(rootA, 'target');
     try {
       for (const root of [rootA, rootB]) {
@@ -172,7 +173,7 @@ suite('Sentinel core scheduler (orquestador agnóstico)', () => {
   });
 
   test('un comando ligero no adquiere lease ni escribe cooldown', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-heavy-light-'));
+    const root = tempDir('sentinel-heavy-light-');
     const targetBase = path.join(root, 'target');
     try {
       fs.writeFileSync(
@@ -193,7 +194,7 @@ suite('Sentinel core scheduler (orquestador agnóstico)', () => {
   });
 
   test('sin cooldownMinutes no hay cooldown por defecto (decisión 2026-10-12)', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-heavy-default-'));
+    const root = tempDir('sentinel-heavy-default-');
     const targetBase = path.join(root, 'target');
     try {
       const first = await acquireHeavyRun({ projectRoot: root, targetBase, mode: 'full' });

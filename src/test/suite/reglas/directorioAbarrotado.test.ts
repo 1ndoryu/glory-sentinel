@@ -16,9 +16,10 @@ import {
 } from '../../../analyzers/static/staticCodeRules';
 import { createCoreDocument } from '../../../core/runtime-proyecto/types';
 import { tmpBaseDir } from '../../../core/seguridad-rutas/tmpDir';
+import { tempDir } from '../../temporales';
 
 function crearDirTemporal(nombre: string): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `sentinel-dir-${nombre}-`));
+  const dir = tempDir(`sentinel-dir-${nombre}-`);
   return dir;
 }
 

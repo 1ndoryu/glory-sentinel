@@ -3,13 +3,13 @@
  * malformados. Repos git reales temporales. */
 import * as assert from 'assert';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
 import { runCheck } from '../../../core/gate/gateRun';
+import { tempDir } from '../../temporales';
 
 function gitRepo(): string {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-gaterun-'));
+  const root = tempDir('sentinel-gaterun-');
   execFileSync('git', ['init', '-q'], { cwd: root });
   execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: root });
   execFileSync('git', ['config', 'user.name', 'Test'], { cwd: root });

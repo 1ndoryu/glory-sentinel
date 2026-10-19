@@ -1,11 +1,11 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { buildCoreConfig, validateSentinelConfig } from '../../../core/runtime-proyecto/config';
 import { configurarRutasControllers, obtenerRutasControllers } from '../../../analyzers/glory/api/apiContractIndexer';
 import { configurarBasesUiReact, existeComponenteUi } from '../../../analyzers/react/reglas/reactUiCatalog';
 import { configurarWorkspaceRootsReact } from '../../../analyzers/react/reglas/reactComponentRules';
+import { tempDir } from '../../temporales';
 
 /* [T2c] `rutasGlory` del sentinel.config.json sustituye las carpetas Glory por defecto
  * (controllers PHP y design system React). Sin la clave, los defaults no cambian. */
@@ -44,7 +44,7 @@ suite('rutasGlory configurable [T2c]', () => {
   });
 
   test('el catalogo UI busca solo en las carpetas configuradas', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rutas-glory-'));
+    const root = tempDir('rutas-glory-');
     try {
       fs.mkdirSync(path.join(root, 'mi-ui'), { recursive: true });
       fs.writeFileSync(path.join(root, 'mi-ui', 'Boton.tsx'), '');

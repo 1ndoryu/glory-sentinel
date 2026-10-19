@@ -3,9 +3,9 @@
  * estados tool-error/timeout/cancelled/invalid-output distinguibles. */
 import * as assert from 'assert';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { normalizeEntries, runStructuredTool, StructuredToolOptions } from '../../../core/runtime-proyecto/structuredTool';
+import { tempDir } from '../../temporales';
 
 function optionsFor(root: string, isCancelled?: () => boolean): StructuredToolOptions {
   const logs = path.join(root, 'logs');
@@ -15,7 +15,7 @@ function optionsFor(root: string, isCancelled?: () => boolean): StructuredToolOp
 
 suite('Sentinel core structured tool (orquestador agnóstico)', () => {
   test('describe un reporte versionado', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-structured-adapter-'));
+    const root = tempDir('sentinel-structured-adapter-');
     try {
       const outcome = await runStructuredTool({
         name: 'structured-test',
@@ -34,7 +34,7 @@ suite('Sentinel core structured tool (orquestador agnóstico)', () => {
   });
 
   test('conserva cancelled como estado distinto de tool-error', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-structured-cancelled-'));
+    const root = tempDir('sentinel-structured-cancelled-');
     try {
       const outcome = await runStructuredTool({
         name: 'cancelled',
@@ -53,7 +53,7 @@ suite('Sentinel core structured tool (orquestador agnóstico)', () => {
   });
 
   test('distingue tool-error, timeout, reporte válido y finding inválido', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-structured-states-'));
+    const root = tempDir('sentinel-structured-states-');
     const options = optionsFor(root);
     try {
       const toolError = await runStructuredTool({

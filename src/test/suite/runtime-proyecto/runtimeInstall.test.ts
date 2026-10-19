@@ -6,7 +6,6 @@
 import * as assert from 'assert';
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import {
   hashArtifact,
@@ -17,21 +16,10 @@ import {
   uninstallRuntime,
 } from '../../../core/runtime-proyecto/runtimeInstall';
 import { PROFILE_MARKER_START, PROFILE_MARKER_END } from '../../../core/shims/interceptorShims';
+import { tempDir } from '../../temporales';
 
-// Directorios temporales creados por los tests; cada suite los borra tras cada test.
-const temporales: string[] = [];
-function tempDir(prefijo: string): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefijo));
-  temporales.push(dir);
-  return dir;
-}
-function limpiarTemporales(): void {
-  for (const dir of temporales.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
-}
-
+// Directorios temporales: tempDir() los registra y se borran al terminar la ejecución.
 suite('Sentinel core runtimeInstall (contrato de actualización)', () => {
-  teardown(limpiarTemporales);
-
   function makeSource(version: string): string {
     const source = tempDir('sentinel-runtime-src-');
     fs.mkdirSync(path.join(source, 'out', 'cli'), { recursive: true });
@@ -275,8 +263,6 @@ suite('Sentinel core runtimeInstall (contrato de actualización)', () => {
  * shims y opcionalmente bin/current/versions). PATH y perfiles se inyectan
  * para no tocar el entorno real. */
 suite('Sentinel core runtimeInstall (desinstalación)', () => {
-  teardown(limpiarTemporales);
-
   /* Construye un árbol de runtime administrado completo + un PATH con las
    * entradas shims/bin + un perfil con el bloque del guard. */
   function makeManaged(target: string): { pathValue: string; profile: string } {

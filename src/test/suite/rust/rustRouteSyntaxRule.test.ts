@@ -1,10 +1,10 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { analizarRust } from '../../../analyzers/rust/rustAnalyzer';
 import { configurarOverridesReglas } from '../../../config/ruleRegistry';
 import { createCoreDocument } from '../../../core/runtime-proyecto/types';
+import { tempDir } from '../../temporales';
 
 function analyze(content: string, fileName = '/src/rutas.rs') {
   configurarOverridesReglas({
@@ -20,7 +20,7 @@ function analyze(content: string, fileName = '/src/rutas.rs') {
 
 /* Workspace temporal con Cargo.lock minimo (solo paquetes que deciden). */
 function workspaceConLock(matchit: string | null, axum: string | null): { dir: string; rutas: string } {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-axum-'));
+  const dir = tempDir('sentinel-axum-');
   const paquetes: string[] = [];
   if (matchit) {
     paquetes.push(`[[package]]\nname = "matchit"\nversion = "${matchit}"`);
@@ -125,7 +125,7 @@ suite('axum-ruta-sintaxis-rs', () => {
   });
 
   test('sin evidencia del stack: legacy (flaggea {param})', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-axum-'));
+    const dir = tempDir('sentinel-axum-');
     try {
       const rutas = path.join(dir, 'rutas.rs');
       fs.writeFileSync(rutas, '// fixture\n');

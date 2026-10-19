@@ -1,12 +1,12 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { CoreTextDocument } from '../../../core/runtime-proyecto/types';
 import { verificarCssEspecificacionDisenoLocal } from '../../../analyzers/static/staticCssRules';
 import { analizarDocumento } from '../../../analyzers/pipeline';
 import { createCoreDocument, CoreFinding } from '../../../core/runtime-proyecto/types';
 import { analyzeCliTarget, parseCliArgs } from '../../../cli';
+import { tempDir } from '../../temporales';
 
 interface ExpectedFindingSummary {
   ruleId: string;
@@ -196,7 +196,7 @@ suite('css-especificacion-diseno-local', () => {
     /* Un proyecto minimo por caso: el indice se cachea por conjunto de roots, asi que
      * reutilizar la carpeta haria que el caso 2 viera el JSX del caso 1. */
     const enProyecto = (jsx: string, texto: string): number => {
-      const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-ds-'));
+      const raiz = tempDir('sentinel-ds-');
       const rutaJsx = path.join(raiz, 'src', 'ui', 'Fila.tsx');
       fs.mkdirSync(path.dirname(rutaJsx), { recursive: true });
       fs.writeFileSync(rutaJsx, jsx, 'utf8');
@@ -262,7 +262,7 @@ suite('css-especificacion-diseno-local', () => {
      * ya es un <BotonBase> y el bloque no re-declara nada de la receta, el autor ha
      * hecho exactamente lo que se le pide: marcarlo lo dejaria sin salida. */
     const enProyecto = (jsx: string, texto: string): number => {
-      const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-ds-'));
+      const raiz = tempDir('sentinel-ds-');
       const rutaJsx = path.join(raiz, 'src', 'ui', 'Fila.tsx');
       fs.mkdirSync(path.dirname(rutaJsx), { recursive: true });
       fs.writeFileSync(rutaJsx, jsx, 'utf8');

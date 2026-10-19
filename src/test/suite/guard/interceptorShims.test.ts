@@ -24,9 +24,10 @@ import {
   uninstallProfiles,
   writeInterceptorShims,
 } from '../../../core/shims/interceptorShims';
+import { tempDir } from '../../temporales';
 
 suite('Sentinel core interceptorShims (shims y perfiles)', () => {
-  const target = () => fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-shims-'));
+  const target = () => tempDir('sentinel-shims-');
 
   test('shim cmd resuelve el ejecutable real excluyendo su propio path (sin recursión)', () => {
     const npm = generateCmdShim('npm', 'C:\\Glory\\Runtime');
@@ -87,7 +88,7 @@ suite('Sentinel core interceptorShims (shims y perfiles)', () => {
     if (!fs.existsSync(bashExe)) {
       this.skip();
     }
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-src-'));
+    const dir = tempDir('guard-src-');
     try {
       const file = path.join(dir, 'global-quality-guard.sh');
       fs.writeFileSync(file, generateBashGuard('C:\\Glory\\Runtime'));
@@ -342,7 +343,7 @@ suite('Sentinel core interceptorShims (shims y perfiles)', () => {
    * (PowerShell User) queda fuera de los tests; aquí se inyecta un almacén
    * en memoria. */
   test('installPathEntry añade shims y bin al PATH de usuario y es idempotente', async () => {
-    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-path-target-'));
+    const target = tempDir('sentinel-path-target-');
     try {
       let stored = 'C:\\Python\\Scripts';
       const read = async () => stored;
@@ -362,7 +363,7 @@ suite('Sentinel core interceptorShims (shims y perfiles)', () => {
   });
 
   test('installPathEntry con dry-run no escribe y devuelve el próximo valor', async () => {
-    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-path-target-'));
+    const target = tempDir('sentinel-path-target-');
     try {
       let stored = 'C:\\Python';
       const read = async () => stored;
@@ -377,7 +378,7 @@ suite('Sentinel core interceptorShims (shims y perfiles)', () => {
   });
 
   test('uninstallPathEntry retira solo las entradas del runtime', async () => {
-    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-path-target-'));
+    const target = tempDir('sentinel-path-target-');
     try {
       const shims = path.join(target, 'shims');
       const bin = path.join(target, 'bin');
@@ -396,7 +397,7 @@ suite('Sentinel core interceptorShims (shims y perfiles)', () => {
   });
 
   test('sin PATH de usuario administrable devuelve unsupported', async () => {
-    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-path-target-'));
+    const target = tempDir('sentinel-path-target-');
     try {
       const result = await installPathEntry(target, { read: async () => null, write: async () => {} });
       assert.strictEqual(result.action, 'unsupported');
@@ -408,7 +409,7 @@ suite('Sentinel core interceptorShims (shims y perfiles)', () => {
   /* [028A-6] La semántica que el CLI propaga como exit != 0: una escritura
    * fallida (permiso, disco) es un error de instalación, no un éxito. */
   test('installPathEntry devuelve error si la escritura falla', async () => {
-    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-path-target-'));
+    const target = tempDir('sentinel-path-target-');
     try {
       const result = await installPathEntry(target, {
         read: async () => 'C:\\old\\bin',

@@ -3,7 +3,6 @@
  * permanecer deterministas para que la migración del gate no cambie resultados. */
 import * as assert from 'assert';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
 import {
@@ -13,6 +12,7 @@ import {
   resolveExplicitProfiles,
   resolveFullDecision,
 } from '../../../core/gate/scope';
+import { tempDir } from '../../temporales';
 
 suite('Sentinel core scope (orquestador agnóstico)', () => {
   test('scope usa globs deterministas y normaliza separadores', () => {
@@ -50,7 +50,7 @@ suite('Sentinel core scope (orquestador agnóstico)', () => {
   });
 
   test('scope incluye dependencias locales en el fingerprint incremental', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-scope-dep-'));
+    const root = tempDir('sentinel-scope-dep-');
     try {
       fs.writeFileSync(path.join(root, 'entry.ts'), "import { value } from './dependency';\nexport { value };\n", 'utf8');
       fs.writeFileSync(path.join(root, 'dependency.ts'), 'export const value = 1;\n', 'utf8');
@@ -84,7 +84,7 @@ suite('Sentinel core scope (orquestador agnóstico)', () => {
   });
 
   test('detectScope calcula el alcance real desde git', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-scope-git-'));
+    const root = tempDir('sentinel-scope-git-');
     try {
       execFileSync('git', ['init', '-q'], { cwd: root });
       execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: root });

@@ -3,12 +3,12 @@
  * de que un gate falle a mitad de ejecución. */
 import * as assert from 'assert';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
 import { diagnoseWorkspace, formatDiagnose, formatStatus } from '../../../core/diagnostico/diagnose';
 import { formatShims, resolveShimWinners } from '../../../core/shims/shimDiagnostics';
 import { runCli } from '../../../cli/index';
+import { tempDir } from '../../temporales';
 
 function policy(): object {
   return {
@@ -21,7 +21,7 @@ function policy(): object {
 
 suite('Sentinel core diagnose (orquestador agnóstico)', () => {
   test('detecta política v2 con hash, lock y scheduler', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-diagnose-v2-'));
+    const root = tempDir('sentinel-diagnose-v2-');
     const previous = process.env.CARGO_TARGET_DIR_BASE;
     process.env.CARGO_TARGET_DIR_BASE = path.join(root, 'target-base');
     try {
@@ -48,7 +48,7 @@ suite('Sentinel core diagnose (orquestador agnóstico)', () => {
   });
 
   test('sin política reporta no-policy y sin lock', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-diagnose-nopolicy-'));
+    const root = tempDir('sentinel-diagnose-nopolicy-');
     try {
       const result = await diagnoseWorkspace(root);
       assert.strictEqual(result.policy.status, 'no-policy');
@@ -65,7 +65,7 @@ suite('Sentinel core diagnose (orquestador agnóstico)', () => {
     /* Fixture con git init/commit y spawns: 10 s en reposo, más de 60 s con
      * carga (fallo del 2026-10-10). Override igual al de taskCoordinator. */
     this.timeout(180_000);
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-diagnose-capabilities-'));
+    const root = tempDir('sentinel-diagnose-capabilities-');
     const source = path.join(root, 'tools', 'sentinel');
     try {
       fs.mkdirSync(source, { recursive: true });
@@ -109,8 +109,8 @@ suite('Sentinel core diagnose (orquestador agnóstico)', () => {
   });
 
   test('rechaza sourcePath que escapa por junction aunque la ruta léxica esté dentro', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-diagnose-escape-'));
-    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-diagnose-outside-'));
+    const root = tempDir('sentinel-diagnose-escape-');
+    const outside = tempDir('sentinel-diagnose-outside-');
     try {
       fs.writeFileSync(path.join(root, 'sentinel.config.json'), JSON.stringify(policy()), 'utf8');
       fs.mkdirSync(path.join(root, 'tools'), { recursive: true });
@@ -130,7 +130,7 @@ suite('Sentinel core diagnose (orquestador agnóstico)', () => {
   });
 
   test('distingue un gitlink preparado en índice pero todavía no committeado en HEAD', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-diagnose-staged-gitlink-'));
+    const root = tempDir('sentinel-diagnose-staged-gitlink-');
     const source = path.join(root, 'tools', 'sentinel');
     try {
       fs.mkdirSync(path.join(source, 'out', 'cli'), { recursive: true });
@@ -172,7 +172,7 @@ suite('Sentinel core diagnose (orquestador agnóstico)', () => {
   });
 
   test('bloquea readiness cuando faltan source checkout y CLI compilado', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-diagnose-preflight-'));
+    const root = tempDir('sentinel-diagnose-preflight-');
     try {
       fs.writeFileSync(path.join(root, 'sentinel.config.json'), JSON.stringify(policy()), 'utf8');
       fs.writeFileSync(path.join(root, 'quality-tools.json'), JSON.stringify({

@@ -1,9 +1,9 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { analyzeCliTarget, parseCliArgs } from '../../../cli';
 import { globDeGitignore } from '../../../cli/comandos/cliAnalyze';
+import { tempDir } from '../../temporales';
 
 suite('Sentinel CLI: recorrido sin git aplica .gitignore', () => {
   test('traduce las líneas de .gitignore a globs', () => {
@@ -16,7 +16,7 @@ suite('Sentinel CLI: recorrido sin git aplica .gitignore', () => {
   });
 
   test('un workspace sin .git no analiza lo que su .gitignore ignora', async () => {
-    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-gitignore-'));
+    const workspace = tempDir('sentinel-gitignore-');
     const escribir = (rel: string) => {
       fs.mkdirSync(path.dirname(path.join(workspace, rel)), { recursive: true });
       fs.writeFileSync(path.join(workspace, rel), 'export const v = 1;\n', 'utf8');

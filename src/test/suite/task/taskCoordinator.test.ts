@@ -1,6 +1,5 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
 import { provisionTaskInputs, validateIgnoredInputs } from '../../../core/runtime-proyecto/envManifest';
@@ -15,6 +14,7 @@ import {
   startTask,
   taskStatus,
 } from '../../../core/task/taskCoordinator';
+import { tempDir } from '../../temporales';
 
 function git(root: string, args: string[]): string {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
@@ -29,7 +29,7 @@ function isExternalWorktreeError(error: unknown): boolean {
 }
 
 function fixture(): { parent: string; root: string } {
-  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-task-'));
+  const parent = tempDir('sentinel-task-');
   const root = path.join(parent, 'repo');
   fs.mkdirSync(root);
   git(root, ['init', '-q', '-b', PRIMARY_BRANCH]);

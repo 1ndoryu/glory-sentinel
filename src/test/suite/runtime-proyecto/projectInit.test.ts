@@ -5,7 +5,6 @@
 import * as assert from 'assert';
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
-import * as os from 'node:os';
 import * as path from 'node:path';
 import { readV2GuardPolicy } from '../../../core/guard/guardCommand';
 import { validateSentinelConfig } from '../../../core/runtime-proyecto/config';
@@ -17,6 +16,7 @@ import {
   planInit,
   planUninit,
 } from '../../../core/runtime-proyecto/projectInit';
+import { tempDir } from '../../temporales';
 
 const CLI = path.resolve(__dirname, '../../../cli/index.js');
 
@@ -26,7 +26,7 @@ function runGit(cwd: string, args: string[]): void {
 }
 
 function makeRepo(): string {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-init-'));
+  const root = tempDir('sentinel-init-');
   runGit(root, ['init', '-q', '-b', 'wandorius']);
   runGit(root, ['config', 'user.email', 'init@test.local']);
   runGit(root, ['config', 'user.name', 'init']);

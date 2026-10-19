@@ -3,12 +3,12 @@
  * contador por tarea en runs.jsonl (cupo, observe, override lote-extra.md). */
 import * as assert from 'assert';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { checkAndRecordHeavyRun, classifyHeavy, defaultBudgets, readBudgets } from '../../../core/gate/heavyBudget';
+import { tempDir } from '../../temporales';
 
 function makeRoots(config?: unknown, extra?: string): { projectRoot: string; reportRoot: string; cleanup: () => void } {
-  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-budget-proj-'));
+  const projectRoot = tempDir('sentinel-budget-proj-');
   const reportRoot = path.join(projectRoot, '.quality-reports', 'check', 'TEST-1');
   if (config !== undefined) {
     fs.writeFileSync(path.join(projectRoot, 'sentinel.config.json'), typeof config === 'string' ? config : JSON.stringify(config));

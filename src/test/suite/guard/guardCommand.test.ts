@@ -3,11 +3,11 @@
  * observe/enforce e invalid-policy sin bloquear comandos desconocidos. */
 import * as assert from 'assert';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { cargoSubcommand, formatBlockMessage, inspectDirectCommand, QUALITY_GUARD_EXIT_CODE } from '../../../core/guard/guardCommand';
 import { LEASE_ENV_VAR, issueLease } from '../../../core/gate/lease';
 import { tmpBaseDir } from '../../../core/seguridad-rutas/tmpDir';
+import { tempDir } from '../../temporales';
 
 /* [10AA-2] Los temporales van a C:\tmp en Windows, no a %TEMP% (AGENTS.md §0.2). */
 const TMP_BASE = tmpBaseDir();
@@ -28,7 +28,7 @@ function writeV2Policy(root: string, mode: string, directCommands: Record<string
 
 suite('Sentinel core guard command (orquestador agnóstico)', () => {
   test('no-policy no bloquea nada', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-nopolicy-'));
+    const root = tempDir('sentinel-guard-nopolicy-');
     try {
       fs.writeFileSync(path.join(root, 'quality.config.json'), '{}', 'utf8');
       const decision = await inspectDirectCommand({ executable: 'npm', args: ['run', 'test'], projectRoot: root });
@@ -40,7 +40,7 @@ suite('Sentinel core guard command (orquestador agnóstico)', () => {
   });
 
   test('sin marcador declarativo no hay raíz ni bloqueo', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-nomarker-'));
+    const root = tempDir('sentinel-guard-nomarker-');
     try {
       const decision = await inspectDirectCommand({ executable: 'npm', args: ['run', 'test'], projectRoot: root });
       assert.strictEqual(decision.blocked, false);
@@ -51,7 +51,7 @@ suite('Sentinel core guard command (orquestador agnóstico)', () => {
   });
 
   test('fallback legacy v1 conserva los defaults y bloquea', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-legacy-'));
+    const root = tempDir('sentinel-guard-legacy-');
     try {
       fs.writeFileSync(path.join(root, 'sentinel.config.json'), JSON.stringify({ schemaVersion: 1, rules: {} }), 'utf8');
       const decision = await inspectDirectCommand({ executable: 'npm', args: ['run', 'test'], projectRoot: root });
@@ -64,7 +64,7 @@ suite('Sentinel core guard command (orquestador agnóstico)', () => {
   });
 
   test('política v2 enforce bloquea lo declarado y deja pasar lo demás', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-enforce-'));
+    const root = tempDir('sentinel-guard-enforce-');
     try {
       writeV2Policy(root, 'enforce', {
         npmScripts: ['test'],
@@ -91,7 +91,7 @@ suite('Sentinel core guard command (orquestador agnóstico)', () => {
   });
 
   test('política v2 observe no bloquea pero observa', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-observe-'));
+    const root = tempDir('sentinel-guard-observe-');
     try {
       writeV2Policy(root, 'observe', { npmScripts: ['test'], npxTools: [], cargoSubcommands: [], tools: [] });
       const decision = await inspectDirectCommand({ executable: 'npm', args: ['run', 'test'], projectRoot: root });
@@ -104,7 +104,7 @@ suite('Sentinel core guard command (orquestador agnóstico)', () => {
   });
 
   test('invalid-policy no bloquea comandos desconocidos', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-invalid-'));
+    const root = tempDir('sentinel-guard-invalid-');
     try {
       fs.writeFileSync(path.join(root, 'sentinel.config.json'), JSON.stringify({
         schemaVersion: 2,
@@ -119,7 +119,7 @@ suite('Sentinel core guard command (orquestador agnóstico)', () => {
   });
 
   test('el token del gate exime invocaciones internas (legacy)', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-token-'));
+    const root = tempDir('sentinel-guard-token-');
     try {
       writeV2Policy(root, 'enforce', { npmScripts: ['test'], npxTools: [], cargoSubcommands: [], tools: [] });
       const decision = await inspectDirectCommand({
@@ -136,8 +136,8 @@ suite('Sentinel core guard command (orquestador agnóstico)', () => {
   });
 
   test('un lease válido exime la invocación que iba a bloquearse', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-lease-'));
-    const guardRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-lease-gr-'));
+    const root = tempDir('sentinel-guard-lease-');
+    const guardRoot = tempDir('sentinel-guard-lease-gr-');
     try {
       writeV2Policy(root, 'enforce', { npmScripts: ['test'], npxTools: [], cargoSubcommands: [], tools: [] });
       const issued = await issueLease({ projectRoot: root, guardRoot, taskId: '297A-16' });
@@ -157,8 +157,8 @@ suite('Sentinel core guard command (orquestador agnóstico)', () => {
   });
 
   test('un lease inválido no exime: el bloqueo sigue vigente', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-lease-bad-'));
-    const guardRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-lease-bad-gr-'));
+    const root = tempDir('sentinel-guard-lease-bad-');
+    const guardRoot = tempDir('sentinel-guard-lease-bad-gr-');
     try {
       writeV2Policy(root, 'enforce', { npmScripts: ['test'], npxTools: [], cargoSubcommands: [], tools: [] });
       const issued = await issueLease({ projectRoot: root, guardRoot, ttlMs: 60_000, now: 1_000_000 });
@@ -178,9 +178,9 @@ suite('Sentinel core guard command (orquestador agnóstico)', () => {
   });
 
   test('un lease válido de otro proyecto no exime', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-lease-proj-'));
-    const other = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-lease-proj-other-'));
-    const guardRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-lease-proj-gr-'));
+    const root = tempDir('sentinel-guard-lease-proj-');
+    const other = tempDir('sentinel-guard-lease-proj-other-');
+    const guardRoot = tempDir('sentinel-guard-lease-proj-gr-');
     try {
       writeV2Policy(root, 'enforce', { npmScripts: ['test'], npxTools: [], cargoSubcommands: [], tools: [] });
       const issued = await issueLease({ projectRoot: other, guardRoot });
@@ -199,8 +199,8 @@ suite('Sentinel core guard command (orquestador agnóstico)', () => {
   });
 
   test('el lease no corre para comandos que la política ya deja pasar', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-lease-dev-'));
-    const guardRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-guard-lease-dev-gr-'));
+    const root = tempDir('sentinel-guard-lease-dev-');
+    const guardRoot = tempDir('sentinel-guard-lease-dev-gr-');
     try {
       writeV2Policy(root, 'enforce', { npmScripts: ['test'], npxTools: [], cargoSubcommands: [], tools: [] });
       const issued = await issueLease({ projectRoot: root, guardRoot });

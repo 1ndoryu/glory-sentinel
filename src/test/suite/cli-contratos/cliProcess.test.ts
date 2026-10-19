@@ -13,9 +13,9 @@
 import * as assert from 'assert';
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
-import * as os from 'node:os';
 import * as path from 'node:path';
 import { SENTINEL_JSON_SCHEMA_VERSION } from '../../../cli';
+import { tempDir } from '../../temporales';
 
 const CLI = path.resolve(__dirname, '../../../cli/index.js');
 
@@ -54,7 +54,7 @@ function parseJsonOutput(raw: string, label: string): Record<string, unknown> {
  * un WARN cuando falta openapi.json, que debe viajar por stderr. Con seedGit
  * se inicializa además un repo Git con un commit (necesario para detectScope). */
 function makeWorkspace(seedGit: boolean): string {
-  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-cli-'));
+  const workspace = tempDir('sentinel-cli-');
   const services = path.join(workspace, 'legacy', 'services');
   fs.mkdirSync(services, { recursive: true });
   fs.writeFileSync(path.join(services, 'foo.ts'), 'export const value = 1;\n', 'utf8');

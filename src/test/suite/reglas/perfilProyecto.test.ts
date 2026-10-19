@@ -1,12 +1,12 @@
 /* [perfil] Detecta WordPress/Glory por marcadores y recomienda activar sus reglas sin activarlas solas. */
 import * as assert from 'assert';
 import * as fs from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import { detectarPerfilProyecto, recomendacionesPerfil } from '../../../core/perfil/perfilProyecto';
+import { tempDir } from '../../temporales';
 
 async function proyectoTemporal(archivos: Record<string, string>, carpetas: string[] = []): Promise<string> {
-  const raiz = await fs.mkdtemp(path.join(os.tmpdir(), 'sentinel-perfil-'));
+  const raiz = await tempDir('sentinel-perfil-');
   for (const carpeta of carpetas) await fs.mkdir(path.join(raiz, carpeta), { recursive: true });
   for (const [ruta, contenido] of Object.entries(archivos)) {
     await fs.mkdir(path.dirname(path.join(raiz, ruta)), { recursive: true });

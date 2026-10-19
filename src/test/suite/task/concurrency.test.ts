@@ -4,17 +4,17 @@
  * y JSON íntegro, sin intercalación ni corrupción de reportes). */
 import * as assert from 'assert';
 import * as fs from 'node:fs';
-import * as os from 'node:os';
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { claimTask } from '../../../core/task/taskCoordinator';
 import { runProcess } from '../../../core/runtime-proyecto/toolRunner';
+import { tempDir } from '../../temporales';
 
 const PRIMARY_BRANCH = 'wandorius';
 const CLI = path.resolve(__dirname, '../../../cli/index.js');
 
 function fixture(): { parent: string; root: string } {
-  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-conc-'));
+  const parent = tempDir('sentinel-conc-');
   const root = path.join(parent, 'repo');
   fs.mkdirSync(root);
   execFileSync('git', ['init', '-q', '-b', PRIMARY_BRANCH], { cwd: root, stdio: 'ignore' });

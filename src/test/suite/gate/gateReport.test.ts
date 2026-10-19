@@ -4,9 +4,9 @@
  * permanecer deterministas para la migración del gate. */
 import * as assert from 'assert';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { compactLines, createReport, GateReportResult } from '../../../core/gate/gateReport';
+import { tempDir } from '../../temporales';
 
 suite('Sentinel core gate report (orquestador agnóstico)', () => {
   test('la salida compacta conserva estado, siguiente accion y limite de contexto', () => {
@@ -61,7 +61,7 @@ suite('Sentinel core gate report (orquestador agnóstico)', () => {
   });
 
   test('el reporte JSON, Markdown y compacto no exponen secretos de findings ni reminders', async () => {
-    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-report-secret-'));
+    const projectRoot = tempDir('sentinel-report-secret-');
     try {
       fs.mkdirSync(path.join(projectRoot, '.quality-reports', 'T-4'), { recursive: true });
       const secretFinding = {
@@ -107,7 +107,7 @@ suite('Sentinel core gate report (orquestador agnóstico)', () => {
   });
 
   test('el artifact conserva todos los hallazgos y los ordena de forma determinista', async () => {
-    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-report-order-'));
+    const projectRoot = tempDir('sentinel-report-order-');
     try {
       const reportRoot = path.join(projectRoot, '.quality-reports', 'T-ORDER');
       fs.mkdirSync(reportRoot, { recursive: true });
@@ -138,7 +138,7 @@ suite('Sentinel core gate report (orquestador agnóstico)', () => {
   });
 
   test('createReport representa cancelación con exit code 130', async () => {
-    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-report-cancelled-'));
+    const projectRoot = tempDir('sentinel-report-cancelled-');
     try {
       fs.mkdirSync(path.join(projectRoot, '.quality-reports', 'T-CANCEL'), { recursive: true });
       const result = await createReport(
@@ -162,7 +162,7 @@ suite('Sentinel core gate report (orquestador agnóstico)', () => {
   });
 
   test('createReport serializa la identidad de política en JSON y Markdown', async () => {
-    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-report-policy-'));
+    const projectRoot = tempDir('sentinel-report-policy-');
     try {
       fs.mkdirSync(path.join(projectRoot, '.quality-reports', 'T-2'), { recursive: true });
       const result = await createReport(
@@ -204,7 +204,7 @@ suite('Sentinel core gate report (orquestador agnóstico)', () => {
   });
 
   test('createReport refleja un full diferido con effectiveFull=false y motivo', async () => {
-    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-report-deferred-'));
+    const projectRoot = tempDir('sentinel-report-deferred-');
     try {
       fs.mkdirSync(path.join(projectRoot, '.quality-reports', 'T-DEFER'), { recursive: true });
       const result = await createReport(

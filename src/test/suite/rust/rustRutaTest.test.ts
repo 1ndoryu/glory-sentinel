@@ -24,12 +24,12 @@
 
 import * as assert from 'assert';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { analizarRust } from '../../../analyzers/rust/rustAnalyzer';
 import { configurarOverridesReglas } from '../../../config/ruleRegistry';
 import { createCoreDocument } from '../../../core/runtime-proyecto/types';
 import { olvidarCacheRutasTest } from '../../../analyzers/rust/rustTestScope';
+import { tempDir } from '../../temporales';
 
 /* Codigo con un `.expect(..)`, un `.unwrap()` y un `panic!` — una infraccion de
  * cada regla que depende del alcance de test. */
@@ -78,7 +78,7 @@ function totalDePanicos(fileName: string): number {
 const directorios: string[] = [];
 
 function fixture(padre: string): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-ruta-test-'));
+  const dir = tempDir('sentinel-ruta-test-');
   directorios.push(dir);
   fs.writeFileSync(path.join(dir, 'mod.rs'), padre, 'utf8');
   const hijo = path.join(dir, 'tests.rs');
@@ -91,7 +91,7 @@ function fixture(padre: string): string {
  * `<dirPadre>/<dir>.rs` (p. ej. `src/audio/bpm.rs` declara `src/audio/bpm/`).
  * Devuelve la ruta del hijo `<dirPadre>/<dir>/tests.rs`. */
 function fixturePadreFuera(padre: string): string {
-  const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-ruta-fuera-'));
+  const raiz = tempDir('sentinel-ruta-fuera-');
   directorios.push(raiz);
   fs.writeFileSync(path.join(raiz, 'bpm.rs'), padre, 'utf8');
   const dir = path.join(raiz, 'bpm');

@@ -1,8 +1,8 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { verificarHtmlNativoEnVezDeComponente, configurarWorkspaceRootsReact } from '../../../analyzers/react/reglas/reactComponentRules';
+import { tempDir } from '../../temporales';
 
 suite('select-nativo-prohibido', () => {
   test('detecta select nativo aunque no exista componente Select con nombre literal', () => {
@@ -30,7 +30,7 @@ suite('select-nativo-prohibido', () => {
  * (frontend/src/app/components/ui + shared) y 'Range' no se auto-flaggea. */
 suite('base-rutas-components-ui-318a3', () => {
   const crearFixture = (): string => {
-    const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-base-rui-'));
+    const raiz = tempDir('sentinel-base-rui-');
     const ui = path.join(raiz, 'frontend', 'src', 'app', 'components', 'ui');
     const shared = path.join(raiz, 'frontend', 'src', 'app', 'components', 'shared');
     fs.mkdirSync(ui, {recursive: true});

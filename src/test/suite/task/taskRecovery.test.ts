@@ -6,13 +6,14 @@ import * as path from 'path';
 import { execFileSync } from 'child_process';
 import { claimTask, TASK_TTL_MS, taskStatus } from '../../../core/task/taskCoordinator';
 import { recoverTask } from '../../../core/task/taskRecovery';
+import { tempDir } from '../../temporales';
 
 function git(root: string, args: string[]): string {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
 }
 
 function fixture(): { parent: string; root: string } {
-  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-recovery-'));
+  const parent = tempDir('sentinel-recovery-');
   const root = path.join(parent, 'repo');
   fs.mkdirSync(root);
   git(root, ['init', '-q', '-b', 'wandorius']);

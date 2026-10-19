@@ -3,7 +3,6 @@
  * atómica sin estados parciales y lock corrupto con error distinto (no hang). */
 import * as assert from 'assert';
 import * as fs from 'node:fs';
-import * as os from 'node:os';
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { isPathInside, physicallyContained, ensureContainedDirectory } from '../../../core/seguridad-rutas/pathContainment';
@@ -11,11 +10,12 @@ import { redact, truncate, sanitize } from '../../../core/seguridad-rutas/redact
 import { writeAtomic } from '../../../core/seguridad-rutas/atomicFile';
 import { runProcess } from '../../../core/runtime-proyecto/toolRunner';
 import { claimTask } from '../../../core/task/taskCoordinator';
+import { tempDir } from '../../temporales';
 
 const PRIMARY_BRANCH = 'wandorius';
 
 function fixture(): { parent: string; root: string } {
-  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-sec-'));
+  const parent = tempDir('sentinel-sec-');
   const root = path.join(parent, 'repo');
   fs.mkdirSync(root);
   execFileSync('git', ['init', '-q', '-b', PRIMARY_BRANCH], { cwd: root, stdio: 'ignore' });

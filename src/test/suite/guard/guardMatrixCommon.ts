@@ -5,17 +5,17 @@
  * un fixture sin marcador "heredaría" la política del repo y rompería el test.
  */
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import { spawnSync } from 'node:child_process';
 import { writeInterceptorShims } from '../../../core/shims/interceptorShims';
+import { tempDir } from '../../temporales';
 
 export function fixtureSourceDir(name: string): string {
   return path.resolve(__dirname, '../../../../src/test/fixtures/guard-matrix', name);
 }
 
 export function copyFixtureToTmp(name: string): string {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), `sentinel-matrix-${name}-`));
+  const tmp = tempDir(`sentinel-matrix-${name}-`);
   fs.cpSync(fixtureSourceDir(name), path.join(tmp, 'project'), { recursive: true });
   return path.join(tmp, 'project');
 }
