@@ -1,8 +1,17 @@
 # Changelog
 
-## [Unreleased]
+## [0.7.26] - 2026-10-19
 
-> Las versiones 0.7.24, 0.7.25 y 0.7.26 (`package.json`) no tienen tag ni sección propia: sus cambios figuran en esta sección hasta que se etiqueten.
+> Recoge también 0.7.24 y 0.7.25, que no tienen sección propia.
+
+### Calidad y arquitectura
+
+- Reglas de WordPress y Glory desactivadas por defecto. Al detectar el perfil, el informe del gate sugiere la ruta exacta para activarlas; nunca las activa solo.
+- Marcadores del framework configurables con `marcadoresGlory` (por defecto `/Glory/` y `/glory-core/`), en lugar de literales repartidos por seis archivos.
+- El núcleo no importa analyzers (`check:core`); los módulos grandes se parten en subcarpetas con barril de compatibilidad.
+- Ayuda única: `sentinel --help`. Catálogo de reglas generado desde el registro (`rules.md`, `check:reglas`).
+- Repo limpio: `Agente/` y `extension.wasm` fuera del control de versiones; temporales en `SENTINEL_TMP_DIR`.
+- `engines.node` declara `>=20`.
 
 ### `.mjs`/`.cjs` y `.mts`/`.cts` se analizan como su equivalente
 
