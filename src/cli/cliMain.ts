@@ -154,9 +154,9 @@ export async function runCli(rawArgs: string[]): Promise<number> {
     return args.command === 'doctor' && !diagnosis.ready ? 1 : 0;
   }
   if (args.command === 'lease') {
-    const output = await leaseCliTarget(args);
+    const { output, exitCode } = await leaseCliTarget(args);
     await writeOrPrint(output, args.outputPath);
-    return 0;
+    return exitCode;
   }
   if (args.command === 'init') {
     const result = await initCliTarget(args, await readPackageVersion());

@@ -26,6 +26,12 @@ function listarFuentes(dir: string, salida: string[]): void {
   }
 }
 
+/* Descarta todos los índices cacheados; la siguiente consulta los reconstruye desde disco.
+ * El LSP lo llama al recargar el workspace, para no servir un índice de antes del cambio. */
+export function invalidarIndiceProyecto(): void {
+  cacheIndice.clear();
+}
+
 export function indiceProyecto(roots: string[]): IndiceProyecto {
   const normalizados = roots.map(r => r.replace(/\\/g, '/').replace(/\/+$/, '')).filter(Boolean);
   const clave = normalizados.join('|');

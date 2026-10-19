@@ -97,8 +97,9 @@ export function validateSentinelConfig(value: unknown): asserts value is Sentine
 
   /* [028A-6 Fase 3] Validación mínima del envelope v2 cuando está presente:
    * no se duplica readV2GuardPolicy (que lo valida exhaustivamente), pero un
-   * schemaVersion distinto de 2 o un mode inválido deben fallar cerrado. */
-  if (config.schemaVersion !== undefined && config.schemaVersion !== 2) {
+   * schemaVersion desconocido o un mode inválido deben fallar cerrado. La v1
+   * (reglas sueltas en la raíz) sigue siendo válida como legado. */
+  if (config.schemaVersion !== undefined && config.schemaVersion !== 1 && config.schemaVersion !== 2) {
     throw new Error(`sentinel.config.json: schemaVersion inválido (${String(config.schemaVersion)})`);
   }
   if (config.mode !== undefined && !['enforce', 'observe', 'pass-through'].includes(String(config.mode))) {

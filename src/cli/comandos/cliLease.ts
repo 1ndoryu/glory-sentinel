@@ -12,7 +12,26 @@ import {
 import { ParsedCliArgs } from '../parseo/argsTypes';
 import { usage } from '../parseo/argsUsage';
 
-export async function leaseCliTarget(args: ParsedCliArgs): Promise<string> {
+/* `verify` inválido sale 2: un lease que no se puede comprobar no debe dejar pasar al gate (fail-closed para CI). */
+export async function leaseCliTarget(args: ParsedCliArgs): Promise<{ output: string; exitCode: number }> {
+  if (args.leaseAction !== 'verify') {
+    return { output: await leaseSalida(args), exitCode: 0 };
+  }
+  if (!args.leasePath) throw new Error('lease verify requiere --lease <path>');
+  const projectRoot = path.resolve(args.workspacePath ?? process.cwd());
+  const verification = await verifyLease({
+    leasePath: args.leasePath,
+    projectRoot,
+    pid: args.leasePid ?? process.pid,
+    command: args.leaseCommand ?? '',
+  });
+  const output = args.json
+    ? `${JSON.stringify(verification, null, 2)}\n`
+    : `Lease ${verification.valid ? 'válido' : `inválido (${verification.reason ?? 'desconocido'})`}\n`;
+  return { output, exitCode: verification.valid ? 0 : 2 };
+}
+
+async function leaseSalida(args: ParsedCliArgs): Promise<string> {
   const guardRoot = resolveGuardRoot(resolveTargetBase());
   switch (args.leaseAction) {
     case 'issue': {
@@ -37,19 +56,6 @@ export async function leaseCliTarget(args: ParsedCliArgs): Promise<string> {
       return args.json
         ? `${JSON.stringify(result, null, 2)}\n`
         : `Lease ${result.revoked ? 'revocado' : 'ya ausente'}: ${args.leasePath}\n`;
-    }
-    case 'verify': {
-      if (!args.leasePath) throw new Error('lease verify requiere --lease <path>');
-      const projectRoot = path.resolve(args.workspacePath ?? process.cwd());
-      const verification = await verifyLease({
-        leasePath: args.leasePath,
-        projectRoot,
-        pid: args.leasePid ?? process.pid,
-        command: args.leaseCommand ?? '',
-      });
-      return args.json
-        ? `${JSON.stringify(verification, null, 2)}\n`
-        : `Lease ${verification.valid ? 'válido' : `inválido (${verification.reason ?? 'desconocido'})`}\n`;
     }
     default:
       throw new Error(usage());

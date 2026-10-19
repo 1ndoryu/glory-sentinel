@@ -21,6 +21,7 @@ import { languageIdForFile } from '../core/runtime-proyecto/language';
 import { inicializarGloryAnalyzer } from '../analyzers/gloryAnalyzer';
 import { logError } from '../utils/logger';
 import { invalidarOpenapiIndex } from '../analyzers/externos/apiEndpointAnalyzer';
+import { invalidarIndiceProyecto } from '../utils/analisis/indiceProyecto';
 import { findingToLspDiagnostic } from './diagnostics';
 
 const connection = createConnection(ProposedFeatures.all);
@@ -126,6 +127,7 @@ function validateAllOpenDocuments(): void {
 
 function reloadWorkspaceIndexes(rootPath?: string): void {
   invalidarOpenapiIndex(rootPath);
+  invalidarIndiceProyecto();
   if (!rootPath) {
     initializedWorkspaceRoot = undefined;
     return;

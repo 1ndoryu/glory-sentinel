@@ -13,6 +13,41 @@ Orden de ejecución: de arriba abajo. Cada bloque: probar en la 89, documentar, 
 
 - Gate de RESTAURANTE (10AA-3, 2026-10-19): Sentinel se ejecuta en la 89 desde `/var/tmp/gate-tools/sentinel` (archive de `b4d043b`, versión 0.7.26; el adaptador comprueba `.quality-pin` y `--version` antes de cada análisis), no desde `tools/sentinel` de los submódulos de la 89, que están sucios por otra sesión. Pendiente de quien lleva Sentinel: decidir si el submódulo de la 89 se fija a ese pin o el pin se declara de otra forma. No tocado desde RESTAURANTE.
 
+### Backlog de la revisión de diez puntos (2026-10-19, diagnóstico previo a editar)
+Orden de ejecución: T1 → T6. Cada bloque: probar en la 89, documentar en `Agente/completados/tareas-2026-10-19.md`, commit y push a main, `Arranque gate "glory-sentinel" --cierre`.
+
+- [x] **T1 Contratos rotos (alto).** Hecho 2026-10-19.
+  - Config v1: `validateSentinelConfig` acepta `schemaVersion` 1 (legado, reglas sueltas) y 2; 3 se rechaza. Ningún `sentinel.config.json` de `~/taller` usa v1 (comprobado).
+  - Caché LSP: `invalidarIndiceProyecto()` en `src/utils/analisis/indiceProyecto.ts`, llamada desde `reloadWorkspaceIndexes` (`src/lsp/server.ts`).
+  - `lease verify` inválido sale 2 (fail-closed, como `doctor`); `leaseCliTarget` devuelve `{ output, exitCode }`. Verificado en la 89: `lease verify --lease <inexistente> --project-root .` rc 2; compile, lint 0, check:core OK, `test:unit` 924 passing.
+- [ ] **T2 Reglas y rutas fijas de Kamples (alto).**
+  - `src/analyzers/externos/apiEndpointAnalyzer.ts:29-35`: PATH_MAP con rutas de Kamples; `api-endpoint-faltante` (:223) sin `reglaHabilitada`. Acción: rutas configurables y regla condicionada.
+  - `css-adhoc-button-style`, `sqlx-query-as-sin-macro` y `sqlx-query-sin-macro` aparecen en `src/config/defaultRules.ts` y en el analizador, pero no en el registro de reglas ni en `rules.md`. Acción: registrarlas y documentarlas (o retirarlas), para que sean configurables.
+  - `src/analyzers/react/reglas/reactUiCatalog.ts:35-44` y `src/analyzers/glory/api/apiContractIndexer.ts:46-49`: rutas de design system y `RUTAS_CONTROLLERS` fijas. Acción: pasarlas a configuración.
+- [ ] **T3 Documentación que no coincide con el código (medio).**
+  - Scripts citados que no existen en `package.json`: `gate:check` (README:105,156,166; docs/operations.md:10-19; docs/concepts.md:11), `quality:lock` (docs/configuration.md:49), `quality:reports:cleanup:dry` (docs/operations.md:43). Acción: quitar las menciones que son de workspace-manager y declarar o quitar el resto.
+  - `integrate --ff-only` (README:198, docs/operations.md:31) no es flag del CLI; el merge es interno (`src/core/task/coordinador/taskCoordinatorLifecycle.ts:203,210`). Acción: corregir el texto.
+  - Instalación: `npm run cli` y `node out/cli/index.js` aparecen fuera del camino único; marcarlos como desarrollo. Reabre parcialmente S5.
+  - `\n` literal en ayuda y error de `task`: `src/cli/parseo/argsUsage.ts:16`, `argsTask.ts:79`.
+  - Códigos de salida sin documentar: 2 solo en `src/cli/index.ts:15-20`; `analyze` sale 1 con errores (`cliMain.ts:178`); `--help` de subcomando sale 2 (`argsParse.ts:233`).
+  - README:44 «más de 100 reglas» frente a 121 en `rules.md:6`; `docs/pruebas.md:7` omite `check:reglas`; `.gitignore` no cubre `sentinel-autogate.json` ni `.sentinel-report.md`.
+- [ ] **T4 Agnosticismo del core (medio).**
+  - `src/utils/logger.ts:10,26` carga `vscode` en runtime y lo usa `src/core/gate/heavyBudget.ts:12`. `scripts/check-core-no-vscode.mjs:21` solo detecta `require` literal. Acción: mover el logger a adapter o inyectarlo, y ampliar el check.
+  - `src/analyzers/static/portableRules.ts:27-28`: defaults `'/platform/'` y `'/adapters/'` fijos. Acción: configurables (igual que `marcadoresGlory`).
+- [ ] **T5 Arquitectura, repo y optimización (medio).**
+  - `git ls-files` sin timeout: `src/cli/comandos/cliAnalyze.ts:42-46`, `src/core/runtime-proyecto/envManifest.ts:147,173`, `src/core/task/coordinador/taskCoordinatorRutas.ts:15`. Acción: timeout y maxBuffer acotado.
+  - Unos 19 recorridos de directorio propios (p. ej. `cliAnalyze.ts:96-118`, `install/artefacto.ts:25-33`, `utils/analisis/indiceProyecto.ts:13-27`). Acción: un solo recorredor con reglas de exclusión.
+  - `cliAnalyze.ts:187-192,123`: análisis en serie y sin tope por archivo; `:210-221` salida JSON sin límite de entradas.
+  - `src/lsp/server.ts:159-161`: sin debounce (la extensión sí lo tiene); relee la config y analiza de forma síncrona en `:91`.
+  - Presupuestos: `scripts/module-budgets.json` fija 550–950 en barriles de 8–26 líneas; `staticCodeRules.ts` (704) se partirá; `apiContractIndexer.ts` (485) y `externalToolsAnalyzer.ts` (454) sin presupuesto.
+  - `roadmap.md` sigue versionado: aplicar la misma decisión que en VarSense (sacarlo del repo).
+  - `media/*.jpg` de 290 KB como icono (bajo); `src/core/guard/guardCommand.ts:77` con `readFileSync` en la ruta del guard (bajo).
+- [ ] **T6 Autogate y tests (medio).**
+  - `scripts/autogate.mjs:27` falla con cualquier hallazgo, sin umbral, y pasa si falta el campo (fail-open). `sentinel-autogate.json` lo referencia `package.json:135` pero no existe. Acción: archivo versionado, umbral explícito y fail-closed.
+  - `sentinel.config.json:38` excluye solo `fixtures/equivalence`. Aplicar la misma exclusión de código de prueba que VarSense (decisión de la usuaria).
+  - Timeout de 600000 ms en `scripts/autogate.mjs:18` (bajo).
+- Cierre del backlog: autogate 0 hallazgos en la 89, `check:reglas`, `check:core`, `test:unit`, compile y lint en verde, y una instalación de tercero siguiendo solo el README.
+
 
 ## Bloqueos
 - Verificación en la 89: clon de `HEAD` en `/var/tmp/glory-sentinel-verify` (no toca `~/taller`).
