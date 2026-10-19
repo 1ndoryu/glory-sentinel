@@ -7,9 +7,9 @@
  * y el reglaId para el registro.
  */
 
-import {Violacion} from '../../types';
-import {obtenerSeveridadRegla} from '../../config/ruleRegistry';
-import {esComentario, tieneSentinelDisable} from '../../utils/analisisHelpers';
+import {Violacion} from '../../../types';
+import {obtenerSeveridadRegla} from '../../../config/ruleRegistry';
+import {esComentario, tieneSentinelDisable} from '../../../utils/analisisHelpers';
 
 /* Configuracion de una regla de clave incorrecta en DefaultContent */
 interface ConfigClaveIncorrecta {

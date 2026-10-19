@@ -47,7 +47,7 @@ import {
   obtenerWorkspaceRootsReact,
 } from './react/reactComponentRules';
 import { verificarFormularioConfigSinSistema } from './react/formularioConfigSystem';
-import { verificarAccesoApiSinFallback } from './glory/apiFallbackRules';
+import { verificarAccesoApiSinFallback } from './glory/api/apiFallbackRules';
 
 export interface ReactAnalysisOptions {
   workspaceRoots?: string[];

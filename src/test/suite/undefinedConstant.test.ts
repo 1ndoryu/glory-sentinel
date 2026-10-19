@@ -5,8 +5,8 @@
  */
 
 import * as assert from 'assert';
-import { verificarUndefinedClassConstant } from '../../analyzers/glory/gloryConstantRules';
-import { setearIndiceParaTests } from '../../analyzers/glory/phpConstantIndexer';
+import { verificarUndefinedClassConstant } from '../../analyzers/glory/constantes/gloryConstantRules';
+import { setearIndiceParaTests } from '../../analyzers/glory/constantes/phpConstantIndexer';
 
 /* Configurar indice mock antes de cada suite */
 function configurarIndiceMock(): void {

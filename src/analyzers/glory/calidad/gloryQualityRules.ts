@@ -5,9 +5,9 @@
  */
 
 import * as path from 'path';
-import { Violacion } from '../../types';
-import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
-import { esComentario, tieneSentinelDisable } from '../../utils/analisisHelpers';
+import { Violacion } from '../../../types';
+import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
+import { esComentario, tieneSentinelDisable } from '../../../utils/analisisHelpers';
 
 /*
  * Detecta metodos publicos que hacen INSERT/UPDATE/DELETE pero retornan void.

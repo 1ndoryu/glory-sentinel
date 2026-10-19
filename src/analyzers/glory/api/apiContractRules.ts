@@ -19,11 +19,11 @@
  *   resolviendo tipos importados via tsTypeResolver.
  */
 
-import { Violacion } from '../../types';
-import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
-import { esComentario, tieneSentinelDisable } from '../../utils/analisisHelpers';
+import { Violacion } from '../../../types';
+import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
+import { esComentario, tieneSentinelDisable } from '../../../utils/analisisHelpers';
 import { buscarContratoPorSlug, buscarContratoPorRuta, obtenerContratos } from './apiContractIndexer';
-import { resolverCamposTipo, obtenerIndiceTipos } from './tsTypeResolver';
+import { resolverCamposTipo, obtenerIndiceTipos } from '../schema/tsTypeResolver';
 
 /*
  * Detecta mismatch entre las claves que TS espera y las que PHP devuelve.

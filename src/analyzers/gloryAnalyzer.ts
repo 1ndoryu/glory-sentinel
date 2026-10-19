@@ -14,17 +14,17 @@ import { CoreTextDocument } from '../core/types';
 import { configurarWorkspaceRoots } from '../core/workspaceRoots';
 
 /* Submodulos */
-import { cargarSchema, obtenerMapaCols, obtenerMapaEnums } from './glory/schemaLoader';
-import { cargarIslasRegistradas, verificarIslaNoRegistrada } from './glory/islandTracker';
-import { verificarHardcodedSqlColumn, verificarHardcodedEnumValue, verificarSelectStar } from './glory/glorySchemaRules';
-import { verificarEndpointAccedeBd, verificarIntervalSinWhitelist, verificarOpenRedirect } from './glory/glorySecurityRules';
-import { verificarReturnVoidCritico, verificarNPlus1Query, verificarFqnInline, verificarPhpSinReturnType } from './glory/gloryQualityRules';
-import { verificarDefaultContentClaves, REGLA_IDS_DEFAULT_CONTENT } from './glory/defaultContentRules';
-import { cargarIndiceConstantes, obtenerIndiceConstantes } from './glory/phpConstantIndexer';
-import { verificarUndefinedClassConstant } from './glory/gloryConstantRules';
-import { cargarContratos, obtenerContratos } from './glory/apiContractIndexer';
-import { verificarApiResponseMismatch } from './glory/apiContractRules';
-import { cargarTipos } from './glory/tsTypeResolver';
+import { cargarSchema, obtenerMapaCols, obtenerMapaEnums } from './glory/schema/schemaLoader';
+import { cargarIslasRegistradas, verificarIslaNoRegistrada } from './glory/calidad/islandTracker';
+import { verificarHardcodedSqlColumn, verificarHardcodedEnumValue, verificarSelectStar } from './glory/schema/glorySchemaRules';
+import { verificarEndpointAccedeBd, verificarIntervalSinWhitelist, verificarOpenRedirect } from './glory/calidad/glorySecurityRules';
+import { verificarReturnVoidCritico, verificarNPlus1Query, verificarFqnInline, verificarPhpSinReturnType } from './glory/calidad/gloryQualityRules';
+import { verificarDefaultContentClaves, REGLA_IDS_DEFAULT_CONTENT } from './glory/calidad/defaultContentRules';
+import { cargarIndiceConstantes, obtenerIndiceConstantes } from './glory/constantes/phpConstantIndexer';
+import { verificarUndefinedClassConstant } from './glory/constantes/gloryConstantRules';
+import { cargarContratos, obtenerContratos } from './glory/api/apiContractIndexer';
+import { verificarApiResponseMismatch } from './glory/api/apiContractRules';
+import { cargarTipos } from './glory/schema/tsTypeResolver';
 import { verificarArrayAsociativoComoLista, verificarServiceRetornaAsociativo } from './php/phpArrayShapeRules';
 
 /*

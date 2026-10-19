@@ -2,11 +2,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { inicializarGloryAnalyzer } from '../../analyzers/gloryAnalyzer';
-import { recargarSchema } from '../../analyzers/glory/schemaLoader';
-import { recargarIslasRegistradas } from '../../analyzers/glory/islandTracker';
-import { actualizarArchivoEnIndice, recargarIndiceConstantes } from '../../analyzers/glory/phpConstantIndexer';
-import { recargarContratos, RUTAS_CONTROLLERS } from '../../analyzers/glory/apiContractIndexer';
-import { recargarTipos } from '../../analyzers/glory/tsTypeResolver';
+import { recargarSchema } from '../../analyzers/glory/schema/schemaLoader';
+import { recargarIslasRegistradas } from '../../analyzers/glory/calidad/islandTracker';
+import { actualizarArchivoEnIndice, recargarIndiceConstantes } from '../../analyzers/glory/constantes/phpConstantIndexer';
+import { recargarContratos, RUTAS_CONTROLLERS } from '../../analyzers/glory/api/apiContractIndexer';
+import { recargarTipos } from '../../analyzers/glory/schema/tsTypeResolver';
 import { invalidarOpenapiIndex } from '../../analyzers/apiEndpointAnalyzer';
 
 function workspaceRootsFromVsCode(): string[] {

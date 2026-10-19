@@ -1,6 +1,6 @@
-import { Violacion } from '../../types';
-import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
-import { esComentario, tieneSentinelDisable } from '../../utils/analisisHelpers';
+import { Violacion } from '../../../types';
+import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
+import { esComentario, tieneSentinelDisable } from '../../../utils/analisisHelpers';
 
 /*
  * Detecta acceso a propiedades de respuesta API sin fallback defensivo.

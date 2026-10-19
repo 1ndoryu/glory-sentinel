@@ -6,10 +6,10 @@
 
 import * as path from 'path';
 import * as fs from 'fs';
-import {Violacion} from '../../types';
-import {obtenerSeveridadRegla} from '../../config/ruleRegistry';
-import {logInfo, logWarn} from '../../utils/logger';
-import { obtenerWorkspaceRoots } from '../../core/workspaceRoots';
+import {Violacion} from '../../../types';
+import {obtenerSeveridadRegla} from '../../../config/ruleRegistry';
+import {logInfo, logWarn} from '../../../utils/logger';
+import { obtenerWorkspaceRoots } from '../../../core/workspaceRoots';
 
 /* Cache de islas registradas en appIslands.tsx */
 let cacheIslasRegistradas: Set<string> | null = null;
@@ -68,14 +68,14 @@ function parsearIslasDeContenido(contenido: string): void {
         return;
     }
 
-    /* Imports: import {X} from './islands/X' o './islands/sub/X' */
+    /* Imports: import {X} from '../islands/X' o './islands/sub/X' */
     const regexImport = /import\s+.*from\s+['"]\.\.?\/islands\/(?:[\w/]+\/)?(\w+)['"]/g;
     let match: RegExpExecArray | null;
     while ((match = regexImport.exec(contenido)) !== null) {
         cacheIslasRegistradas.add(match[1]);
     }
 
-    /* Lazy imports: lazy(() => import('./islands/sub/X')) */
+    /* Lazy imports: lazy(() => import('../islands/sub/X')) */
     const regexLazy = /import\s*\(\s*['"]\.\.?\/islands\/(?:[\w/]+\/)?(\w+)['"]\s*\)/g;
     while ((match = regexLazy.exec(contenido)) !== null) {
         cacheIslasRegistradas.add(match[1]);

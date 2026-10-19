@@ -9,8 +9,8 @@
 
 import * as path from 'path';
 import * as fs from 'fs';
-import { logInfo } from '../../utils/logger';
-import { obtenerWorkspaceRoots } from '../../core/workspaceRoots';
+import { logInfo } from '../../../utils/logger';
+import { obtenerWorkspaceRoots } from '../../../core/workspaceRoots';
 
 /* Informacion indexada de una clase PHP */
 interface InfoClase {

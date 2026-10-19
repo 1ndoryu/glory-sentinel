@@ -5,8 +5,8 @@
  */
 
 import * as assert from 'assert';
-import { verificarApiResponseMismatch } from '../../analyzers/glory/apiContractRules';
-import { verificarAccesoApiSinFallback } from '../../analyzers/glory/apiFallbackRules';
+import { verificarApiResponseMismatch } from '../../analyzers/glory/api/apiContractRules';
+import { verificarAccesoApiSinFallback } from '../../analyzers/glory/api/apiFallbackRules';
 
 /* acceso-api-sin-fallback */
 

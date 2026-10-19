@@ -4,9 +4,9 @@
  * Sugiere usar constantes Cols/Enums generadas por el Schema System.
  */
 
-import { Violacion } from '../../types';
-import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
-import { esComentario, tieneSentinelDisable } from '../../utils/analisisHelpers';
+import { Violacion } from '../../../types';
+import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
+import { esComentario, tieneSentinelDisable } from '../../../utils/analisisHelpers';
 import { obtenerMapaCols, obtenerMapaEnums } from './schemaLoader';
 
 /* Valores de columna demasiado genericos para reportar (falsos positivos) */

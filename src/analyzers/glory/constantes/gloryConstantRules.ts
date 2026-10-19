@@ -10,9 +10,9 @@
  * Depende de phpConstantIndexer para la resolucion cross-file.
  */
 
-import { Violacion } from '../../types';
-import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
-import { esComentario, tieneSentinelDisable } from '../../utils/analisisHelpers';
+import { Violacion } from '../../../types';
+import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
+import { esComentario, tieneSentinelDisable } from '../../../utils/analisisHelpers';
 import { obtenerConstantesDeClase, obtenerIndiceConstantes } from './phpConstantIndexer';
 
 const REGLA_ID = 'undefined-class-constant';
