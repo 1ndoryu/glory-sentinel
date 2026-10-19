@@ -4,7 +4,7 @@ Origen: prueba de instalación como tercero (FALLA) y revisión de diez puntos. 
 
 ## Corregir ahora
 
-- [ ] **Permiso de ejecución.** `bin/sentinel` llega sin bit de ejecución al instalar en modo contenido (`Permission denied`, rc 126). Causa: `writeCliShims` (`src/core/runtime-proyecto/install/puntero.ts`) escribe el shim con `writeAtomic`, que no fija el modo. No es un problema de git: `bin/` no está versionado (se genera al instalar). Corrección: `fs.chmod` 0o755 sobre `bin/sentinel` y `current.js`, con test en `runtimeInstall.test.ts` (no Windows). Comprobar en la 89 con un clon limpio.
+- [x] **Permiso de ejecución.** (Hecho en 0fa063b; verificado en la 89 en 43bda9a: `bin/sentinel` 755, `--version` 0.7.26 rc 0.) `bin/sentinel` llega sin bit de ejecución al instalar en modo contenido (`Permission denied`, rc 126). Causa: `writeCliShims` (`src/core/runtime-proyecto/install/puntero.ts`) escribe el shim con `writeAtomic`, que no fija el modo. No es un problema de git: `bin/` no está versionado (se genera al instalar). Corrección: `fs.chmod` 0o755 sobre `bin/sentinel` y `current.js`, con test en `runtimeInstall.test.ts` (no Windows). Comprobar en la 89 con un clon limpio.
 - [x] **README: requisitos.** `README.md:117-120` y alrededor: Node 20 (`engines` y `.github/workflows/ci.yml:16`), git, shell requerido en Windows.
 - [x] **README: destino y PATH.** Documentar el destino por defecto (`src/core/runtime-proyecto/install/rutas.ts:6-8`) y que `--with-path` modifica el PATH de usuario (`src/cli/cliMain.ts:102-103`). En Linux `--with-path` sale `[path] UNSUPPORTED` (dry-run): documentarlo.
 - [x] **README: doctor.** `README.md:129-131`: explicar que `doctor` pide `sentinel.lock.json` (`lock-missing`) y si el propio repo debe pasar doctor.
