@@ -17,6 +17,9 @@ import { GIT_MAX_BUFFER, GIT_TIMEOUT_MS } from '../../utils/gitLimites';
 
 const execFileAsync = promisify(execFile);
 
+/* Archivos analizados en paralelo: suficiente para solapar E/S sin disparar la memoria. */
+const LOTE_ANALISIS = 8;
+
 function normalizarRuta(ruta: string): string {
   return ruta.replace(/\\/g, '/');
 }
@@ -184,12 +187,14 @@ export async function analyzeCliTarget(args: ParsedCliArgs): Promise<CliAnalysis
       ? await collectFilesFromList(args.filesFromPath, workspacePath, config)
       : await collectFiles(workspacePath, config);
 
+  /* [por que] Por lotes: las lecturas de un lote se solapan, pero nunca hay más de
+   * LOTE_ANALISIS archivos en memoria a la vez. Cada lote conserva el orden de `files`. */
   const entries: CoreReportEntry[] = [];
-  for (const filePath of files) {
-    const entry = await analyzeFile(filePath, workspacePath, config);
-    if (entry.findings.length > 0) {
-      entries.push(entry);
-    }
+  for (let i = 0; i < files.length; i += LOTE_ANALISIS) {
+    const lote = await Promise.all(
+      files.slice(i, i + LOTE_ANALISIS).map(filePath => analyzeFile(filePath, workspacePath, config)),
+    );
+    entries.push(...lote.filter(entry => entry.findings.length > 0));
   }
 
   return {
