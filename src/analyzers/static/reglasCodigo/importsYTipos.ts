@@ -29,8 +29,11 @@ export function verificarImportsMuertos(
       continue;
     }
 
+    /* [por que] Solo código: un import escrito dentro de una cadena (fixture) no es un import. */
+    const codigo = enmascararLiterales(linea);
+
     /* Import nombrado: import { X, Y } from '...' */
-    const matchNombrado = REGEX_IMPORT_NOMBRADO.exec(linea);
+    const matchNombrado = REGEX_IMPORT_NOMBRADO.exec(codigo);
     if (matchNombrado) {
       const nombres = matchNombrado[1]
         .split(',')
@@ -57,7 +60,7 @@ export function verificarImportsMuertos(
     }
 
     /* Import default: import Nombre from '...' (excluyendo type imports) */
-    const matchDefault = REGEX_IMPORT_DEFAULT.exec(linea);
+    const matchDefault = REGEX_IMPORT_DEFAULT.exec(codigo);
     if (matchDefault) {
       const nombre = matchDefault[1];
       const restoTexto = texto.substring(texto.indexOf('\n', texto.indexOf(linea)) + 1);
@@ -96,7 +99,8 @@ export function verificarAnyType(texto: string, _documento: CoreTextDocument): V
     if (i > 0 && lineas[i - 1].includes('sentinel-disable-next-line any-type-explicito')) { continue; }
     if (linea.includes('sentinel-disable any-type-explicito')) { continue; }
 
-    if (/:\s*any\b|as\s+any\b/.test(linea)) {
+    /* [por que] Un `: any` dentro de una cadena (fixture de test) no es un tipo. */
+    if (/:\s*any\b|as\s+any\b/.test(enmascararLiterales(linea))) {
       if (/eslint-disable|@ts-/.test(linea)) { continue; }
 
       violaciones.push({

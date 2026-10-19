@@ -4,11 +4,16 @@ import { CoreTextDocument } from '../../../core/runtime-proyecto/types';
 import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
 import { calcularRangosTest, esArchivoSoloTest, esRutaDeTestRust } from '../../rust/rustTestScope';
 import { styleInlineSoloCssVars, rangosComentados, enComentario } from './staticLineas';
+import { enmascararLiterales } from '../../../utils/analisis/literalesCodigo';
 
 /* [08AA-26] Reglas sqlx que no aplican al SQL de fixtures dentro de #[cfg(test)]:
  * el sqlx::query runtime es el habitual en tests y la verificacion compile-time
  * solo importa en produccion. Mismo criterio que handler-accede-bd-rs. */
 const REGLAS_SQL_SOLO_PRODUCCION = new Set(['sqlx-query-sin-macro', 'sqlx-query-as-sin-macro']);
+
+/* [por que] Un TODO dentro de una cadena (fixture de test, texto de ejemplo) no es un
+ * marcador pendiente: estas reglas solo miran el código y los comentarios. */
+const REGLAS_SOLO_CODIGO = new Set(['todo-pendiente']);
 
 /* Archivo de test por nombre (.test./.spec.) o por carpeta (test/, __tests__/).
  * Normaliza los separadores para cubrir rutas Windows y POSIX. */
@@ -95,7 +100,7 @@ export function ejecutarReglaPorLinea(
             }
         }
 
-        const match = patron.exec(linea);
+        const match = patron.exec(REGLAS_SOLO_CODIGO.has(regla.id) ? enmascararLiterales(linea) : linea);
 
         if (match) {
             /* [054A-19] inline-style-prohibido: permitir style={{}} cuando solo establece

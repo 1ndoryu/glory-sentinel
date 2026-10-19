@@ -6,6 +6,7 @@
 import { Violacion } from '../../../types';
 import { CoreTextDocument } from '../../../core/runtime-proyecto/types';
 import { tieneSentinelDisableFile } from '../../../utils/analisisHelpers';
+import { enmascararLiteralesSimples } from '../../../utils/analisis/literalesCodigo';
 import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
 
 /* [149A-1] html-sin-origen-declarado (error, solo .ts/.tsx no .d.ts).
@@ -86,7 +87,8 @@ export function verificarHtmlSinOrigenDeclarado(
   for (let i = 0; i < lineas.length; i++) {
     const trimmed = lineas[i].trim();
     if (trimmed.startsWith('//') || trimmed.startsWith('/*') || trimmed.startsWith('*')) { continue; }
-    if (lineaConHtmlLiteral(lineas[i])) { lineaProductora = i; break; }
+    /* [por que] Un HTML dentro de una cadena '...' o "..." (fixture) no es un productor. */
+    if (lineaConHtmlLiteral(enmascararLiteralesSimples(lineas[i]))) { lineaProductora = i; break; }
   }
   if (lineaProductora === -1) { return []; }
 
