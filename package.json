@@ -125,6 +125,7 @@
     "watch": "tsc -watch -p ./",
     "check:core": "node scripts/check-core-no-vscode.mjs",
     "check:zed": "cargo check --manifest-path integrations/zed/Cargo.toml --target wasm32-wasip2",
+    "build:zed": "node scripts/build-zed.mjs",
     "smoke:lsp": "node scripts/smoke-lsp-stdio.mjs",
     "docs:reglas": "node scripts/catalogo-reglas.mjs",
     "check:reglas": "node scripts/catalogo-reglas.mjs --check",

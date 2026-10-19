@@ -15,6 +15,17 @@ npm run compile
 
 3. Abre un archivo CSS, TSX, JSX, TS, JS, PHP o Rust. Zed debe iniciar `node ../../out/lsp/server.js --stdio` desde esta carpeta.
 
+## Compilar el adaptador (`extension.wasm`)
+
+El binario WebAssembly no está versionado. Para generarlo desde la raíz de Glory Sentinel:
+
+```bash
+rustup target add wasm32-wasip2
+npm run build:zed
+```
+
+El script compila `integrations/zed` con `cargo --target wasm32-wasip2 --release` y copia el resultado a `integrations/zed/extension.wasm`. Para solo comprobar que el crate compila, usa `npm run check:zed`. Requiere Rust con `rustup`.
+
 ## Resolucion del LSP
 
 La integracion busca el servidor en este orden:

@@ -4,6 +4,8 @@ node_modules/
 *.vsix
 .DS_Store
 *.log
-.agent/code-sentinel/integrations/zed/target/
+# target/ cubre también integrations/zed/target/ (salida de cargo)
 target/
+# Binario del adaptador de Zed: se genera con `npm run build:zed`, no se versiona
+integrations/zed/extension.wasm
 *.lock
