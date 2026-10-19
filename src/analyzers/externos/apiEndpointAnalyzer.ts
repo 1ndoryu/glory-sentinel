@@ -23,40 +23,29 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Violacion } from '../../types';
 import { logInfo, logWarn } from '../../utils/logger';
-import { CoreTextDocument, CoreWorkspaceContext } from '../../core/runtime-proyecto/types';
+import { CoreApiRutas, CoreTextDocument, CoreWorkspaceContext } from '../../core/runtime-proyecto/types';
 import { resolverWorkspaceRoot } from '../../core/seguridad-rutas/workspaceRoots';
 import { reglaHabilitada } from '../../config/ruleRegistry';
 
-/* --- Reglas de mapeo (replica de wpJsonStub.ts del frontend Kamples) --- */
-
-const PATH_MAP: Record<string, string> = {
-  '/auth/registro': '/auth/register',
-  '/me': '/users/me',
+/* Defaults de mapeo (replica de wpJsonStub.ts del frontend Kamples). Se usan solo si el
+ * sentinel.config.json no declara `apiRutas`; con esa clave, sus valores sustituyen a estos. */
+const RUTAS_POR_DEFECTO: Required<CoreApiRutas> = {
+  mapa: { '/auth/registro': '/auth/register' },
+  mantener: ['/me/bloqueados'],
+  prefijosMantener: ['/me/coleccionados', '/me/favoritos', '/me/descargas/sugerencias'],
+  prefijosMapa: { '/me': '/users/me', '/perfil': '/users' },
 };
 
-const PATH_MAP_KEEP: Set<string> = new Set([
-  '/me/bloqueados',
-]);
-
-const PATH_KEEP_PREFIXES: string[] = [
-  '/me/coleccionados',
-  '/me/favoritos',
-  '/me/descargas/sugerencias',
-];
-
-function mapPath(legacyPath: string): string {
-  if (PATH_MAP[legacyPath]) return PATH_MAP[legacyPath];
-  if (PATH_MAP_KEEP.has(legacyPath)) return legacyPath;
-  for (const prefix of PATH_KEEP_PREFIXES) {
-    if (legacyPath === prefix || legacyPath.startsWith(prefix + '/')) {
-      return legacyPath;
+/* Orden: mapa exacto, luego "mantener" (exacto y prefijo) y por ultimo los prefijos reescritos. */
+function mapPath(legacyPath: string, rutas: CoreApiRutas): string {
+  const { mapa = {}, mantener = [], prefijosMantener = [], prefijosMapa = {} } = rutas;
+  if (mapa[legacyPath]) return mapa[legacyPath];
+  if (mantener.includes(legacyPath)) return legacyPath;
+  if (prefijosMantener.some(p => legacyPath === p || legacyPath.startsWith(p + '/'))) return legacyPath;
+  for (const [origen, destino] of Object.entries(prefijosMapa)) {
+    if (legacyPath === origen || legacyPath.startsWith(origen + '/')) {
+      return destino + legacyPath.slice(origen.length);
     }
-  }
-  if (legacyPath === '/me' || legacyPath.startsWith('/me/')) {
-    return '/users/me' + legacyPath.slice(3);
-  }
-  if (legacyPath.startsWith('/perfil/')) {
-    return '/users/' + legacyPath.slice('/perfil/'.length);
   }
   return legacyPath;
 }
@@ -213,10 +202,11 @@ export function analizarApiEndpoints(documento: CoreTextDocument, workspace?: Co
 
   const violaciones: Violacion[] = [];
   const calls = extraerCalls(documento.getText());
+  const rutas = workspace?.config.apiRutas ?? RUTAS_POR_DEFECTO;
   logInfo(`[apiEndpoint] ${path.basename(documento.fileName)}: ${calls.length} calls escaneados, openapi=${indice.pathCount} paths`);
 
   for (const call of calls) {
-    const mapped = mapPath(call.legacyPath);
+    const mapped = mapPath(call.legacyPath, rutas);
     const candidates = indice.byMethod.get(call.method) || [];
     const matched = candidates.some(c => c.regex.test(mapped));
     if (matched) continue;

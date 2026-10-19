@@ -47,6 +47,15 @@ export interface CoreRuleOverride {
   severity?: CoreSeverity;
 }
 
+/* Reglas de mapeo de rutas legacy -> openapi: `mapa` reescribe una ruta exacta; `mantener` y
+ * `prefijosMantener` la dejan tal cual; `prefijosMapa` reescribe un prefijo (p. ej. "/me" -> "/users/me"). */
+export interface CoreApiRutas {
+  mapa?: Record<string, string>;
+  mantener?: string[];
+  prefijosMantener?: string[];
+  prefijosMapa?: Record<string, string>;
+}
+
 export interface CoreAnalysisConfig {
   enabled: boolean;
   includePatterns: string[];
@@ -55,6 +64,8 @@ export interface CoreAnalysisConfig {
   directoryExceptions?: string[];
   /* Carpetas que marcan el framework Glory; vacio o ausente = por defecto */
   marcadoresGlory?: string[];
+  /* Traduccion de rutas legacy a rutas del openapi (analizador de endpoints). Ausente = defaults del analizador. */
+  apiRutas?: CoreApiRutas;
   useConfiguredRuleProvider?: boolean;
   portableBoundaries?: {
     dom?: string[];

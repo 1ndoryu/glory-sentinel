@@ -1,5 +1,5 @@
 import { ConfigReglaUsuario, obtenerIdsReglas } from '../../config/ruleRegistry';
-import { CoreAnalysisConfig } from './types';
+import { CoreAnalysisConfig, CoreApiRutas } from './types';
 import { isSafeBranch } from '../task/branchValidation';
 import { HEAVY_BUDGET_CLASSES } from '../gate/heavyBudget';
 
@@ -9,6 +9,8 @@ export interface SentinelConfigFile {
   directoryExceptions?: string[];
   /* Carpetas que marcan el framework Glory (por defecto /Glory/ y /glory-core/) */
   marcadoresGlory?: string[];
+  /* Rutas legacy -> openapi del analizador de endpoints; sin esta clave se usan los defaults del analizador. */
+  apiRutas?: CoreApiRutas;
   rules?: Record<string, ConfigReglaUsuario>;
   portableBoundaries?: {
     dom?: string[];
@@ -67,8 +69,9 @@ export const DEFAULT_EXCLUDE_PATTERNS = [
   '**/target/**',
 ];
 
-const CONFIG_KEYS = new Set(['includePatterns', 'excludePatterns', 'directoryExceptions', 'marcadoresGlory', 'rules', 'portableBoundaries', 'project', 'schemaVersion', 'mode', 'gate', 'guard', 'runtime', 'analyzers', 'budgets']);
+const CONFIG_KEYS = new Set(['includePatterns', 'excludePatterns', 'directoryExceptions', 'marcadoresGlory', 'apiRutas', 'rules', 'portableBoundaries', 'project', 'schemaVersion', 'mode', 'gate', 'guard', 'runtime', 'analyzers', 'budgets']);
 const PORTABLE_BOUNDARY_KEYS = new Set(['dom', 'window', 'services', 'loggerModules', 'tooling']);
+const API_RUTAS_KEYS = new Set(['mapa', 'mantener', 'prefijosMantener', 'prefijosMapa']);
 const RULE_KEYS = new Set(['habilitada', 'severidad']);
 const VALID_SEVERITIES = new Set(['error', 'warning', 'information', 'hint']);
 
@@ -80,6 +83,13 @@ export function isSafePrimaryBranch(value: string): boolean {
 function assertStringArray(value: unknown, key: string): asserts value is string[] {
   if (!Array.isArray(value) || value.some(item => typeof item !== 'string')) {
     throw new Error(`sentinel.config.json: '${key}' debe ser string[]`);
+  }
+}
+
+/* Mapa string->string (apiRutas.mapa, apiRutas.prefijosMapa); rechaza cualquier valor que no sea texto. */
+function assertStringRecord(value: unknown, key: string): void {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.values(value).some(item => typeof item !== 'string')) {
+    throw new Error(`sentinel.config.json: '${key}' debe ser un objeto de strings`);
   }
 }
 
@@ -183,6 +193,22 @@ export function validateSentinelConfig(value: unknown): asserts value is Sentine
       }
       assertStringArray(boundaries[key], `portableBoundaries.${key}`);
     }
+  }
+
+  if (config.apiRutas !== undefined) {
+    if (!config.apiRutas || typeof config.apiRutas !== 'object' || Array.isArray(config.apiRutas)) {
+      throw new Error("sentinel.config.json: 'apiRutas' debe ser un objeto");
+    }
+    const rutas = config.apiRutas as Record<string, unknown>;
+    for (const key of Object.keys(rutas)) {
+      if (!API_RUTAS_KEYS.has(key)) {
+        throw new Error(`sentinel.config.json: clave desconocida 'apiRutas.${key}'`);
+      }
+    }
+    if (rutas.mapa !== undefined) assertStringRecord(rutas.mapa, 'apiRutas.mapa');
+    if (rutas.prefijosMapa !== undefined) assertStringRecord(rutas.prefijosMapa, 'apiRutas.prefijosMapa');
+    if (rutas.mantener !== undefined) assertStringArray(rutas.mantener, 'apiRutas.mantener');
+    if (rutas.prefijosMantener !== undefined) assertStringArray(rutas.prefijosMantener, 'apiRutas.prefijosMantener');
   }
 
   if (config.rules === undefined) {
@@ -320,6 +346,7 @@ export function buildCoreConfig(config: SentinelConfigFile): CoreAnalysisConfig 
     excludePatterns: analyzerConfig.excludePatterns ?? DEFAULT_EXCLUDE_PATTERNS,
     directoryExceptions: analyzerConfig.directoryExceptions ?? [],
     marcadoresGlory: analyzerConfig.marcadoresGlory,
+    apiRutas: analyzerConfig.apiRutas,
     ruleOverrides: Object.fromEntries(
       Object.entries(analyzerConfig.rules ?? {}).map(([ruleId, override]) => [ruleId, {
         enabled: override.habilitada,
