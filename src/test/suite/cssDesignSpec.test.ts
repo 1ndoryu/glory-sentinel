@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { verificarCssEspecificacionDisenoLocal } from '../../analyzers/static/staticCssRules';
-import { analyzeDocument } from '../../core/analyzeDocument';
+import { analizarDocumento } from '../../analyzers/pipeline';
 import { createCoreDocument, CoreFinding } from '../../core/types';
 import { analyzeCliTarget, parseCliArgs } from '../../cli';
 
@@ -333,7 +333,7 @@ suite('css-especificacion-diseno-local', () => {
       content,
     });
 
-    const coreFindings = analyzeDocument(document, {
+    const coreFindings = analizarDocumento(document, {
       enabled: true,
       includePatterns: [],
       excludePatterns: [],

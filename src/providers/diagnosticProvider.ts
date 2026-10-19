@@ -18,7 +18,7 @@ import {
 } from '../services/debounceService';
 import { cargarConfiguracion, debeExcluirse, lenguajeHabilitado, invalidarCacheReglas } from '../services/ruleLoader';
 import { generarReporteWorkspace } from './reportGenerator';
-import { analyzeDocument } from '../core/analyzeDocument';
+import { analizarDocumento } from '../analyzers/pipeline';
 import { CoreAnalysisConfig, CoreWorkspaceContext } from '../core/types';
 import { documentFromVsCode, findingToDiagnostic } from '../core/vscodeAdapter';
 
@@ -56,7 +56,7 @@ function crearWorkspaceContext(doc: vscode.TextDocument): CoreWorkspaceContext |
 
 function analizarDocumentoVsCode(doc: vscode.TextDocument): vscode.Diagnostic[] {
   const coreDocument = documentFromVsCode(doc);
-  const findings = analyzeDocument(coreDocument, crearCoreConfig(), crearWorkspaceContext(doc));
+  const findings = analizarDocumento(coreDocument, crearCoreConfig(), crearWorkspaceContext(doc));
 
   return findings.map(findingToDiagnostic);
 }

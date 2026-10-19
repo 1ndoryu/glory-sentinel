@@ -4,7 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { createCoreDocument, createCoreRange, serializeCoreFindings, CoreFinding } from '../../core/types';
 import { findingToDiagnostic } from '../../core/vscodeAdapter';
-import { analyzeDocument } from '../../core/analyzeDocument';
+import { analizarDocumento } from '../../analyzers/pipeline';
 import { generarReporteMarkdown } from '../../core/report';
 import { analyzeCliTarget, languageIdForFile, parseCliArgs } from '../../cli';
 import { findingToLspDiagnostic } from '../../lsp/diagnostics';
@@ -78,7 +78,7 @@ suite('Sentinel editor-agnostic core contracts', () => {
       content: 'const password = "abcd1234";',
     });
 
-    const findings = analyzeDocument(document, {
+    const findings = analizarDocumento(document, {
       enabled: true,
       includePatterns: [],
       excludePatterns: [],

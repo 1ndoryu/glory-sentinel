@@ -14,7 +14,7 @@ import {
   TextDocuments,
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { analyzeDocument } from '../core/analyzeDocument';
+import { analizarDocumento } from '../analyzers/pipeline';
 import { buildCoreConfig, SentinelConfigFile } from '../core/config';
 import { createCoreDocument } from '../core/types';
 import { languageIdForFile } from '../core/language';
@@ -87,7 +87,7 @@ async function validateTextDocument(document: TextDocument): Promise<void> {
   try {
     ensureWorkspaceInitialized(rootPath);
     const config = buildCoreConfig(await readConfig(rootPath));
-    const findings = analyzeDocument(
+    const findings = analizarDocumento(
       coreDocumentFromLsp(document),
       config,
       { rootPath, config }

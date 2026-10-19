@@ -16,6 +16,7 @@
     "src/core/scope.ts": 450,
     "src/analyzers/react/reactComponentRules.ts": 950,
     "src/analyzers/react/formularioConfigSystem.ts": 300,
+    "src/analyzers/rustReglasNuevas.ts": 1528,
     "src/analyzers/static/staticCssRules.ts": 700,
     "src/analyzers/static/staticCssDesignRules.ts": 400,
     "src/analyzers/glory/apiContractIndexer.ts": 550,

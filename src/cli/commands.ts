@@ -5,7 +5,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { Minimatch } from 'minimatch';
-import { analyzeDocument } from '../core/analyzeDocument';
+import { analizarDocumento } from '../analyzers/pipeline';
 import { buildCoreConfig, validateSentinelConfig } from '../core/config';
 import { generarReporteMarkdown, CoreReportEntry } from '../core/report';
 import { CoreAnalysisConfig, createCoreDocument } from '../core/types';
@@ -150,7 +150,7 @@ async function analyzeFile(filePath: string, rootPath: string, config: CoreAnaly
 
   return {
     ruta: filePath,
-    findings: analyzeDocument(document, config, {
+    findings: analizarDocumento(document, config, {
       rootPath,
       config,
     }),

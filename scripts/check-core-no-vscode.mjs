@@ -89,6 +89,13 @@ for (const protectedPath of protectedPaths) {
   }
 }
 
+/* [S6] El núcleo no importa analyzers: el conjunto de analizadores se inyecta
+ * desde src/analyzers/pipeline.ts, así que la dependencia va en un solo sentido. */
+const coreAnalyzersPattern = /from\s+['"]\.\.\/analyzers\//g;
+for (const filePath of walk(coreRoot)) {
+  checkFile(filePath, [coreAnalyzersPattern], 'core no debe importar analyzers: la composición vive en src/analyzers/pipeline.ts (S6)');
+}
+
 for (const rule of checkIndependenceRules) {
   const text = fs.readFileSync(rule.file, 'utf8');
   for (const forbidden of rule.forbidden) {

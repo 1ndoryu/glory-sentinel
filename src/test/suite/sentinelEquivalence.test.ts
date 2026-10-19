@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
 import { analyzeCliTarget, parseCliArgs } from '../../cli';
-import { analyzeDocument } from '../../core/analyzeDocument';
+import { analizarDocumento } from '../../analyzers/pipeline';
 import { languageIdForFile } from '../../core/language';
 import { CoreFinding, createCoreDocument } from '../../core/types';
 
@@ -56,7 +56,7 @@ suite('Sentinel equivalencia core vs CLI', () => {
         content,
       });
 
-      const coreFindings = analyzeDocument(document, {
+      const coreFindings = analizarDocumento(document, {
         enabled: true,
         includePatterns: [],
         excludePatterns: [],

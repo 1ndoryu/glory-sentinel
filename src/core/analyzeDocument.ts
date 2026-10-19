@@ -1,17 +1,21 @@
-import { analizarEstatico } from '../analyzers/staticAnalyzer';
-import { analizarPhp } from '../analyzers/phpAnalyzer';
-import { analizarReact } from '../analyzers/reactAnalyzer';
-import { analizarRust } from '../analyzers/rustAnalyzer';
-import { analizarGlory } from '../analyzers/gloryAnalyzer';
-import { analizarApiEndpoints } from '../analyzers/apiEndpointAnalyzer';
 import { configurarOverridesReglas, ConfigReglaUsuario } from '../config/ruleRegistry';
-import { obtenerTipoArchivo, Violacion } from '../types';
+import { Violacion } from '../types';
 import { CoreAnalysisConfig, CoreFinding, CoreTextDocument, CoreWorkspaceContext } from './types';
 import { violacionesToCoreFindings } from './violacionAdapter';
 
 export type CoreExtraAnalyzer = (document: CoreTextDocument) => Violacion[];
 
+/* [S6] El núcleo no importa analyzers: el conjunto de analizadores llega inyectado.
+ * La composición por defecto vive en src/analyzers/pipeline.ts (analizarDocumento). */
+export interface CoreAnalysisContext {
+  config: CoreAnalysisConfig;
+  workspace?: CoreWorkspaceContext;
+}
+
+export type CoreAnalyzerPipeline = (document: CoreTextDocument, contexto: CoreAnalysisContext) => Violacion[];
+
 export interface AnalyzeDocumentOptions {
+  pipeline: CoreAnalyzerPipeline;
   extraAnalyzers?: CoreExtraAnalyzer[];
 }
 
@@ -31,8 +35,8 @@ function aplicarOverridesCore(config: CoreAnalysisConfig): void {
 export function analyzeDocument(
   document: CoreTextDocument,
   config: CoreAnalysisConfig,
-  workspace?: CoreWorkspaceContext,
-  options: AnalyzeDocumentOptions = {},
+  workspace: CoreWorkspaceContext | undefined,
+  options: AnalyzeDocumentOptions,
 ): CoreFinding[] {
   if (!config.enabled) {
     return [];
@@ -43,24 +47,7 @@ export function analyzeDocument(
   }
 
   const violaciones: Violacion[] = [];
-  const workspaceRoots = workspace ? [workspace.rootPath] : [];
-  const tipo = obtenerTipoArchivo(document.languageId, document.fileName);
-
-  violaciones.push(...analizarEstatico(document, undefined, {
-    directoryExceptions: config.directoryExceptions ?? [],
-    portableBoundaries: config.portableBoundaries,
-  }));
-
-  if (tipo === 'php') {
-    violaciones.push(...analizarPhp(document));
-  } else if (tipo === 'tsx' || tipo === 'jsx') {
-    violaciones.push(...analizarReact(document, { workspaceRoots }));
-  } else if (tipo === 'rust') {
-    violaciones.push(...analizarRust(document));
-  }
-
-  violaciones.push(...analizarGlory(document));
-  violaciones.push(...analizarApiEndpoints(document, workspace));
+  violaciones.push(...options.pipeline(document, { config, workspace }));
 
   for (const analyzer of options.extraAnalyzers ?? []) {
     violaciones.push(...analyzer(document));
