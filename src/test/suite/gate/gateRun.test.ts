@@ -1,0 +1,148 @@
+/* [028A-6 Fase 1] Tests de la orquestación del gate (runCheck): dry-run,
+ * ejecución real con etapas declarativas, fallo por finding error y stages
+ * malformados. Repos git reales temporales. */
+import * as assert from 'assert';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import { execFileSync } from 'child_process';
+import { runCheck } from '../../../core/gate/gateRun';
+
+function gitRepo(): string {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-gaterun-'));
+  execFileSync('git', ['init', '-q'], { cwd: root });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: root });
+  execFileSync('git', ['config', 'user.name', 'Test'], { cwd: root });
+  fs.writeFileSync(path.join(root, 'base.ts'), 'export const a = 1;\n', 'utf8');
+  execFileSync('git', ['add', 'base.ts'], { cwd: root });
+  execFileSync('git', ['commit', '-q', '-m', 'base'], { cwd: root });
+  return root;
+}
+
+function passStage(): object {
+  return {
+    name: 'probe',
+    executable: process.execPath,
+    args: ['-e', "require('fs').writeFileSync(process.argv[1], JSON.stringify({schemaVersion:1,entries:[]}))", '{reportPath}'],
+    expectedSchemaVersion: '1',
+    timeoutMs: 10000,
+  };
+}
+
+suite('Sentinel core gate run (orquestador agnóstico)', () => {
+  test('dry-run calcula el alcance sin ejecutar etapas', async () => {
+    const root = gitRepo();
+    try {
+      const result = await runCheck({ workspace: root, reportRoot: path.join(root, '.quality-reports', 'check-dry-run'), dryRun: true, taskId: 'DRY-1' });
+      assert.strictEqual(result.exitCode, 0);
+      const parsed = JSON.parse(result.output);
+      assert.ok(Array.isArray(parsed.files));
+      assert.strictEqual(parsed.taskId, 'DRY-1');
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  });
+
+  test('real-run emite un lease efímero y lo revoca al cerrar', async () => {
+    const root = gitRepo();
+    try {
+      const leaseCapture = path.join(root, 'lease-capture.txt');
+      const stagesPath = path.join(root, 'stages-lease.json');
+      fs.writeFileSync(stagesPath, JSON.stringify([{
+        name: 'probe-lease', executable: process.execPath,
+        args: ['-e', "const fs=require('fs'); fs.writeFileSync(process.argv[1], process.env.GLORY_QUALITY_GATE_LEASE || ''); fs.writeFileSync(process.argv[2], JSON.stringify({schemaVersion:1,entries:[]}));", leaseCapture, '{reportPath}'],
+        expectedSchemaVersion: '1', timeoutMs: 10000,
+      }]), 'utf8');
+      const result = await runCheck({ workspace: root, reportRoot: path.join(root, '.quality-reports', 'check', 'RUN-LEASE'), dryRun: false, taskId: 'RUN-LEASE', stagesPath });
+      assert.strictEqual(result.exitCode, 0);
+      const leasePath = fs.readFileSync(leaseCapture, 'utf8').trim();
+      assert.ok(leasePath.length > 0, 'la etapa recibe el lease por env');
+      assert.ok(!fs.existsSync(leasePath), 'el lease se revoca al cerrar el gate');
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  });
+
+  test('real-run ejecuta etapas declarativas y produce PASS', async () => {
+    const root = gitRepo();
+    try {
+      const stagesPath = path.join(root, 'stages.json');
+      fs.writeFileSync(stagesPath, JSON.stringify([passStage()]), 'utf8');
+      const reportRoot = path.join(root, '.quality-reports', 'check', 'RUN-1');
+      const result = await runCheck({ workspace: root, reportRoot, dryRun: false, taskId: 'RUN-1', stagesPath });
+      assert.strictEqual(result.exitCode, 0);
+      assert.match(result.output, /PASS/);
+      assert.ok(fs.existsSync(path.join(reportRoot, 'latest.json')));
+      const report = JSON.parse(fs.readFileSync(path.join(reportRoot, 'latest.json'), 'utf8'));
+      assert.strictEqual(report.stages[0].stage, 'probe');
+      assert.strictEqual(report.stages[0].status, 'pass');
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  });
+
+  test('real-run serializa la identidad de política v2 en el reporte', async function () {
+    /* Alineado con .mocharc.json: un override por debajo del default del
+     * runner lo endurece en silencio (039A-1). Los real-run tardan 10-50 s
+     * con carga (fallo del 2026-10-10); 60 s no daba margen. */
+    this.timeout(180_000);
+    const root = gitRepo();
+    try {
+      fs.writeFileSync(path.join(root, 'sentinel.config.json'), JSON.stringify({
+        schemaVersion: 2,
+        mode: 'enforce',
+        guard: { directCommands: { npmScripts: [], npxTools: [], cargoSubcommands: [], tools: [] } },
+      }), 'utf8');
+      fs.writeFileSync(path.join(root, 'sentinel.lock.json'), JSON.stringify({
+        schemaVersion: 1,
+        analyzers: { sentinel: { version: '0.7.4', commit: 'a'.repeat(40) } },
+      }), 'utf8');
+      const stagesPath = path.join(root, 'stages-policy.json');
+      fs.writeFileSync(stagesPath, JSON.stringify([passStage()]), 'utf8');
+      const reportRoot = path.join(root, '.quality-reports', 'check', 'RUN-POLICY');
+      const result = await runCheck({ workspace: root, reportRoot, dryRun: false, taskId: 'RUN-POLICY', stagesPath });
+      assert.strictEqual(result.exitCode, 0);
+      const report = JSON.parse(fs.readFileSync(path.join(reportRoot, 'latest.json'), 'utf8'));
+      assert.strictEqual(report.policy.policyPath, path.join(root, 'sentinel.config.json'));
+      assert.notStrictEqual(report.policy.policyHash, 'unavailable');
+      assert.strictEqual(report.policy.decision.status, 'policy');
+      assert.strictEqual(report.policy.decision.mode, 'enforce');
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  });
+
+  test('real-run con finding error produce FAIL y exit 1', async () => {
+    const root = gitRepo();
+    try {
+      const stagesPath = path.join(root, 'stages-fail.json');
+      fs.writeFileSync(stagesPath, JSON.stringify([{
+        name: 'fail-probe', executable: process.execPath,
+        args: ['-e', "require('fs').writeFileSync(process.argv[1], JSON.stringify({schemaVersion:1,entries:[{findings:[{ruleId:'demo',severity:'error',message:'boom'}]}]}))", '{reportPath}'],
+        expectedSchemaVersion: '1', timeoutMs: 10000,
+      }]), 'utf8');
+      const result = await runCheck({ workspace: root, reportRoot: path.join(root, '.quality-reports', 'check', 'RUN-2'), dryRun: false, taskId: 'RUN-2', stagesPath });
+      assert.strictEqual(result.exitCode, 1);
+      assert.match(result.output, /FAIL/);
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  });
+
+  test('un exit distinto de cero falla aunque deje un reporte válido', async () => {
+    const root = gitRepo();
+    try {
+      const stagesPath = path.join(root, 'stages-exit.json');
+      fs.writeFileSync(stagesPath, JSON.stringify([{
+        name: 'exit-probe', executable: process.execPath,
+        args: ['-e', "const fs=require('fs'); fs.writeFileSync(process.argv[1], JSON.stringify({schemaVersion:1,entries:[]})); process.exit(1);", '{reportPath}'],
+        expectedSchemaVersion: '1', timeoutMs: 10000,
+      }]), 'utf8');
+      const result = await runCheck({ workspace: root, reportRoot: path.join(root, '.quality-reports', 'check', 'RUN-EXIT'), dryRun: false, taskId: 'RUN-EXIT', stagesPath });
+      assert.strictEqual(result.exitCode, 2);
+      assert.match(result.output, /ERROR quality-tool-error/);
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  });
+
+  test('stages con timeoutMs inválido fallan cerrado', async () => {
+    const root = gitRepo();
+    try {
+      const stagesPath = path.join(root, 'stages-bad.json');
+      fs.writeFileSync(stagesPath, JSON.stringify([{ name: 'bad', executable: process.execPath, args: [], timeoutMs: 'abc' }]));
+      await assert.rejects(
+        runCheck({ workspace: root, reportRoot: path.join(root, '.quality-reports', 'check', 'RUN-3'), dryRun: false, taskId: 'RUN-3', stagesPath }),
+        /timeoutMs/,
+      );
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  });
+});

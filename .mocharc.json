@@ -3,5 +3,5 @@
   "color": true,
   "timeout": 60000,
   "require": ["out/test/registerMocks.js"],
-  "spec": "out/test/suite/*.test.js"
+  "spec": "out/test/suite/**/*.test.js"
 }

@@ -20,6 +20,7 @@ Orden de ejecución: de arriba abajo. Cada bloque: probar en la 89, documentar, 
 - Publicar o hacer release a terceros: reservado a la usuaria (AGENTS §3).
 
 ## Hecho
+- S13 Directorio-abarrotado en tests (2026-10-19): 73 tests de `src/test/suite` agrupados por dominio; 911 pasan, 0 fallan en la 89. Autogate: 0 hallazgos en tests; 13 warnings heredados (límites de líneas, mixed-barrel) en la cola de arriba.
 - S10 Temporales agnósticos (2026-10-19, e2e2f5a): `src/core/tmpDir.ts` (`tmpBaseDir`; `SENTINEL_TMP_DIR` sustituye C:/tmp). Guard log, scheduler y tests lo usan.
 - S11 Shells (2026-10-19, 80f3621): causa real = en bash `glory_sentinel_host_path` convertía `/var/tmp/x` a `\var\tmp\x`; el CLI no hallaba la política y el guard dejaba pasar (fail-open). Corregido: solo las rutas con unidad se convierten. `shellMatrix` 12 pasan en la 89, sin tests condicionados.
 - S12 Lint (2026-10-19, d7a708f): 0 errores y 0 warnings en la 89. `check:core` requirió no crecer `interceptorShims.ts` (presupuesto 783).

@@ -22,3 +22,22 @@ Subir un override por encima del config no basta cuando el test es intermitente.
 `mocha <archivo>` **no acota la corrida si `.mocharc.json` declara `spec`**: el `spec` del config manda y el argumento posicional no lo reduce. Un «archivo aislado» puede estar corriendo la suite completa y dar un recuento parcial que parece limpio.
 
 Antes de sacar conclusiones, comprueba el tamaño de la salida: la suite completa ronda las 1100 líneas y termina con `N passing`. Para medir timeouts, repite la suite; no te fíes de una corrida supuestamente acotada.
+
+## Mapa de `src/test/suite`
+
+Los tests se agrupan por dominio, espejo de `src/core/`, para que ninguna carpeta supere el umbral de `directorio-abarrotado` (más de 10 archivos de código hijos directos):
+
+| Carpeta | Contenido |
+| --- | --- |
+| `guard/` | Guard, matrices de shell, interceptores y decisiones de política |
+| `gate/` | Gate, scope, scheduler, lease, stages y cache |
+| `task/` | Coordinador de tareas, recuperación y concurrencia |
+| `diagnostico/` | Diagnose, avisos, índice de proyecto y equivalencia Sentinel |
+| `cli-contratos/` | Contratos de CLI, API, formularios y seguridad |
+| `css-react/` | Reglas CSS y React |
+| `runtime-proyecto/` | Instalación, reglas portables, registro de extensiones e init |
+| `rust/` | Reglas Rust |
+| `reglas/` | Reglas de lote, sprints y líneas efectivas |
+| `analisis/` | Analizadores estáticos, PHP, promesas y regex |
+
+`.mocharc.json` usa `out/test/suite/**/*.test.js`. Los helpers de rutas (`__dirname`) de un test deben subir un `../` más que antes del movimiento.

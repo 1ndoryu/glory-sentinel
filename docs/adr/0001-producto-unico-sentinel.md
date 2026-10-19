@@ -110,7 +110,7 @@ deben cumplir las extensiones para que añadir una no rompa el núcleo
   refactor, rollback).
 - Auditoría §14 Fase 6 (concurrencia, shims, seguridad, alcance).
 - `scripts/check-core-no-vscode.mjs` (fronteras + budgets).
-- `src/core/runtime-proyecto/extensionRegistry.ts` y `src/test/suite/extensionRegistry.test.ts`.
-- `src/core/shims/shimDiagnostics.ts`, `src/core/securityFixtures` (tests),
+- `src/core/runtime-proyecto/extensionRegistry.ts` y `src/test/suite/runtime-proyecto/extensionRegistry.test.ts`.
+- `src/core/shims/shimDiagnostics.ts`, `src/test/suite/cli-contratos/securityFixtures.test.ts`,
   `src/core/seguridad-rutas/redaction.ts` (fix de backtracking catastrófico de URL_CREDENTIALS
   y de `Authorization: Bearer <token>`).
