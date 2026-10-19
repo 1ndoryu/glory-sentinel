@@ -296,7 +296,7 @@ function ejecutarComando(comando: string, cwd: string): Promise<string> {
  *     10:5  error  Mensaje de error  nombre-regla
  *     20:3  warning  Mensaje de warning  otra-regla
  */
-function parsearSalidaEslint(salida: string, rutaWorkspace: string): Map<string, Violacion[]> {
+function parsearSalidaEslint(salida: string, _rutaWorkspace: string): Map<string, Violacion[]> {
   const resultado = new Map<string, Violacion[]>();
   const lineas = salida.split('\n');
 

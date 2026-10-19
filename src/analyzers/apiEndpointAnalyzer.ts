@@ -81,7 +81,12 @@ function openapiPathToRegex(p: string): RegExp {
   return new RegExp('^' + restored + '$');
 }
 
-function buildOpenapiIndex(openapiJson: any): OpenapiIndex {
+/* Forma minima que usa el indice; JSON.parse no garantiza el tipo, asi que solo se declara lo leido. */
+interface OpenapiDoc {
+  paths?: Record<string, Record<string, unknown>>;
+}
+
+function buildOpenapiIndex(openapiJson: OpenapiDoc): OpenapiIndex {
   const byMethod = new Map<string, OpenapiEntry[]>();
   const paths = openapiJson?.paths ?? {};
   let count = 0;

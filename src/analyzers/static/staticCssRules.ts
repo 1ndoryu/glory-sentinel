@@ -10,7 +10,6 @@ import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
 import {
   claseAplicada,
   indiceProyecto,
-  IndiceProyecto,
   tieneSentinelDisable,
   tieneSentinelDisableFile,
 } from '../../utils/analisisHelpers';
@@ -29,7 +28,7 @@ export { verificarCssEspecificacionDisenoLocal } from './staticCssDesignRules';
 export function verificarNomenclaturaCssIngles(
   texto: string,
   documento: CoreTextDocument,
-  nombreArchivo: string,
+  _nombreArchivo: string,
 ): Violacion[] {
   const rutaNorm = documento.fileName.replace(/\\/g, '/');
   if (rutaNorm.includes('node_modules') || rutaNorm.includes('vendor') ||

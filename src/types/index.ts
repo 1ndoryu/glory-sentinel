@@ -70,7 +70,7 @@ export interface ConfiguracionSentinel {
 }
 
 /* Determina el TipoArchivo segun el languageId de VS Code */
-export function obtenerTipoArchivo(languageId: string, nombreArchivo: string): TipoArchivo {
+export function obtenerTipoArchivo(languageId: string, _nombreArchivo: string): TipoArchivo {
   switch (languageId) {
     case 'php': return 'php';
     case 'typescriptreact': return 'tsx';

@@ -144,10 +144,8 @@ function indexarController(contenido: string, rutaArchivo: string): void {
   const regexMetodo = /(?:public\s+)?(?:static\s+)?function\s+(\w+)\s*\(/;
   /* Soporta new WP_REST_Response([ y new \WP_REST_Response([ */
   const regexResponse = /new\s+\\?WP_REST_Response\s*\(\[/;
-  const regexClave = /['"](\w+)['"]\s*=>/;
 
   let metodoActual: string | null = null;
-  let metodoLinea = 0;
   let profundidad = 0;
   let dentroDeMetodo = false;
   const metodosIndexados = new Set<string>(); /* evitar indexar el WP_REST_Response de error */
@@ -159,7 +157,6 @@ function indexarController(contenido: string, rutaArchivo: string): void {
     const matchMetodo = regexMetodo.exec(linea);
     if (matchMetodo) {
       metodoActual = matchMetodo[1];
-      metodoLinea = i;
       profundidad = 0;
       dentroDeMetodo = false;
     }

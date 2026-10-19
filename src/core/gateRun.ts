@@ -9,7 +9,7 @@ import { promisify } from 'node:util';
 import { detectScope } from './scope';
 import { findQualityRoot, inspectHeavyRun } from './scheduler';
 import { readV2GuardPolicy } from './guardCommand';
-import { assertWorkspaceReady, currentBranch, policyHashFor } from './diagnose';
+import { assertWorkspaceReady, policyHashFor } from './diagnose';
 import { runBoundedStages } from './stageRunner';
 import { fingerprint, readCachedPass, writeCachedPass, StageCacheContext } from './stageCache';
 import { runStructuredTool, ToolOutcome } from './structuredTool';

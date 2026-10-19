@@ -542,23 +542,6 @@ function listarFuentes(dir: string, salida: string[]): void {
   }
 }
 
-function recorrerFuentes(dir: string, indice: IndiceProyecto, alias: AliasModulo[]): void {
-  const ficheros: string[] = [];
-  listarFuentes(dir, ficheros);
-
-  /* [15A-27] Dos pasadas: primero los enlaces (`const clases = [...]`), que
-   * pueden vivir en un `.ts` sin JSX —el hook que devuelve la lista de clases—,
-   * y despues el JSX, que ya los ve resueltos. */
-  for (const fichero of ficheros) {
-    if (RE_FUENTE_JS.test(fichero)) { indexarEnlaces(fichero, indice, alias); }
-  }
-
-  for (const fichero of ficheros) {
-    if (/\.(?:tsx|jsx)$/.test(fichero)) { indexarJsx(fichero, indice); }
-    else if (fichero.endsWith('.css')) { indexarCss(fichero, indice); }
-  }
-}
-
 export function indiceProyecto(roots: string[]): IndiceProyecto {
   const normalizados = roots.map(r => r.replace(/\\/g, '/').replace(/\/+$/, '')).filter(Boolean);
   const clave = normalizados.join('|');

@@ -104,7 +104,7 @@ function tieneDisableFile(texto: string, reglaId: string): boolean {
  * en archivos con multiples sub-componentes. */
 export function verificarUseStateExcesivo(
   texto: string,
-  documento: CoreTextDocument,
+  _documento: CoreTextDocument,
 ): Violacion[] {
   /* [104A-4] Soporte sentinel-disable-file para esta regla */
   if (tieneSentinelDisableFile(texto, 'usestate-excesivo')) { return []; }
@@ -138,7 +138,7 @@ const REGEX_IMPORT_DEFAULT = /^import\s+(?!type\s)(\w+)\s+from\s+['"][^'"]+['"]/
 /* Detecta imports sin uso en archivos JS/TS (heuristico simplificado) */
 export function verificarImportsMuertos(
   texto: string,
-  documento: CoreTextDocument,
+  _documento: CoreTextDocument,
 ): Violacion[] {
   const violaciones: Violacion[] = [];
   const lineas = texto.split('\n');
@@ -203,7 +203,7 @@ export function verificarImportsMuertos(
 }
 
 /* Detecta uso de `: any` o `as any` en archivos TS/TSX */
-export function verificarAnyType(texto: string, documento: CoreTextDocument): Violacion[] {
+export function verificarAnyType(texto: string, _documento: CoreTextDocument): Violacion[] {
   const violaciones: Violacion[] = [];
   const lineas = texto.split('\n');
 
@@ -239,7 +239,7 @@ export function verificarAnyType(texto: string, documento: CoreTextDocument): Vi
  * Detecta uso excesivo de non-null assertions (!) en TypeScript.
  * Solo reporta si el archivo tiene 5 o mas instancias.
  */
-export function verificarNonNullAssertion(texto: string, documento: CoreTextDocument): Violacion[] {
+export function verificarNonNullAssertion(texto: string, _documento: CoreTextDocument): Violacion[] {
   const lineas = texto.split('\n');
   const instancias: number[] = [];
 
