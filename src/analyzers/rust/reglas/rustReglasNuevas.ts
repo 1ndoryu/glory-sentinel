@@ -22,8 +22,8 @@
  * sus contraejemplos y sus limites conocidos (criterio H11: 0 FP en self-scan).
  */
 
-import { Violacion } from '../types';
-import { reglaHabilitada } from '../config/ruleRegistry';
+import { Violacion } from '../../../types';
+import { reglaHabilitada } from '../../../config/ruleRegistry';
 import {
   REGLA_EXPECT, REGLA_BLOCK, REGLA_LOCK_AWAIT, REGLA_SQLITE_MUTEX, REGLA_SHELL, REGLA_SECRETO_LOG,
   REGLA_POST_SIN_RL, REGLA_PATH_JOIN, REGLA_N_CONSULTAS, REGLA_CLONE_LOCK, REGLA_GOD_OBJECT, REGLA_PORT_FS,

@@ -4,12 +4,12 @@
 import { analyzeDocument, AnalyzeDocumentOptions, CoreAnalysisContext } from '../core/analyzeDocument';
 import { CoreAnalysisConfig, CoreFinding, CoreTextDocument, CoreWorkspaceContext } from '../core/types';
 import { obtenerTipoArchivo, Violacion } from '../types';
-import { analizarEstatico } from './staticAnalyzer';
-import { analizarPhp } from './phpAnalyzer';
-import { analizarReact } from './reactAnalyzer';
-import { analizarRust } from './rustAnalyzer';
+import { analizarEstatico } from './static/staticAnalyzer';
+import { analizarPhp } from './php/phpAnalyzer';
+import { analizarReact } from './react/reactAnalyzer';
+import { analizarRust } from './rust/rustAnalyzer';
 import { analizarGlory } from './gloryAnalyzer';
-import { analizarApiEndpoints } from './apiEndpointAnalyzer';
+import { analizarApiEndpoints } from './externos/apiEndpointAnalyzer';
 
 /* Ejecuta todos los analizadores que aplican al tipo del documento. */
 export function pipelineAnalizadores(document: CoreTextDocument, contexto: CoreAnalysisContext): Violacion[] {

@@ -1,9 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { Violacion } from '../types';
-import { obtenerSeveridadRegla } from '../config/ruleRegistry';
-import { tieneSentinelDisableFile } from '../utils/analisisHelpers';
-import { esArchivoSoloTest } from './rustTestScope';
+import { Violacion } from '../../../types';
+import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
+import { tieneSentinelDisableFile } from '../../../utils/analisisHelpers';
+import { esArchivoSoloTest } from '../rustTestScope';
 import { REGLA_POST_SIN_RL, tieneDisableSiguiente } from './rustReglasCompartidas';
 
 /* ------------------------------------------------------------------ */

@@ -12,8 +12,8 @@ import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Violacion, SeveridadRegla } from '../types';
-import { logInfo, logWarn } from '../utils/logger';
+import { Violacion, SeveridadRegla } from '../../types';
+import { logInfo, logWarn } from '../../utils/logger';
 
 /* Resultado del analisis de herramientas externas */
 export interface ResultadoToolsExternas {

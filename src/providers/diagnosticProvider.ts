@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import { ConfiguracionSentinel } from '../types';
-import { limpiarDirectoriosReportados } from '../analyzers/staticAnalyzer';
+import { limpiarDirectoriosReportados } from '../analyzers/static/staticAnalyzer';
 import { guardarEnCache, obtenerDelCache, limpiarCacheCompleto } from '../services/cacheService';
 import { logWarn } from '../utils/logger';
 import {

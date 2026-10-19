@@ -1,8 +1,8 @@
-import { Violacion } from '../types';
-import { obtenerSeveridadRegla } from '../config/ruleRegistry';
-import { contarLineasEfectivas } from '../utils/lineCounter';
-import { tieneSentinelDisableFile } from '../utils/analisisHelpers';
-import { esArchivoSoloTest } from './rustTestScope';
+import { Violacion } from '../../../types';
+import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
+import { contarLineasEfectivas } from '../../../utils/lineCounter';
+import { tieneSentinelDisableFile } from '../../../utils/analisisHelpers';
+import { esArchivoSoloTest } from '../rustTestScope';
 import {
   REGLA_CLONE_LOCK, REGLA_GOD_OBJECT, tieneDisableSiguiente, GuardActivo, rangosFunciones, PATRON_LOCK_SYNC,
 } from './rustReglasCompartidas';

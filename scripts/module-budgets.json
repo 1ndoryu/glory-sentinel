@@ -4,11 +4,11 @@
   "adr": "docs/adr/0001-producto-unico-sentinel.md",
   "note": "Budget de tamaño por módulo (checklist Fase 2 de la auditoría). Los módulos grandes de consolidación (taskCoordinator, interceptorShims, runtimeInstall, diagnose) tienen excepción justificada en el ADR: se dividen en Fase 5/F6, el budget frena el crecimiento mientras tanto. Los módulos no listados no tienen budget hasta estabilizarse; check:core reporta el top-10 para visibilidad. taskCoordinator se dividió en la fachada taskCoordinator.ts y los módulos taskCoordinator*.ts (cada uno ≤300 líneas efectivas).",
   "modules": {
-    "src/analyzers/rustAnalyzer.ts": 650,
+    "src/analyzers/rust/rustAnalyzer.ts": 650,
     "src/cli/commands.ts": 650,
     "src/core/runtimeInstall.ts": 600,
     "src/core/diagnose.ts": 600,
-    "src/analyzers/externalToolsAnalyzer.ts": 550,
+    "src/analyzers/externos/externalToolsAnalyzer.ts": 550,
     "src/core/lease.ts": 550,
     "src/cli/args.ts": 550,
     "src/core/scope.ts": 450,

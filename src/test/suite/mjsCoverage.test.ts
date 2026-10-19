@@ -10,7 +10,7 @@
 
 import * as assert from 'assert';
 import { extensionCanonica, languageIdForFile } from '../../core/language';
-import { analizarEstatico } from '../../analyzers/staticAnalyzer';
+import { analizarEstatico } from '../../analyzers/static/staticAnalyzer';
 import { createCoreDocument } from '../../core/types';
 import { obtenerLimiteArchivo } from '../../utils/lineCounter';
 

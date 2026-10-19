@@ -7,7 +7,7 @@
  */
 
 import * as assert from 'assert';
-import { analizarRust } from '../../analyzers/rustAnalyzer';
+import { analizarRust } from '../../analyzers/rust/rustAnalyzer';
 import { configurarOverridesReglas } from '../../config/ruleRegistry';
 import { createCoreDocument } from '../../core/types';
 

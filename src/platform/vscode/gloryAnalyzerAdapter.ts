@@ -7,7 +7,7 @@ import { recargarIslasRegistradas } from '../../analyzers/glory/calidad/islandTr
 import { actualizarArchivoEnIndice, recargarIndiceConstantes } from '../../analyzers/glory/constantes/phpConstantIndexer';
 import { recargarContratos, RUTAS_CONTROLLERS } from '../../analyzers/glory/api/apiContractIndexer';
 import { recargarTipos } from '../../analyzers/glory/schema/tsTypeResolver';
-import { invalidarOpenapiIndex } from '../../analyzers/apiEndpointAnalyzer';
+import { invalidarOpenapiIndex } from '../../analyzers/externos/apiEndpointAnalyzer';
 
 function workspaceRootsFromVsCode(): string[] {
   return vscode.workspace.workspaceFolders?.map(folder => folder.uri.fsPath) ?? [];

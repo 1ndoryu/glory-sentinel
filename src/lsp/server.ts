@@ -20,7 +20,7 @@ import { createCoreDocument } from '../core/types';
 import { languageIdForFile } from '../core/language';
 import { inicializarGloryAnalyzer } from '../analyzers/gloryAnalyzer';
 import { logError } from '../utils/logger';
-import { invalidarOpenapiIndex } from '../analyzers/apiEndpointAnalyzer';
+import { invalidarOpenapiIndex } from '../analyzers/externos/apiEndpointAnalyzer';
 import { findingToLspDiagnostic } from './diagnostics';
 
 const connection = createConnection(ProposedFeatures.all);

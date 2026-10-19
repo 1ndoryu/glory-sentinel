@@ -4,19 +4,19 @@
  * a static/staticCodeRules y static/staticCssRules.
  */
 
-import {ReglaEstatica, Violacion} from '../types';
-import { CoreTextDocument, positionAtOffset } from '../core/types';
-import {reglasEstaticas} from '../config/defaultRules';
-import {reglaHabilitada, obtenerSeveridadRegla} from '../config/ruleRegistry';
-import { proyectoTieneModalCanonico } from '../utils/analisisHelpers';
-import { obtenerWorkspaceRoots } from '../core/workspaceRoots';
-import { extensionCanonica } from '../core/language';
+import {ReglaEstatica, Violacion} from '../../types';
+import { CoreTextDocument, positionAtOffset } from '../../core/types';
+import {reglasEstaticas} from '../../config/defaultRules';
+import {reglaHabilitada, obtenerSeveridadRegla} from '../../config/ruleRegistry';
+import { proyectoTieneModalCanonico } from '../../utils/analisisHelpers';
+import { obtenerWorkspaceRoots } from '../../core/workspaceRoots';
+import { extensionCanonica } from '../../core/language';
 
 /* Submodulos */
-import {REGLAS_LIMITE_LINEAS, verificarLimiteLineas, verificarUseStateExcesivo, verificarImportsMuertos, verificarAnyType, verificarNonNullAssertion, verificarDirectorioAbarrotado, verificarHtmlSinOrigenDeclarado, verificarTodoProsaSinMarcador} from './static/staticCodeRules';
-import {verificarCardIconoExtiendeBase, verificarCssAdhocButtonStyle, verificarCssEspecificacionDisenoLocal, verificarModalSemanticaNoCanonica, verificarNomenclaturaCssIngles, verificarCssElementoHTMLDirecto, verificarCssHardcoded} from './static/staticCssRules';
-import { PortableBoundaryConfig, verificarReglasPortables } from './static/portableRules';
-import { calcularRangosTest, esArchivoSoloTest, esRutaDeTestRust } from './rustTestScope';
+import {REGLAS_LIMITE_LINEAS, verificarLimiteLineas, verificarUseStateExcesivo, verificarImportsMuertos, verificarAnyType, verificarNonNullAssertion, verificarDirectorioAbarrotado, verificarHtmlSinOrigenDeclarado, verificarTodoProsaSinMarcador} from './staticCodeRules';
+import {verificarCardIconoExtiendeBase, verificarCssAdhocButtonStyle, verificarCssEspecificacionDisenoLocal, verificarModalSemanticaNoCanonica, verificarNomenclaturaCssIngles, verificarCssElementoHTMLDirecto, verificarCssHardcoded} from './staticCssRules';
+import { PortableBoundaryConfig, verificarReglasPortables } from './portableRules';
+import { calcularRangosTest, esArchivoSoloTest, esRutaDeTestRust } from '../rust/rustTestScope';
 
 /* [124A-FP1] Deduplicacion de directorio-abarrotado: se reporta 1 vez por
  * directorio por ciclo de analisis, en vez de 1 vez por archivo.

@@ -6,7 +6,7 @@
 
 import * as assert from 'assert';
 import { reglasEstaticas } from '../../config/defaultRules';
-import { analizarEstatico } from '../../analyzers/staticAnalyzer';
+import { analizarEstatico } from '../../analyzers/static/staticAnalyzer';
 
 function crearDocumento(texto: string, fileName = 'src/repositories/chat.rs') {
   const lineas = texto.split('\n');

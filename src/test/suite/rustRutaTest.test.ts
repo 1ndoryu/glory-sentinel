@@ -26,10 +26,10 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { analizarRust } from '../../analyzers/rustAnalyzer';
+import { analizarRust } from '../../analyzers/rust/rustAnalyzer';
 import { configurarOverridesReglas } from '../../config/ruleRegistry';
 import { createCoreDocument } from '../../core/types';
-import { olvidarCacheRutasTest } from '../../analyzers/rustTestScope';
+import { olvidarCacheRutasTest } from '../../analyzers/rust/rustTestScope';
 
 /* Codigo con un `.expect(..)`, un `.unwrap()` y un `panic!` — una infraccion de
  * cada regla que depende del alcance de test. */

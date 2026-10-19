@@ -6,10 +6,10 @@
  */
 
 import * as path from 'path';
-import { Violacion } from '../types';
-import { CoreTextDocument } from '../core/types';
-import { reglaHabilitada } from '../config/ruleRegistry';
-import { esRutaGlory, indiceProyecto, proyectoTieneModalCanonico } from '../utils/analisisHelpers';
+import { Violacion } from '../../types';
+import { CoreTextDocument } from '../../core/types';
+import { reglaHabilitada } from '../../config/ruleRegistry';
+import { esRutaGlory, indiceProyecto, proyectoTieneModalCanonico } from '../../utils/analisisHelpers';
 
 /* Submodulos */
 import {
@@ -18,7 +18,7 @@ import {
   verificarZustandSinSelector,
   verificarZustandObjetoSelector,
   verificarListenSinCleanup,
-} from './react/reactHookRules';
+} from './reactHookRules';
 import {
   verificarConsoleEnCatch,
   verificarErrorEnmascarado,
@@ -27,7 +27,7 @@ import {
   verificarFetchSinTimeout,
   verificarStatusHttpGenerico,
   verificarHandlerSinTryCatch,
-} from './react/reactErrorRules';
+} from './reactErrorRules';
 import {
   verificarMutacionDirectaEstado,
   verificarKeyIndexLista,
@@ -45,9 +45,9 @@ import {
   verificarMenuContextualOverride,
   configurarWorkspaceRootsReact,
   obtenerWorkspaceRootsReact,
-} from './react/reactComponentRules';
-import { verificarFormularioConfigSinSistema } from './react/formularioConfigSystem';
-import { verificarAccesoApiSinFallback } from './glory/api/apiFallbackRules';
+} from './reactComponentRules';
+import { verificarFormularioConfigSinSistema } from './formularioConfigSystem';
+import { verificarAccesoApiSinFallback } from '../glory/api/apiFallbackRules';
 
 export interface ReactAnalysisOptions {
   workspaceRoots?: string[];

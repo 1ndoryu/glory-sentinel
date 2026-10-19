@@ -1,7 +1,7 @@
-import { Violacion } from '../types';
-import { obtenerSeveridadRegla } from '../config/ruleRegistry';
-import { tieneSentinelDisableFile } from '../utils/analisisHelpers';
-import { esArchivoSoloTest } from './rustTestScope';
+import { Violacion } from '../../../types';
+import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
+import { tieneSentinelDisableFile } from '../../../utils/analisisHelpers';
+import { esArchivoSoloTest } from '../rustTestScope';
 import {
   REGLA_LOCK_AWAIT, REGLA_SQLITE_MUTEX, tieneDisableSiguiente, PATRON_LOCK_SYNC,
   GuardActivo, rangosFunciones, calcularRangosAsync, calcularRangosSpawnBlocking,

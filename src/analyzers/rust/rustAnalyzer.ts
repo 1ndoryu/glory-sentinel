@@ -14,13 +14,13 @@
  *   axum/matchit resuelto (version-aware; legacy ante stack desconocido)
  */
 
-import { Violacion } from '../types';
-import { CoreTextDocument } from '../core/types';
-import { reglaHabilitada, obtenerSeveridadRegla } from '../config/ruleRegistry';
+import { Violacion } from '../../types';
+import { CoreTextDocument } from '../../core/types';
+import { reglaHabilitada, obtenerSeveridadRegla } from '../../config/ruleRegistry';
 import { detectarStackAxum } from './rustAxumStack';
 import { calcularRangosTest, esArchivoSoloTest, esRutaDeTestRust } from './rustTestScope';
-import { analizarReglasNuevas } from './rustReglasNuevas';
-import { tieneSentinelDisableFile } from '../utils/analisisHelpers';
+import { analizarReglasNuevas } from './reglas/rustReglasNuevas';
+import { tieneSentinelDisableFile } from '../../utils/analisisHelpers';
 
 /* Limite de lineas efectivas por funcion (clippy tambien lo verifica,
  * pero Sentinel lo muestra inline sin necesidad de compilar) */

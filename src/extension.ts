@@ -22,7 +22,7 @@ import {
   ejecutarHerramientasExternas,
   publicarDiagnosticosExternos,
   generarSeccionReporteExterno,
-} from './analyzers/externalToolsAnalyzer';
+} from './analyzers/externos/externalToolsAnalyzer';
 
 
 /*

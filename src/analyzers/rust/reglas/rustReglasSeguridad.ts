@@ -1,7 +1,7 @@
-import { Violacion } from '../types';
-import { obtenerSeveridadRegla } from '../config/ruleRegistry';
-import { tieneSentinelDisableFile } from '../utils/analisisHelpers';
-import { esArchivoSoloTest } from './rustTestScope';
+import { Violacion } from '../../../types';
+import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
+import { tieneSentinelDisableFile } from '../../../utils/analisisHelpers';
+import { esArchivoSoloTest } from '../rustTestScope';
 import { REGLA_SHELL, REGLA_SECRETO_LOG, tieneDisableSiguiente, rangosFunciones } from './rustReglasCompartidas';
 
 /* ------------------------------------------------------------------ */

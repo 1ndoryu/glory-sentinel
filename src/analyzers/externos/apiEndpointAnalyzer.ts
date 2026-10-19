@@ -21,10 +21,10 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { Violacion } from '../types';
-import { logInfo, logWarn } from '../utils/logger';
-import { CoreTextDocument, CoreWorkspaceContext } from '../core/types';
-import { resolverWorkspaceRoot } from '../core/workspaceRoots';
+import { Violacion } from '../../types';
+import { logInfo, logWarn } from '../../utils/logger';
+import { CoreTextDocument, CoreWorkspaceContext } from '../../core/types';
+import { resolverWorkspaceRoot } from '../../core/workspaceRoots';
 
 /* --- Reglas de mapeo (replica de wpJsonStub.ts del frontend Kamples) --- */
 

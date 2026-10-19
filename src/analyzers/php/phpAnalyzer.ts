@@ -3,15 +3,15 @@
  * Delega en submodulos: phpControllerRules, phpDataRules, phpDataFlujoRules, phpSecurityRules.
  */
 
-import { Violacion } from '../types';
-import { CoreTextDocument } from '../core/types';
-import { reglaHabilitada } from '../config/ruleRegistry';
+import { Violacion } from '../../types';
+import { CoreTextDocument } from '../../core/types';
+import { reglaHabilitada } from '../../config/ruleRegistry';
 
-import { verificarControllerSinTryCatch, verificarLockSinFinally, verificarCatchCriticoSoloLog } from './php/phpControllerRules';
+import { verificarControllerSinTryCatch, verificarLockSinFinally, verificarCatchCriticoSoloLog } from './phpControllerRules';
 import {
   verificarWpdbSinPrepareContextual,
   verificarRetornoIgnoradoRepo,
-} from './php/phpDataRules';
+} from './phpDataRules';
 import {
   verificarRequestJsonDirecto,
   verificarJsonDecodeInseguro,
@@ -19,14 +19,14 @@ import {
   verificarCadenaIssetUpdate,
   verificarQueryDobleVerificacion,
   verificarJsonSinLimiteBd,
-} from './php/phpDataFlujoRules';
+} from './phpDataFlujoRules';
 import {
   verificarExecSinEscape,
   verificarCurlSinVerificacion,
   verificarArchivosTemporalesSinFinally,
   verificarSanitizacionFaltante,
   verificarMimeTypeCliente,
-} from './php/phpSecurityRules';
+} from './phpSecurityRules';
 
 /*
  * Analiza un archivo PHP en busca de violaciones especificas de WordPress.
