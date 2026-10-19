@@ -4,7 +4,7 @@ Guía para quien toca la suite de Sentinel. El README solo enlaza aquí.
 
 ## Perfiles de ejecución
 
-- `npm run test:unit` es el perfil headless: `compile` + `check:core` + `smoke:lsp` + la suite de Mocha.
+- `npm run test:unit` es el perfil headless: `compile` + `check:core` + `check:reglas` + `smoke:lsp` + la suite de Mocha.
 - `npm test` (runner de VS Code) no sirve para un staging aislado porque exige la app.
 - La suite incluye tests de fixture reales (`git init`/`commit` y spawn del CLI, además de spawns de shell). Un caso aislado puede tardar entre 2 s y 25 s.
 - El `timeout` de `.mocharc.json` es **60000 ms** y no debe bajarse: quedaría por debajo del `timeout: 60_000` que esos mismos tests usan en su `spawnSync`.

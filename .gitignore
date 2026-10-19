@@ -15,3 +15,5 @@ Agente/
 # alta 10AA-2 F10
 .quality-reports/
 .runtime/
+# Reporte que escribe la extensión (reportPath por defecto)
+.sentinel-report.md

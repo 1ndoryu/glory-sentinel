@@ -41,7 +41,7 @@ El resultado no es solo un exit code. Sentinel diferencia hallazgos del código,
 
 ## Qué analiza
 
-El catálogo actual incluye más de 100 reglas para PHP/WordPress, TypeScript/React, JavaScript, CSS y Rust.
+El catálogo cubre PHP/WordPress, TypeScript/React, JavaScript, CSS y Rust; cada regla, con su severidad y si viene activa, está en [rules.md](rules.md), generado desde el registro.
 Entre otras cosas, Sentinel puede detectar:
 
 - secretos hardcodeados, `eval`, procesos shell inseguros y SQL sin preparación;
@@ -102,7 +102,7 @@ Reglas del manifest: `reportPath` se resuelve dentro de `reportRoot` y `cwd` den
 
 - **Sentinel** es el producto: motor de reglas, CLI, reportes, orquestación y coordinación opcional.
 - **El gate** es la operación `sentinel check <task-id>` que produce la decisión final.
-- **`gate:check`** puede ser un alias npm fino para preparar el manifest del stack y delegar en Sentinel.
+- **`gate:check`** es solo un nombre de alias npm: `init --with-alias gate:check` lo crea apuntando a `sentinel check`. No decide nada por sí mismo.
 - **Un analyzer o plugin** aporta hallazgos; no crea una segunda decisión de cierre.
 
 En otras palabras: Sentinel contiene el gate. No son dos productos separados.
@@ -163,7 +163,7 @@ Después:
 1. revisa `sentinel.config.json` y el lock generado;
 2. declara las etapas reales del proyecto en un manifest;
 3. ejecuta `sentinel doctor --json`;
-4. prueba el gate con un ID real: `npm run gate:check -- BOOTSTRAP-01 --stages sentinel-stages.json`.
+4. prueba el gate con un ID real: `npm run gate:check -- BOOTSTRAP-01 --stages sentinel-stages.json` (requiere el alias creado en el paso anterior; sin él, usa `sentinel check BOOTSTRAP-01 --stages sentinel-stages.json`).
 
 Los reportes quedan bajo `.quality-reports/`.
 
@@ -195,8 +195,10 @@ Consulta la [guía de migración legacy](docs/migration.md) antes de retirar cob
 `sentinel task` ayuda a evitar que dos agentes reclamen el mismo trabajo o modifiquen un checkout compartido. El recorrido conserva ownership y usa ramas y worktrees aislados:
 
 ```text
-claim → start → heartbeat → gate → integrate --ff-only → cleanup → release
+claim → start → heartbeat → gate → integrate → cleanup → release
 ```
+
+`integrate` fusiona la rama de la tarea en la principal solo con fast-forward; si la base avanzó, falla y hay que revalidar la tarea.
 
 Esta capa no hace push, force, reset ni commits implícitos. También falla cerrado cuando el worktree, la rama, el lock o la evidencia no corresponden a la tarea registrada.
 
@@ -233,7 +235,7 @@ npm run test:unit
 node out/cli/index.js --help
 ```
 
-Autogate: Sentinel se analiza a sí mismo con `node out/cli/index.js analyze --workspace . --format markdown` (tras `npm run compile`). `npm run test:unit` cubre compilación, `check:core`, `check:reglas`, `smoke:lsp` y mocha. El CI (`.github/workflows/ci.yml`) ejecuta lint, compilación, `check:core`, `check:reglas`, `smoke:lsp`, mocha y el autogate, que falla si hay archivos con hallazgos.
+Autogate: Sentinel se analiza a sí mismo con `node out/cli/index.js analyze --workspace . --format markdown` (tras `npm run compile`). `npm run test:unit` cubre compilación, `check:core`, `check:reglas`, `smoke:lsp` y mocha. El CI (`.github/workflows/ci.yml`) ejecuta lint, compilación, `check:core`, `check:reglas`, `smoke:lsp`, mocha y `scripts/autogate.mjs` sobre `sentinel-autogate.json`. El umbral del autogate y la versión de ese reporte se cierran en T6 del roadmap.
 
 El CLI compilado vive en `out/cli/index.js`; el LSP en `out/lsp/server.js`. Un release destinado a otros proyectos debe compilarse y probarse desde un staging limpio antes de publicarse o fijarse en un lock.
 

@@ -76,7 +76,7 @@ export function parseTaskCliArgs(args: string[]): TaskCliArgs {
     } else if (arg === '--help' || arg === '-h') {
       throw new Error(taskUsage());
     } else {
-      throw new Error(`Opcion no reconocida: ${arg}\\n${taskUsage()}`);
+      throw new Error(`Opcion no reconocida: ${arg}\n${taskUsage()}`);
     }
   }
   if (parsed.taskAction !== 'status' && !parsed.taskId) throw new Error(`task ${parsed.taskAction} requiere <id>`);

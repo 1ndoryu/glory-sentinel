@@ -13,7 +13,7 @@ export function taskUsage(): string {
     '  sentinel task cleanup <id> --project-root <dir> --agent <id> [--force]',
     '  sentinel task release <id> --project-root <dir> --agent <id>',
     '  sentinel task recover <id> --project-root <dir> --agent <id> [--dry-run] [--worktrees-root <dir>]',
-  ].join('\\n');
+  ].join('\n');
 }
 
 export function usage(): string {

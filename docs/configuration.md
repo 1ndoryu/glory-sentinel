@@ -46,7 +46,6 @@ Antes de usar una orden avanzada:
 ```bash
 sentinel --help
 sentinel doctor --json --workspace .
-npm run quality:lock -- --check
 ```
 
 La versión semántica no prueba capabilities. Si `--help` no muestra `init`, `migrate`, `check` o `task`, la

@@ -7,8 +7,8 @@ stack, pero conserva una única decisión de cierre y un único contrato de repo
 
 ## Gate
 
-El gate es la operación `sentinel check <task-id>`. En un consumidor puede existir un wrapper fino como
-`gate:check` para generar el manifest específico del stack; ese wrapper no decide PASS/FAIL ni implementa
+El gate es la operación `sentinel check <task-id>`. En un consumidor puede existir un alias npm fino, como
+`gate:check` (creado con `init --with-alias gate:check`), que ejecuta `sentinel check`; ese alias no decide PASS/FAIL ni implementa
 scope, cache, scheduler, budgets o reporter.
 
 `task:check` es una compatibilidad temporal de consumidores legacy. No debe recibir nuevas capacidades ni
