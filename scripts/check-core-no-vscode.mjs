@@ -18,7 +18,10 @@ const protectedPaths = [
   { root: cliRoot, allowedFiles: new Set() },
 ];
 const allowedFiles = new Set(['vscodeAdapter.ts']);
-const vscodeImportPattern = /import\s+(?:type\s+)?[\s\S]*?from\s+['"]vscode['"]|import\s*['"]vscode['"]|require\(\s*['"]vscode['"]\s*\)/g;
+/* [T4] Cualquier cadena 'vscode' fuera de los archivos permitidos: cubre import,
+ * import(), require() y createRequire()/loaders dinámicos, que el patrón anterior
+ * no veía (logger.ts cargaba vscode así y pasaba el check). */
+const vscodeImportPattern = /['"]vscode['"]/g;
 
 /* [108A-1 Fase 2] DIP: el núcleo/CLI no dependen de los módulos del editor
  * (handlers/providers/services/platform/extension) ni de scripts/quality del

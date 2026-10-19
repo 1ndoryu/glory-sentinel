@@ -16,7 +16,7 @@ import { SentinelCodeActionProvider } from './providers/codeActionProvider';
 import { cargarConfiguracion } from './services/ruleLoader';
 import { categoriasRegla } from './config/ruleCategories';
 import { obtenerTodasLasReglas } from './config/ruleRegistry';
-import { inicializarCanal, logInfo } from './utils/logger';
+import { instalarCanal, logInfo } from './utils/logger';
 import { inicializarGloryAnalyzerVsCode } from './platform/vscode/gloryAnalyzerAdapter';
 import {
   ejecutarHerramientasExternas,
@@ -30,8 +30,11 @@ import {
  * Se ejecuta cuando se abre un archivo de un lenguaje soportado.
  */
 export function activate(context: vscode.ExtensionContext): void {
-  /* Inicializar canal de output PRIMERO para que todos los logs sean visibles */
-  inicializarCanal(context);
+  /* Canal de output PRIMERO para que todos los logs sean visibles: el logger
+   * no conoce vscode, así que el canal se crea aquí y se inyecta. */
+  const canal = vscode.window.createOutputChannel('Code Sentinel');
+  context.subscriptions.push(canal);
+  instalarCanal(canal);
 
   const config = cargarConfiguracion();
 

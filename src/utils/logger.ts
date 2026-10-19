@@ -1,25 +1,21 @@
 /*
- * Canal de output compartido para Code Sentinel.
- * Centraliza todos los logs de la extension en un unico Output Channel
- * visible en Ctrl+Shift+U -> "Code Sentinel".
+ * Salida de logs compartida de Sentinel.
  *
- * Separado en modulo propio para evitar dependencias circulares
- * y cumplir SRP: este archivo es la unica fuente del canal.
+ * El núcleo, la CLI y el LSP corren en Node puro, sin editor. Por eso este
+ * módulo no importa `vscode`: la extensión crea su Output Channel y lo inyecta
+ * con `instalarCanal`. Sin canal, los diagnósticos van a stderr.
  */
 
-import type * as vscode from 'vscode';
-import { createRequire } from 'module';
+/* Lo mínimo que el logger necesita de un canal (el Output Channel de VS Code lo cumple). */
+export interface CanalLog {
+    appendLine(linea: string): void;
+}
 
-const loadRuntimeModule = createRequire(__filename);
+let canal: CanalLog | null = null;
 
-let canal: vscode.OutputChannel | null = null;
-
-/* Inicializa el canal. Llamar una sola vez desde extension.ts al activar. */
-export function inicializarCanal(context: vscode.ExtensionContext): vscode.OutputChannel {
-    const vscodeApi = loadRuntimeModule('vscode') as typeof vscode;
-    canal = vscodeApi.window.createOutputChannel('Code Sentinel');
-    context.subscriptions.push(canal);
-    return canal;
+/* Instala el canal de la extensión. Llamar una sola vez al activar; null lo quita (tests). */
+export function instalarCanal(nuevo: CanalLog | null): void {
+    canal = nuevo;
 }
 
 /* Registra un mensaje informativo con timestamp */
