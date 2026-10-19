@@ -1,13 +1,13 @@
 /* [por que] Regresion: las reglas miraban el texto de las cadenas. Un fixture de test
- * con `// TODO`, `import {...}`, `: any` o HTML dentro de '...' generaba falsos positivos
+ * con un marcador de tarea, `import {...}`, `: any` o HTML dentro de '...' generaba falsos positivos
  * en varsense. Estas pruebas fijan que solo cuenta el código y los comentarios reales. */
 import * as assert from 'assert';
-import { reglasEstaticas } from '../../../config/defaultRules';
-import { createCoreDocument } from '../../../core/runtime-proyecto/types';
-import { ejecutarReglaPorLinea } from '../../../analyzers/static/analisis/staticReglasPorLinea';
-import { verificarAnyType, verificarImportsMuertos } from '../../../analyzers/static/reglasCodigo/importsYTipos';
-import { verificarHtmlSinOrigenDeclarado } from '../../../analyzers/static/reglasCodigo/htmlSinOrigen';
-import { enmascararLiterales, enmascararLiteralesSimples } from '../../../utils/analisis/literalesCodigo';
+import { reglasEstaticas } from '../../../../config/defaultRules';
+import { createCoreDocument } from '../../../../core/runtime-proyecto/types';
+import { ejecutarReglaPorLinea } from '../../../../analyzers/static/analisis/staticReglasPorLinea';
+import { verificarAnyType, verificarImportsMuertos } from '../../../../analyzers/static/reglasCodigo/importsYTipos';
+import { verificarHtmlSinOrigenDeclarado } from '../../../../analyzers/static/reglasCodigo/htmlSinOrigen';
+import { enmascararLiterales, enmascararLiteralesSimples } from '../../../../utils/analisis/literalesCodigo';
 
 function doc(fileName: string, content: string) {
   return createCoreDocument({ uri: `file://${fileName}`, fileName, languageId: 'typescript', content });
