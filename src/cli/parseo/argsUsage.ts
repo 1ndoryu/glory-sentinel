@@ -1,6 +1,10 @@
 /* [108A-1 Fase 2] Textos de ayuda del CLI (usage general y de `task`). Van
  * aparte del parser para que el contrato de --help viva en un único sitio. */
 
+/* Pedir ayuda no es un fallo: el parser lanza esta clase con el texto de uso y
+ * el CLI la imprime en stdout con rc 0 (los errores de uso siguen con rc 2). */
+export class AyudaSolicitada extends Error {}
+
 export function taskUsage(): string {
   return [
     'Uso de tareas:',

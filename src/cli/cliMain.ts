@@ -17,6 +17,7 @@ import {
   writeInterceptorShims,
 } from '../core/shims/interceptorShims';
 import { parseCliArgs, usage, TaskCliArgs } from './args';
+import { AyudaSolicitada } from './parseo/argsUsage';
 import { analyzeCliTarget, renderOutput } from './comandos/cliAnalyze';
 import { checkCliTarget, taskCliTarget } from './comandos/cliGate';
 import { leaseCliTarget } from './comandos/cliLease';
@@ -37,7 +38,15 @@ export async function runCli(rawArgs: string[]): Promise<number> {
     return 0;
   }
 
-  const args = parseCliArgs(rawArgs);
+  let args: ReturnType<typeof parseCliArgs>;
+  try {
+    args = parseCliArgs(rawArgs);
+  } catch (error) {
+    /* `--help` de un subcomando: imprime el uso y sale con 0, como el --help global. */
+    if (!(error instanceof AyudaSolicitada)) throw error;
+    process.stdout.write(`${error.message}\n`);
+    return 0;
+  }
   if (args.command === 'task') {
     const taskArgs = args as unknown as TaskCliArgs;
     const config = await readConfig(undefined, taskArgs.workspacePath);

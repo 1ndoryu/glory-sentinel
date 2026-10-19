@@ -4,13 +4,19 @@
 import type { ParsedCliArgs } from './argsTypes';
 import { parseTaskCliArgs } from './argsTask';
 import { takeValue } from './argsValue';
-import { usage } from './argsUsage';
+import { AyudaSolicitada, usage } from './argsUsage';
 
 export function parseCliArgs(args: string[]): ParsedCliArgs {
   if (args[0] === 'task') return parseTaskCliArgs(args) as unknown as ParsedCliArgs;
   if (!['analyze', 'check', 'guard', 'doctor', 'status', 'install', 'update', 'rollback', 'uninstall', 'lease', 'init', 'migrate', 'uninit'].includes(args[0] ?? '')) {
     throw new Error(usage());
   }
+
+  /* La ayuda vale para cualquier comando y se pide antes de `--`, porque lo que
+   * va detrás es para el ejecutable de `guard`. */
+  const separador = args.indexOf('--');
+  const opciones = separador === -1 ? args : args.slice(0, separador);
+  if (opciones.includes('--help') || opciones.includes('-h')) throw new AyudaSolicitada(usage());
 
   const parsed: ParsedCliArgs = {
     command: args[0] as ParsedCliArgs['command'],
@@ -34,8 +40,6 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
       } else if (arg === '--workspace') {
         parsed.workspacePath = takeValue(before, index, arg);
         index++;
-      } else if (arg === '--help' || arg === '-h') {
-        throw new Error(usage());
       } else {
         throw new Error(`Opcion no reconocida: ${arg}\n${usage()}`);
       }
@@ -76,8 +80,6 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
         index++;
       } else if (arg === '--json') {
         parsed.json = true;
-      } else if (arg === '--help' || arg === '-h') {
-        throw new Error(usage());
       } else {
         throw new Error(`Opcion no reconocida: ${arg}\n${usage()}`);
       }
@@ -111,8 +113,6 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
         parsed.keepRuntime = true;
       } else if (arg === '--json') {
         parsed.json = true;
-      } else if (arg === '--help' || arg === '-h') {
-        throw new Error(usage());
       } else {
         throw new Error(`Opcion no reconocida: ${arg}\n${usage()}`);
       }
@@ -147,8 +147,6 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
         parsed.force = true;
       } else if (arg === '--json') {
         parsed.json = true;
-      } else if (arg === '--help' || arg === '-h') {
-        throw new Error(usage());
       } else {
         throw new Error(`Opcion no reconocida: ${arg}\n${usage()}`);
       }
@@ -228,9 +226,6 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
       case '--shims':
         parsed.doctorShims = true;
         break;
-      case '--help':
-      case '-h':
-        throw new Error(usage());
       default:
         throw new Error(`Opcion no reconocida: ${arg}\n${usage()}`);
     }

@@ -154,4 +154,15 @@ suite('CLI de proceso — stdout/stderr, doctor y dry-run (108A-1 Fase 1)', () =
       fs.rmSync(workspace, { recursive: true, force: true });
     }
   });
+
+  test('--help de cualquier subcomando imprime el uso en stdout con rc 0; un uso erróneo sigue con rc 2', () => {
+    const cwd = tempDir('sentinel-help-');
+    for (const comando of [['analyze', '--help'], ['update', '-h'], ['task', '--help'], ['guard', '--help']]) {
+      const result = runCli(comando, cwd);
+      assert.strictEqual(result.status, 0, `${comando.join(' ')} debe salir con rc 0`);
+      assert.ok(result.stdout.includes('Uso:') || result.stdout.includes('Uso de tareas:'), `${comando.join(' ')} imprime el uso`);
+    }
+    const error = runCli(['analyze', '--opcion-inexistente'], cwd);
+    assert.strictEqual(error.status, 2, 'una opción desconocida sigue con rc 2');
+  });
 });

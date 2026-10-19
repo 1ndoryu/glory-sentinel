@@ -1,7 +1,7 @@
 /* [108A-1 Fase 2] Parser del subcomando `sentinel task` y formato de su salida.
  * Separado de args.ts para mantener cada módulo bajo el límite de líneas. */
 import type { TaskAction, TaskCliArgs, TaskCliResult } from './argsTypes';
-import { taskUsage } from './argsUsage';
+import { AyudaSolicitada, taskUsage } from './argsUsage';
 import { takeValue } from './argsValue';
 
 export function formatTaskResult(result: TaskCliResult, json = false): string {
@@ -11,6 +11,8 @@ export function formatTaskResult(result: TaskCliResult, json = false): string {
 }
 
 export function parseTaskCliArgs(args: string[]): TaskCliArgs {
+  /* La ayuda se detecta antes de validar la acción, para que `task --help` también salga con rc 0. */
+  if (args.slice(1).some(arg => arg === '--help' || arg === '-h')) throw new AyudaSolicitada(taskUsage());
   const action = args[1];
   if (!['claim', 'start', 'heartbeat', 'status', 'gate', 'integrate', 'cleanup', 'release', 'recover'].includes(action ?? '')) {
     throw new Error(`${taskUsage()}`);
@@ -73,8 +75,6 @@ export function parseTaskCliArgs(args: string[]): TaskCliArgs {
     } else if (arg === '--output') {
       parsed.outputPath = takeValue(args, index, arg);
       index++;
-    } else if (arg === '--help' || arg === '-h') {
-      throw new Error(taskUsage());
     } else {
       throw new Error(`Opcion no reconocida: ${arg}\n${taskUsage()}`);
     }
