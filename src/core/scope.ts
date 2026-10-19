@@ -72,12 +72,16 @@ function normalize(value: string): string {
   return value.replace(/\\/g, '/');
 }
 
+/* Salida de git acotada: una lista de archivos cambiados cabe de sobra en 8 MiB;
+ * si no cabe, el fallo es explicito (abajo) y no se consume memoria sin limite. */
+const GIT_SALIDA_MAX_BYTES = 8 * 1024 * 1024;
+
 async function gitLines(root: string, args: string[]): Promise<string[]> {
   try {
     const { stdout } = await execFileAsync('git', args, {
       cwd: root,
       timeout: 20_000,
-      maxBuffer: 64 * 1024 * 1024,
+      maxBuffer: GIT_SALIDA_MAX_BYTES,
       windowsHide: true,
     });
     return stdout.split(/\r?\n/).map(item => normalize(item.trim())).filter(Boolean);
