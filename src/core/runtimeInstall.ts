@@ -378,7 +378,7 @@ export interface RuntimeUninstallOptions {
    * conservar el runtime versionado con --keep-runtime: se quitan la entrada
    * de PATH, los marcadores de perfiles y el directorio de shims
    * interceptores, pero se conservan versions/current/bin para que el
-   * comando global `sentinel` siga resolviendo. Por defecto se retira TODO
+   * comando global `sentinel` siga resolviendo. Por defecto se retira todo
    * lo administrado (excepto el directorio raíz del runtime). */
   keepRuntime?: boolean;
   /* Inyectables para tests: lectura/escritura del PATH de usuario y perfiles

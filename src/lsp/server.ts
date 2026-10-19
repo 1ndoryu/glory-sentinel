@@ -19,6 +19,7 @@ import { buildCoreConfig, SentinelConfigFile } from '../core/config';
 import { createCoreDocument } from '../core/types';
 import { languageIdForFile } from '../core/language';
 import { inicializarGloryAnalyzer } from '../analyzers/gloryAnalyzer';
+import { logError } from '../utils/logger';
 import { invalidarOpenapiIndex } from '../analyzers/apiEndpointAnalyzer';
 import { findingToLspDiagnostic } from './diagnostics';
 
@@ -99,7 +100,8 @@ async function validateTextDocument(document: TextDocument): Promise<void> {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    connection.console.error(`[Code Sentinel LSP] ${message}`);
+    /* El canal LSP usa stdout para el protocolo: el error va por el logger (stderr). */
+    logError(`[Code Sentinel LSP] ${message}`);
     connection.sendDiagnostics({
       uri: document.uri,
       diagnostics: [analysisErrorDiagnostic(message)],

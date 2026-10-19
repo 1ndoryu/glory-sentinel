@@ -112,8 +112,9 @@ suite('Sentinel core heavy budget (tope físico 07AA-6)', () => {
   test('observe: supera el tope permitiendo y avisando', async () => {
     const { projectRoot, reportRoot, cleanup } = makeRoots({ budgets: { limits: { 'cargo-test': 1 } } });
     const warnings: string[] = [];
-    const original = console.warn;
-    console.warn = (message?: unknown): void => { warnings.push(String(message)); };
+    /* El logger sin canal VS Code escribe a stderr (console.error). */
+    const original = console.error;
+    console.error = (message?: unknown): void => { warnings.push(String(message)); };
     try {
       assert.strictEqual((await checkAndRecordHeavyRun({ projectRoot, reportRoot, kind: 'cargo-test', stage: 'test' })).allowed, true);
       const over = await checkAndRecordHeavyRun({ projectRoot, reportRoot, kind: 'cargo-test', stage: 'test' });
@@ -121,7 +122,7 @@ suite('Sentinel core heavy budget (tope físico 07AA-6)', () => {
       assert.strictEqual(over.observed, true);
       assert.ok(warnings.some(message => message.includes('cargo-test')));
     } finally {
-      console.warn = original;
+      console.error = original;
       cleanup();
     }
   });

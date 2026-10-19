@@ -9,6 +9,7 @@
  * inválida: fail open en observe (solo registra, siempre permite). */
 import path from 'node:path';
 import { appendFile, mkdir, readFile } from 'node:fs/promises';
+import { logWarn } from '../utils/logger';
 
 export const DEFAULT_BUDGET_LIMIT = 5;
 export const BUDGET_RUNS_FILE = 'runs.jsonl';
@@ -161,7 +162,7 @@ export async function checkAndRecordHeavyRun(options: {
     return { allowed: false, kind: options.kind, used, limit, extra, observed };
   }
   if (exhausted && observed) {
-    console.warn(`[sentinel-budget] ${options.kind} supera el tope (${used}/${limit + extra}) en modo observe: la etapa corre igual; F7 lo hará cumplir.`);
+    logWarn(`[sentinel-budget] ${options.kind} supera el tope (${used}/${limit + extra}) en modo observe: la etapa corre igual; F7 lo hará cumplir.`);
   }
   return { allowed: true, kind: options.kind, used, limit, extra, observed };
 

@@ -269,5 +269,6 @@ export function compactLines(reportResult: GateReportResult, context: Pick<Repor
 }
 
 export function printCompact(reportResult: GateReportResult, context: Pick<ReportContext, 'projectRoot' | 'qualityConfig'>): void {
-  for (const line of compactLines(reportResult, context)) console.log(line);
+  /* Salida CLI del resumen compacto: stdout directo, sin prefijos de logger. */
+  for (const line of compactLines(reportResult, context)) process.stdout.write(`${line}\n`);
 }
