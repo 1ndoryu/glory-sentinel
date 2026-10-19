@@ -1,40 +1,24 @@
 import * as fs from 'fs';
-import * as path from 'path';
+import { recorrerFicherosSync } from '../recorrido';
 /* Deteccion del Modal canonico del proyecto y de sus sufijos semanticos. Extraido de src/utils/analisisHelpers.ts (fachada). */
 
 /* [119A-4 S4] Clases canonicas del sistema Modal que las reglas
  * modal-*-no-canonica presuponen. Si el proyecto no define ninguna, sugerir
  * "usa modalAcciones/modalTexto/..." es un falso positivo: no hay sistema. */
 const CLASES_MODAL_CANONICAS_BUSQUEDA = /\.modal(?:Acciones|Formulario|Campo|Titulo|Texto)\b/;
-const DIRS_MODAL_SKIP = new Set([
-  'node_modules', 'vendor', 'dist', 'build', '.git', 'coverage',
-  '.quality-tools', '.sentinel', '.quality-reports', 'target',
-]);
 const cacheModalCanonico = new Map<string, boolean>();
 
 function contieneClaseModalCanonica(dir: string): boolean {
-  let entries: import('fs').Dirent[];
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return false;
-  }
-  for (const entry of entries) {
-    if (DIRS_MODAL_SKIP.has(entry.name)) { continue; }
-    const ruta = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      if (contieneClaseModalCanonica(ruta)) { return true; }
-    } else if (entry.isFile() && entry.name.endsWith('.css')) {
-      let texto: string;
-      try {
-        texto = fs.readFileSync(ruta, 'utf8');
-      } catch {
-        continue;
-      }
-      if (CLASES_MODAL_CANONICAS_BUSQUEDA.test(texto)) { return true; }
+  return recorrerFicherosSync(dir, ruta => {
+    if (!ruta.endsWith('.css')) { return false; }
+    let texto: string;
+    try {
+      texto = fs.readFileSync(ruta, 'utf8');
+    } catch {
+      return false;
     }
-  }
-  return false;
+    return CLASES_MODAL_CANONICAS_BUSQUEDA.test(texto);
+  });
 }
 
 /*

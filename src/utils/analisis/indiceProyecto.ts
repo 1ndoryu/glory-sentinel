@@ -1,29 +1,16 @@
 /* Construccion del indice de clases del proyecto y su cache. Extraido de src/utils/analisisHelpers.ts (fachada). */
-import { DIRS_FUENTES_SKIP, indexarEnlaces } from './indiceEnlaces';
+import { indexarEnlaces } from './indiceEnlaces';
 import { IndiceProyecto } from './indiceTipos';
 import { leerAliases } from './indiceAlias';
 import { indexarCss, indexarJsx } from './indiceJsxCss';
-import * as fs from 'fs';
-import * as path from 'path';
+import { recorrerFicherosSync } from '../recorrido';
 
 /* Cache por conjunto de roots: el indice se reconstruye solo si cambian. Solo lo usa este modulo. */
 const cacheIndice = new Map<string, IndiceProyecto>();
 const RE_FUENTE_JS = /\.(?:ts|tsx|js|jsx)$/;
 
 function listarFuentes(dir: string, salida: string[]): void {
-  let entries: import('fs').Dirent[];
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return;
-  }
-
-  for (const entry of entries) {
-    if (DIRS_FUENTES_SKIP.has(entry.name)) { continue; }
-    const ruta = path.join(dir, entry.name);
-    if (entry.isDirectory()) { listarFuentes(ruta, salida); }
-    else if (entry.isFile()) { salida.push(ruta); }
-  }
+  recorrerFicherosSync(dir, ruta => { salida.push(ruta); });
 }
 
 /* Descarta todos los índices cacheados; la siguiente consulta los reconstruye desde disco.

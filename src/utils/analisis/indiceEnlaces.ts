@@ -5,10 +5,6 @@ import { resolverModulo } from './indiceAlias';
 import * as fs from 'fs';
 import { conjuntoConstante } from '../conjuntoConstante';
 
-export const DIRS_FUENTES_SKIP: ReadonlySet<string> = conjuntoConstante([
-  'node_modules', 'vendor', 'dist', 'build', '.git', 'coverage',
-  '.quality-tools', '.sentinel', '.quality-reports', 'target',
-]);
 export const RE_TAG_JSX = /<([A-Za-z][\w.]*)([^<>]*?)\/?>/g;
 export const RE_CLASSNAME_JSX = /className\s*=\s*(?:"([^"]*)"|'([^']*)'|\{([\s\S]*?)\})/g;
 /* [15A-26] Etiquetas nativas que SON un control: ahi la receta de boton del sistema
