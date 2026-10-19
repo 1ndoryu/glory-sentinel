@@ -275,10 +275,15 @@ export function generarSeccionReporteExterno(resultado: ResultadoToolsExternas, 
   return contenido;
 }
 
+/* Límites de una herramienta externa: salida acotada y tiempo máximo por comando
+ * (un linter colgado no debe bloquear el análisis). */
+const HERRAMIENTA_SALIDA_MAX_BYTES = 5 * 1024 * 1024;
+const HERRAMIENTA_TIMEOUT_MS = 120_000;
+
 /* Ejecuta un comando en un directorio y retorna la salida */
 function ejecutarComando(comando: string, cwd: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    cp.exec(comando, { cwd, maxBuffer: 5 * 1024 * 1024, timeout: 120000 }, (error, stdout, stderr) => {
+    cp.exec(comando, { cwd, maxBuffer: HERRAMIENTA_SALIDA_MAX_BYTES, timeout: HERRAMIENTA_TIMEOUT_MS }, (error, stdout, stderr) => {
       const salida = stdout + stderr;
       if (error) {
         reject(new Error(`Exit code ${error.code}. salida:${salida}`));
