@@ -3,7 +3,7 @@
 // Lo usan la CI y `quality:check`, así hay una sola definición del autogate.
 // No usa `sentinel check --stages`: ese comando exige sentinel.lock.json y Sentinel no es consumidor de sí mismo (README).
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 
 // Umbral versionado en sentinel-autogate.json. Sin él, o con un valor no válido, el gate se niega a decidir.
 const CONFIG_AUTOGATE = 'sentinel-autogate.json';
@@ -27,6 +27,8 @@ if (!Number.isInteger(umbral) || umbral < 0) {
   process.exit(2);
 }
 
+// Borra el reporte de una ejecución anterior: si analyze no lo escribe, el gate debe fallar, no leer datos viejos.
+rmSync(reporte, { force: true });
 // Análisis real con el CLI compilado.
 const analisis = spawnSync(
   process.execPath,
@@ -37,13 +39,20 @@ if (analisis.error?.code === 'ETIMEDOUT') {
   console.error(`Autogate: analyze superó ${TIMEOUT_ANALISIS_MS} ms`);
   process.exit(1);
 }
-if (analisis.status !== 0) {
+// El CLI sale 0 sin errores y 1 con hallazgos de severidad error (cliMain.ts); cualquier otro código es fallo de la herramienta.
+if (analisis.status !== 0 && analisis.status !== 1) {
   console.error(`Autogate: analyze terminó con código ${analisis.status ?? 'sin código'}`);
   process.exit(1);
 }
 
-// El CLI sale con 0 aunque haya hallazgos: el fallo lo decide este script.
-const resultado = JSON.parse(readFileSync(reporte, 'utf8'));
+// Fail-closed: el recuento sale del reporte de esta ejecución; un reporte viejo no puede decidir por ella.
+let resultado;
+try {
+  resultado = JSON.parse(readFileSync(reporte, 'utf8'));
+} catch (error) {
+  console.error(`Autogate: no se pudo leer el reporte ${reporte} (${error.message})`);
+  process.exit(1);
+}
 const conHallazgos = resultado.totalArchivosConViolaciones;
 // Fail-closed: si el reporte no trae el recuento, no se puede afirmar que no haya hallazgos.
 if (!Number.isInteger(conHallazgos)) {
