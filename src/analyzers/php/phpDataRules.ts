@@ -7,6 +7,7 @@
 import {Violacion} from '../../types';
 import {obtenerSeveridadRegla} from '../../config/ruleRegistry';
 import {tieneSentinelDisable, esRutaGlory} from '../../utils/analisisHelpers';
+import { AjustesProyecto, AJUSTES_PROYECTO_DEFECTO } from '../ajustesProyecto';
 
 /*
  * Verifica $wpdb sin prepare con contexto.
@@ -110,10 +111,10 @@ function esSentenciaSinParametrosUsuario(sentencia: string): boolean {
  * Detecta llamadas a metodos de Repository/Service cuyo nombre sugiere escritura
  * donde el valor de retorno no se captura ni se usa en condicion.
  */
-export function verificarRetornoIgnoradoRepo(lineas: string[], rutaArchivo?: string): Violacion[] {
+export function verificarRetornoIgnoradoRepo(lineas: string[], rutaArchivo?: string, ajustes: AjustesProyecto = AJUSTES_PROYECTO_DEFECTO): Violacion[] {
     const violaciones: Violacion[] = [];
     /* El framework Glory usa metodos void de orquestacion — excluir para evitar falsos positivos */
-    if (rutaArchivo && esRutaGlory(rutaArchivo)) { return violaciones; }
+    if (rutaArchivo && esRutaGlory(rutaArchivo, ajustes.marcadoresGlory)) { return violaciones; }
     const patronEscritura = /->\s*(registrar|guardar|insertar|actualizar|crear|grabar|save|update|insert|delete|eliminar|borrar)\w*\s*\(/;
 
     for (let i = 0; i < lineas.length; i++) {

@@ -6,6 +6,7 @@
 import { Violacion } from '../../types';
 import { CoreTextDocument } from '../../core/runtime-proyecto/types';
 import { reglaHabilitada } from '../../config/ruleRegistry';
+import { AjustesProyecto, AJUSTES_PROYECTO_DEFECTO } from '../ajustesProyecto';
 
 import { verificarControllerSinTryCatch, verificarLockSinFinally, verificarCatchCriticoSoloLog } from './phpControllerRules';
 import {
@@ -32,7 +33,7 @@ import {
  * Analiza un archivo PHP en busca de violaciones especificas de WordPress.
  * Complementa al staticAnalyzer con reglas que requieren contexto PHP.
  */
-export function analizarPhp(documento: CoreTextDocument): Violacion[] {
+export function analizarPhp(documento: CoreTextDocument, ajustes: AjustesProyecto = AJUSTES_PROYECTO_DEFECTO): Violacion[] {
   const lineas = documento.getText().split('\n');
   const rutaArchivo = documento.fileName;
   const violaciones: Violacion[] = [];
@@ -82,7 +83,7 @@ export function analizarPhp(documento: CoreTextDocument): Violacion[] {
     violaciones.push(...verificarJsonSinLimiteBd(lineas));
   }
   if (reglaHabilitada('retorno-ignorado-repo')) {
-    violaciones.push(...verificarRetornoIgnoradoRepo(lineas, rutaArchivo));
+    violaciones.push(...verificarRetornoIgnoradoRepo(lineas, rutaArchivo, ajustes));
   }
   if (reglaHabilitada('mime-type-cliente')) {
     violaciones.push(...verificarMimeTypeCliente(lineas));

@@ -12,6 +12,7 @@ import { Violacion } from '../../types';
 import { CoreTextDocument } from '../../core/runtime-proyecto/types';
 import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
 import { rutaExentaPorProyecto } from '../../config/exencionesProyecto';
+import { AjustesProyecto, AJUSTES_PROYECTO_DEFECTO } from '../ajustesProyecto';
 import {
   bloqueDefineSemanticaModal,
   claseCanonicaModal,
@@ -34,6 +35,8 @@ export function verificarModalSemanticaNoCanonica(
   /* [119A-4 S4] El caller (staticAnalyzer) lo calcula con proyectoTieneModalCanonico().
    * Default true = fail-closed: sin evidencia de ausencia, la regla dispara como antes. */
   tieneModalCanonico = true,
+  /* Las exenciones del proyecto llegan por parámetro: sin estado de módulo entre proyectos. */
+  ajustes: AjustesProyecto = AJUSTES_PROYECTO_DEFECTO,
 ): Violacion[] {
   const nombreLower = nombreArchivo.toLowerCase();
   const rutaNorm = documento.fileName.replace(/\\/g, '/');
@@ -44,7 +47,7 @@ export function verificarModalSemanticaNoCanonica(
 
   if (!tieneModalCanonico) { return []; }
 
-  if (rutaNorm.includes('/node_modules/') || rutaNorm.includes('/vendor/') || rutaExentaPorProyecto(rutaNorm)) {
+  if (rutaNorm.includes('/node_modules/') || rutaNorm.includes('/vendor/') || rutaExentaPorProyecto(rutaNorm, ajustes.exenciones)) {
     return [];
   }
 

@@ -13,6 +13,7 @@ import { esRutaGlory, normalizarRuta } from '../utils/analisisHelpers';
 import { CoreRutasGlory, CoreTextDocument } from '../core/runtime-proyecto/types';
 import { configurarWorkspaceRoots } from '../core/seguridad-rutas/workspaceRoots';
 import { detectarPerfilProyecto } from '../core/perfil/perfilProyecto';
+import { AjustesProyecto, AJUSTES_PROYECTO_DEFECTO } from './ajustesProyecto';
 
 /* Submodulos */
 import { cargarSchema, obtenerMapaCols, obtenerMapaEnums } from './glory/schema/schemaLoader';
@@ -67,7 +68,7 @@ export async function inicializarGloryParaWorkspaces(workspaceRoots: string[], r
  * Punto de entrada del analyzer Glory.
  * Ejecuta verificaciones habilitadas segun tipo de archivo.
  */
-export function analizarGlory(documento: CoreTextDocument): Violacion[] {
+export function analizarGlory(documento: CoreTextDocument, ajustes: AjustesProyecto = AJUSTES_PROYECTO_DEFECTO): Violacion[] {
   const texto = documento.getText();
   const lineas = texto.split('\n');
   const rutaArchivo = documento.fileName;
@@ -87,7 +88,7 @@ export function analizarGlory(documento: CoreTextDocument): Violacion[] {
   if (extension === '.tsx' || extension === '.jsx' || extension === '.ts') {
     /* isla-no-registrada: solo aplica a islands (.tsx/.jsx) */
     if (glory && (extension === '.tsx' || extension === '.jsx') && reglaHabilitada('isla-no-registrada')) {
-      violaciones.push(...verificarIslaNoRegistrada(rutaNormalizada, texto));
+      violaciones.push(...verificarIslaNoRegistrada(rutaNormalizada, texto, ajustes));
     }
     /* Contrato API: cruzar claves TS vs PHP — aplica a services (.ts) e islands (.tsx) */
     if (glory && reglaHabilitada('api-response-mismatch') && obtenerContratos()) {
@@ -113,7 +114,7 @@ export function analizarGlory(documento: CoreTextDocument): Violacion[] {
     violaciones.push(...verificarHardcodedEnumValue(lineas, rutaNormalizada));
   }
   if (glory && reglaHabilitada('endpoint-accede-bd')) {
-    violaciones.push(...verificarEndpointAccedeBd(lineas, rutaNormalizada));
+    violaciones.push(...verificarEndpointAccedeBd(lineas, rutaNormalizada, ajustes));
   }
   if (glory && reglaHabilitada('interval-sin-whitelist')) {
     violaciones.push(...verificarIntervalSinWhitelist(lineas));
@@ -123,7 +124,7 @@ export function analizarGlory(documento: CoreTextDocument): Violacion[] {
   }
 
   /* Glory/ es framework externo  estas reglas no aplican a su codigo */
-  if (glory && reglaHabilitada('return-void-critico') && !esRutaGlory(rutaNormalizada)) {
+  if (glory && reglaHabilitada('return-void-critico') && !esRutaGlory(rutaNormalizada, ajustes.marcadoresGlory)) {
     violaciones.push(...verificarReturnVoidCritico(texto, lineas));
   }
 
@@ -131,7 +132,7 @@ export function analizarGlory(documento: CoreTextDocument): Violacion[] {
   if (reglaHabilitada('n-plus-1-query')) {
     violaciones.push(...verificarNPlus1Query(lineas, rutaNormalizada));
   }
-  if (reglaHabilitada('controller-fqn-inline') && !esRutaGlory(rutaNormalizada)) {
+  if (reglaHabilitada('controller-fqn-inline') && !esRutaGlory(rutaNormalizada, ajustes.marcadoresGlory)) {
     violaciones.push(...verificarFqnInline(lineas));
   }
   if (reglaHabilitada('php-sin-return-type')) {
@@ -158,7 +159,7 @@ export function analizarGlory(documento: CoreTextDocument): Violacion[] {
   if (reglaHabilitada('php-array-asociativo-como-lista')) {
     violaciones.push(...verificarArrayAsociativoComoLista(lineas));
   }
-  if (reglaHabilitada('php-service-retorna-asociativo') && !esRutaGlory(rutaNormalizada)) {
+  if (reglaHabilitada('php-service-retorna-asociativo') && !esRutaGlory(rutaNormalizada, ajustes.marcadoresGlory)) {
     violaciones.push(...verificarServiceRetornaAsociativo(lineas));
   }
 

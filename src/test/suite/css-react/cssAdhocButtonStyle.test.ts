@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import { CoreTextDocument } from '../../../core/runtime-proyecto/types';
 import { verificarCssAdhocButtonStyle } from '../../../analyzers/static/staticCssRules';
-import { configurarExenciones } from '../../../config/exencionesProyecto';
+import { resolverAjustesProyecto } from '../../../analyzers/ajustesProyecto';
 
 function crearDocumento(fileName: string) {
   return { fileName } as CoreTextDocument;
@@ -38,15 +38,11 @@ suite('css-adhoc-button-style', () => {
   });
 
   test('con el perfil glory ignora framework glory-rs y assets legacy', () => {
-    configurarExenciones({ perfil: 'glory' });
-    try {
-      const framework = verificarCssAdhocButtonStyle('.boton { cursor: pointer; }', crearDocumento('/repo/glory-rs/frontend/estilos/Componentes.css'), 'Componentes.css');
-      const assets = verificarCssAdhocButtonStyle('.button-primary { cursor: pointer; }', crearDocumento('/repo/frontend/public/assets/css/home.css'), 'home.css');
-      assert.strictEqual(framework.length, 0);
-      assert.strictEqual(assets.length, 0);
-    } finally {
-      configurarExenciones(undefined);
-    }
+    const ajustes = resolverAjustesProyecto({ exenciones: { perfil: 'glory' } });
+    const framework = verificarCssAdhocButtonStyle('.boton { cursor: pointer; }', crearDocumento('/repo/glory-rs/frontend/estilos/Componentes.css'), 'Componentes.css', [], ajustes);
+    const assets = verificarCssAdhocButtonStyle('.button-primary { cursor: pointer; }', crearDocumento('/repo/frontend/public/assets/css/home.css'), 'home.css', [], ajustes);
+    assert.strictEqual(framework.length, 0);
+    assert.strictEqual(assets.length, 0);
   });
 
   /* [317A-3] La receta .boton-icono (solo icono) es parte del sistema de diseño,

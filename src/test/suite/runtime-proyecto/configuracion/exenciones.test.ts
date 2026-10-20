@@ -1,23 +1,21 @@
 /* [M-S3] Las exenciones son opt-in: sin clave no eximen nada; el perfil glory activa su conjunto. */
 import * as assert from 'assert';
 import { buildCoreConfig, validateSentinelConfig } from '../../../../core/runtime-proyecto/config';
-import { configurarExenciones, componenteExentoPorProyecto, resolverExenciones, rutaExentaPorProyecto } from '../../../../config/exencionesProyecto';
+import { componenteExentoPorProyecto, resolverExenciones, rutaExentaPorProyecto } from '../../../../config/exencionesProyecto';
 
 suite('exenciones', () => {
-  teardown(() => configurarExenciones(undefined));
-
   test('por defecto no exime ninguna ruta ni componente', () => {
     assert.strictEqual(rutaExentaPorProyecto('/repo/glory-rs/frontend/Componentes.css'), false);
     assert.strictEqual(componenteExentoPorProyecto('GloryLink'), false);
   });
 
   test('el perfil glory exime sus rutas y componentes', () => {
-    configurarExenciones({ perfil: 'glory' });
-    assert.strictEqual(rutaExentaPorProyecto('/repo/glory-rs/frontend/Componentes.css'), true);
-    assert.strictEqual(rutaExentaPorProyecto('/repo/frontend/public/assets/css/home.css'), true);
-    assert.strictEqual(rutaExentaPorProyecto('/repo/frontend/src/panel.css'), false);
-    assert.strictEqual(componenteExentoPorProyecto('PageRenderer'), true);
-    assert.strictEqual(componenteExentoPorProyecto('Panel'), false);
+    const exenciones = resolverExenciones({ perfil: 'glory' });
+    assert.strictEqual(rutaExentaPorProyecto('/repo/glory-rs/frontend/Componentes.css', exenciones), true);
+    assert.strictEqual(rutaExentaPorProyecto('/repo/frontend/public/assets/css/home.css', exenciones), true);
+    assert.strictEqual(rutaExentaPorProyecto('/repo/frontend/src/panel.css', exenciones), false);
+    assert.strictEqual(componenteExentoPorProyecto('PageRenderer', exenciones), true);
+    assert.strictEqual(componenteExentoPorProyecto('Panel', exenciones), false);
   });
 
   test('rutas y componentes propios se suman al perfil', () => {
@@ -29,9 +27,9 @@ suite('exenciones', () => {
   });
 
   test('sin perfil, solo cuentan las listas propias', () => {
-    configurarExenciones({ rutas: ['/legacy/'] });
-    assert.strictEqual(rutaExentaPorProyecto('/repo/legacy/a.css'), true);
-    assert.strictEqual(rutaExentaPorProyecto('/repo/glory-rs/a.css'), false);
+    const exenciones = resolverExenciones({ rutas: ['/legacy/'] });
+    assert.strictEqual(rutaExentaPorProyecto('/repo/legacy/a.css', exenciones), true);
+    assert.strictEqual(rutaExentaPorProyecto('/repo/glory-rs/a.css', exenciones), false);
   });
 
   test('buildCoreConfig pasa exenciones desde la subconfig v2 y v1', () => {

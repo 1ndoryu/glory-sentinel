@@ -7,6 +7,7 @@
 import { Violacion } from '../../../types';
 import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
 import { componenteExentoPorProyecto } from '../../../config/exencionesProyecto';
+import { AjustesProyecto, AJUSTES_PROYECTO_DEFECTO } from '../../ajustesProyecto';
 import { esComentario, tieneSentinelDisable, tieneSentinelDisableFile } from '../../../utils/analisisHelpers';
 import { existeComponenteUi } from './reactUiCatalog';
 
@@ -30,7 +31,7 @@ export function esDisparadorDisclosure(lineas: string[], i: number): boolean {
  * Excluye: archivos que SON los propios componentes UI, tests,
  * wrappers (Campo*, Toggle*, Switch*), Glory framework.
  */
-export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArchivo: string): Violacion[] {
+export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArchivo: string, ajustes: AjustesProyecto = AJUSTES_PROYECTO_DEFECTO): Violacion[] {
   /* Componentes propios del proyecto (Boton, Input...) que renderizan HTML nativo a propósito.
    * Los del framework Glory (GloryLink, PageRenderer...) salen del perfil `glory`. */
   const archivosExcluidos = [
@@ -38,7 +39,7 @@ export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArc
     'Textarea', 'CampoTexto', 'Checkbox', 'Radio',
   ];
   const nombreBase = nombreArchivo.replace(/\.(tsx|jsx)$/, '');
-  if (archivosExcluidos.includes(nombreBase) || componenteExentoPorProyecto(nombreBase)) { return []; }
+  if (archivosExcluidos.includes(nombreBase) || componenteExentoPorProyecto(nombreBase, ajustes.exenciones)) { return []; }
 
   const prefijosWrapper = ['Campo', 'Toggle', 'Switch'];
   if (prefijosWrapper.some(p => nombreBase.startsWith(p))) { return []; }

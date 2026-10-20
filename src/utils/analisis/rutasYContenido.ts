@@ -5,21 +5,16 @@ import * as crypto from 'crypto';
 /* [119A-4 S7] /glory-core/ es codigo del framework: sus <button>/<input>
  * nativos SON los componentes que las reglas piden usar, asi que se exime
  * igual que /Glory/. Un proyecto puede cambiar los marcadores en su config. */
-const MARCADORES_GLORY_DEFECTO: readonly string[] = ['/Glory/', '/glory-core/'];
-let marcadoresGlory: readonly string[] = MARCADORES_GLORY_DEFECTO;
-
-/* Sin lista (o vacia) vuelve a los marcadores por defecto */
-export function configurarMarcadoresGlory(marcadores: readonly string[] | undefined): void {
-  marcadoresGlory = marcadores && marcadores.length > 0 ? marcadores : MARCADORES_GLORY_DEFECTO;
-}
+export const MARCADORES_GLORY_DEFECTO: readonly string[] = ['/Glory/', '/glory-core/'];
 
 /*
  * Retorna true si la ruta pertenece al framework Glory/
  * (que tiene su propia arquitectura y no debe analizarse con reglas del proyecto).
+ * [M-S10] Los marcadores llegan como parámetro (config del proyecto); sin estado de módulo.
  */
-export function esRutaGlory(ruta: string): boolean {
+export function esRutaGlory(ruta: string, marcadores: readonly string[] = MARCADORES_GLORY_DEFECTO): boolean {
   const normalizada = normalizarRuta(ruta);
-  return marcadoresGlory.some(marcador => normalizada.includes(marcador));
+  return marcadores.some(marcador => normalizada.includes(marcador));
 }
 
 /*

@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { verificarHtmlNativoEnVezDeComponente, configurarWorkspaceRootsReact } from '../../../analyzers/react/reglas/reactComponentRules';
 import { tempDir } from '../../temporales';
-import { configurarExenciones } from '../../../config/exencionesProyecto';
+import { resolverAjustesProyecto } from '../../../analyzers/ajustesProyecto';
 
 suite('select-nativo-prohibido', () => {
   test('detecta select nativo aunque no exista componente Select con nombre literal', () => {
@@ -63,13 +63,12 @@ suite('base-rutas-components-ui-318a3', () => {
     const raiz = crearFixture();
     try {
       configurarWorkspaceRootsReact([raiz]);
-      configurarExenciones({ componentes: ['Range'] });
+      const ajustes = resolverAjustesProyecto({ exenciones: { componentes: ['Range'] } });
       const violaciones = verificarHtmlNativoEnVezDeComponente([
         '<input type="range" min={0} max={100} value={v} onChange={cambiar} />',
-      ], 'Range.tsx');
+      ], 'Range.tsx', ajustes);
       assert.strictEqual(violaciones.length, 0);
     } finally {
-      configurarExenciones(undefined);
       fs.rmSync(raiz, {recursive: true, force: true});
     }
   });

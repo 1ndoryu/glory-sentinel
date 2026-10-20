@@ -10,6 +10,7 @@ import { Violacion } from '../../types';
 import { CoreTextDocument } from '../../core/runtime-proyecto/types';
 import { reglaHabilitada } from '../../config/ruleRegistry';
 import { esRutaGlory, indiceProyecto, proyectoTieneModalCanonico } from '../../utils/analisisHelpers';
+import { AjustesProyecto, AJUSTES_PROYECTO_DEFECTO } from '../ajustesProyecto';
 
 /* Submodulos */
 import {
@@ -54,6 +55,8 @@ export interface ReactAnalysisOptions {
   workspaceRoots?: string[];
   /* Carpetas del design system (rutasGlory.carpetasUi); ausente = defaults. */
   carpetasUi?: string[][];
+  /* Marcadores Glory y exenciones del proyecto; sin valor usa los de por defecto. */
+  ajustes?: AjustesProyecto;
 }
 
 /*
@@ -74,8 +77,10 @@ export function analizarReact(documento: CoreTextDocument, opciones: ReactAnalys
     return violaciones;
   }
 
+  const ajustes = opciones.ajustes ?? AJUSTES_PROYECTO_DEFECTO;
+
   /* Determinar si el archivo pertenece a Glory/ (muchas reglas lo excluyen) */
-  const enGlory = esRutaGlory(documento.fileName);
+  const enGlory = esRutaGlory(documento.fileName, ajustes.marcadoresGlory);
 
   /* desktop/ tiene sus propios componentes, no comparte componentes UI de la webapp */
   const enDesktop = documento.fileName.replace(/\\/g, '/').includes('/desktop/');
@@ -117,7 +122,7 @@ export function analizarReact(documento: CoreTextDocument, opciones: ReactAnalys
       violaciones.push(...verificarPromiseSinCatch(lineas));
     }
     if (reglaHabilitada('html-nativo-en-vez-de-componente') && !esWrapperSistemaDiseno(documento.fileName)) {
-      violaciones.push(...verificarHtmlNativoEnVezDeComponente(lineas, nombreArchivo));
+      violaciones.push(...verificarHtmlNativoEnVezDeComponente(lineas, nombreArchivo, ajustes));
     }
     if (reglaHabilitada('formulario-config-sin-sistema-declarativo')) {
       violaciones.push(...verificarFormularioConfigSinSistema(lineas, nombreArchivo));

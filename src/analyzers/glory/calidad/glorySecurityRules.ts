@@ -8,18 +8,19 @@ import * as path from 'path';
 import { Violacion } from '../../../types';
 import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
 import { esComentario, esRutaGlory, tieneSentinelDisable } from '../../../utils/analisisHelpers';
+import { AjustesProyecto, AJUSTES_PROYECTO_DEFECTO } from '../../ajustesProyecto';
 
 /*
  * Detecta queries directas en controllers/endpoints.
  * La logica de datos debe estar en un Repository o Service.
  */
-export function verificarEndpointAccedeBd(lineas: string[], rutaArchivo: string): Violacion[] {
+export function verificarEndpointAccedeBd(lineas: string[], rutaArchivo: string, ajustes: AjustesProyecto = AJUSTES_PROYECTO_DEFECTO): Violacion[] {
   const violaciones: Violacion[] = [];
 
   const nombreArchivo = path.basename(rutaArchivo);
   if (!/Controller|Endpoints/i.test(nombreArchivo)) { return violaciones; }
 
-  if (esRutaGlory(rutaArchivo) || rutaArchivo.includes('/Repositories/') ||
+  if (esRutaGlory(rutaArchivo, ajustes.marcadoresGlory) || rutaArchivo.includes('/Repositories/') ||
       rutaArchivo.includes('/Database/') || rutaArchivo.includes('BaseRepository')) {
     return violaciones;
   }

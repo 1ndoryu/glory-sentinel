@@ -11,6 +11,7 @@ import {obtenerSeveridadRegla} from '../../../config/ruleRegistry';
 import {logInfo, logWarn} from '../../../utils/logger';
 import { obtenerWorkspaceRoots } from '../../../core/seguridad-rutas/workspaceRoots';
 import { esRutaGlory } from '../../../utils/analisisHelpers';
+import { AjustesProyecto, AJUSTES_PROYECTO_DEFECTO } from '../../ajustesProyecto';
 
 /* Cache de islas registradas en appIslands.tsx */
 let cacheIslasRegistradas: Set<string> | null = null;
@@ -103,7 +104,7 @@ export function recargarIslasRegistradas(): void {
 /*
  * Detecta archivos en islands/ que no estan registrados en appIslands.tsx.
  */
-export function verificarIslaNoRegistrada(rutaArchivo: string, texto: string): Violacion[] {
+export function verificarIslaNoRegistrada(rutaArchivo: string, texto: string, ajustes: AjustesProyecto = AJUSTES_PROYECTO_DEFECTO): Violacion[] {
     if (!cacheIslasRegistradas) {
         return [];
     }
@@ -119,7 +120,7 @@ export function verificarIslaNoRegistrada(rutaArchivo: string, texto: string): V
     }
 
     /* Glory tiene su propio registro de islas (main.tsx), no usa appIslands.tsx */
-    if (esRutaGlory(rutaArchivo)) {
+    if (esRutaGlory(rutaArchivo, ajustes.marcadoresGlory)) {
         return [];
     }
 

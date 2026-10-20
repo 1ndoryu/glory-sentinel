@@ -3,6 +3,7 @@ import { Violacion } from '../../types';
 import { CoreTextDocument } from '../../core/runtime-proyecto/types';
 import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
 import { rutaExentaPorProyecto } from '../../config/exencionesProyecto';
+import { AjustesProyecto, AJUSTES_PROYECTO_DEFECTO } from '../ajustesProyecto';
 import {
   tieneSentinelDisable,
   tieneSentinelDisableFile,
@@ -29,6 +30,8 @@ export function verificarCssElementoHTMLDirecto(
   texto: string,
   documento: CoreTextDocument,
   nombreArchivo: string,
+  /* Las exenciones del proyecto llegan por parámetro: sin estado de módulo entre proyectos. */
+  ajustes: AjustesProyecto = AJUSTES_PROYECTO_DEFECTO,
 ): Violacion[] {
   const nombreLower = nombreArchivo.toLowerCase();
   if (/^(button|init|variables|modal|reset)\.css$/.test(nombreLower)) {
@@ -36,7 +39,7 @@ export function verificarCssElementoHTMLDirecto(
   }
 
   const rutaNorm = documento.fileName.replace(/\\/g, '/');
-  if (rutaNorm.includes('/node_modules/') || rutaNorm.includes('/vendor/') || rutaExentaPorProyecto(rutaNorm)) {
+  if (rutaNorm.includes('/node_modules/') || rutaNorm.includes('/vendor/') || rutaExentaPorProyecto(rutaNorm, ajustes.exenciones)) {
     return [];
   }
 

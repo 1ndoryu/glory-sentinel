@@ -1,11 +1,10 @@
 /* [marcadores] Los marcadores del framework Glory salen de la config del proyecto y vuelven al defecto sin ella. */
 import * as assert from 'assert';
 import { buildCoreConfig, validateSentinelConfig } from '../../../core/runtime-proyecto/config';
-import { configurarMarcadoresGlory, esRutaGlory } from '../../../utils/analisis/rutasYContenido';
+import { esRutaGlory } from '../../../utils/analisis/rutasYContenido';
+import { resolverAjustesProyecto } from '../../../analyzers/ajustesProyecto';
 
 suite('marcadoresGlory', () => {
-  teardown(() => configurarMarcadoresGlory(undefined));
-
   test('por defecto reconoce /Glory/ y /glory-core/', () => {
     assert.strictEqual(esRutaGlory('C:/repo/Glory/Modal.tsx'), true);
     assert.strictEqual(esRutaGlory('C:/repo/frontend/src/glory-core/Boton.tsx'), true);
@@ -13,14 +12,14 @@ suite('marcadoresGlory', () => {
   });
 
   test('con marcadores propios sustituye a los de defecto', () => {
-    configurarMarcadoresGlory(['/Framework/']);
-    assert.strictEqual(esRutaGlory('C:\\repo\\Framework\\Modal.tsx'), true);
-    assert.strictEqual(esRutaGlory('C:/repo/Glory/Modal.tsx'), false);
+    const marcadores = resolverAjustesProyecto({ marcadoresGlory: ['/Framework/'] }).marcadoresGlory;
+    assert.strictEqual(esRutaGlory('C:\\repo\\Framework\\Modal.tsx', marcadores), true);
+    assert.strictEqual(esRutaGlory('C:/repo/Glory/Modal.tsx', marcadores), false);
   });
 
   test('una lista vacia vuelve al defecto', () => {
-    configurarMarcadoresGlory([]);
-    assert.strictEqual(esRutaGlory('C:/repo/Glory/Modal.tsx'), true);
+    const marcadores = resolverAjustesProyecto({ marcadoresGlory: [] }).marcadoresGlory;
+    assert.strictEqual(esRutaGlory('C:/repo/Glory/Modal.tsx', marcadores), true);
   });
 
   test('buildCoreConfig toma marcadoresGlory de la subconfig v2 y v1', () => {

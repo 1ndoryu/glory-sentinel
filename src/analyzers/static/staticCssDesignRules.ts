@@ -7,6 +7,7 @@
 import { Violacion } from '../../types';
 import { CoreTextDocument } from '../../core/runtime-proyecto/types';
 import { rutaExentaPorProyecto } from '../../config/exencionesProyecto';
+import { AjustesProyecto, AJUSTES_PROYECTO_DEFECTO } from '../ajustesProyecto';
 import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
 import {
   claseAplicada,
@@ -304,6 +305,8 @@ export function verificarCssEspecificacionDisenoLocal(
    * cada clase. Sin roots el indice sale vacio y la regla dispara como antes:
    * fail-closed, la falta de evidencia no exime. */
   roots: string[] = [],
+  /* Las exenciones del proyecto llegan por parámetro: sin estado de módulo entre proyectos. */
+  ajustes: AjustesProyecto = AJUSTES_PROYECTO_DEFECTO,
 ): Violacion[] {
   const nombreLower = nombreArchivo.toLowerCase();
   const rutaNorm = documento.fileName.replace(/\\/g, '/');
@@ -313,7 +316,7 @@ export function verificarCssEspecificacionDisenoLocal(
     return [];
   }
 
-  if (rutaNorm.includes('/node_modules/') || rutaNorm.includes('/vendor/') || rutaExentaPorProyecto(rutaNorm)) {
+  if (rutaNorm.includes('/node_modules/') || rutaNorm.includes('/vendor/') || rutaExentaPorProyecto(rutaNorm, ajustes.exenciones)) {
     return [];
   }
 

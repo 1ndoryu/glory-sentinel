@@ -16,8 +16,7 @@ export const PERFILES_EXENCION: Readonly<Record<string, ExencionesResueltas>> = 
   },
 };
 
-const SIN_EXENCIONES: ExencionesResueltas = { rutas: [], componentes: [] };
-let exenciones: ExencionesResueltas = SIN_EXENCIONES;
+export const SIN_EXENCIONES: ExencionesResueltas = { rutas: [], componentes: [] };
 
 /* Combina el perfil con las listas propias; sin entrada, no exime nada. */
 export function resolverExenciones(entrada?: CoreExenciones): ExencionesResueltas {
@@ -29,17 +28,12 @@ export function resolverExenciones(entrada?: CoreExenciones): ExencionesResuelta
   };
 }
 
-/* Sin entrada vuelve a no eximir nada, igual que configurarMarcadoresGlory. */
-export function configurarExenciones(entrada?: CoreExenciones): void {
-  exenciones = resolverExenciones(entrada);
-}
-
-/* rutaNorm usa barras '/'; el llamador ya normaliza la ruta. */
-export function rutaExentaPorProyecto(rutaNorm: string): boolean {
+/* rutaNorm usa barras '/'; el llamador ya normaliza la ruta. [M-S10] Las exenciones llegan como parámetro. */
+export function rutaExentaPorProyecto(rutaNorm: string, exenciones: ExencionesResueltas = SIN_EXENCIONES): boolean {
   return exenciones.rutas.some(fragmento => rutaNorm.includes(fragmento));
 }
 
 /* nombreBase es el nombre del componente sin extension. */
-export function componenteExentoPorProyecto(nombreBase: string): boolean {
+export function componenteExentoPorProyecto(nombreBase: string, exenciones: ExencionesResueltas = SIN_EXENCIONES): boolean {
   return exenciones.componentes.includes(nombreBase);
 }

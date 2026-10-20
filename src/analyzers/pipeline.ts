@@ -10,16 +10,13 @@ import { analizarReact } from './react/reactAnalyzer';
 import { analizarRust } from './rust/rustAnalyzer';
 import { analizarGlory } from './gloryAnalyzer';
 import { analizarApiEndpoints } from './externos/apiEndpointAnalyzer';
-import { configurarMarcadoresGlory } from '../utils/analisis/rutasYContenido';
-import { configurarExenciones } from '../config/exencionesProyecto';
+import { AjustesProyecto, resolverAjustesProyecto } from './ajustesProyecto';
 
 /* Ejecuta todos los analizadores que aplican al tipo del documento. */
 export function pipelineAnalizadores(document: CoreTextDocument, contexto: CoreAnalysisContext): Violacion[] {
   const { config, workspace } = contexto;
-  // Los marcadores de framework llegan de la config del proyecto; sin ella, los de por defecto
-  configurarMarcadoresGlory(config.marcadoresGlory);
-  // Las exenciones son opt-in: sin la clave, el análisis no exime ninguna ruta ni componente
-  configurarExenciones(config.exenciones);
+  // [M-S10] Marcadores Glory y exenciones de la config, pasados a cada analizador; sin estado de módulo
+  const ajustes: AjustesProyecto = resolverAjustesProyecto(config);
   const workspaceRoots = workspace ? [workspace.rootPath] : [];
   const tipo = obtenerTipoArchivo(document.languageId, document.fileName);
   const violaciones: Violacion[] = [];
@@ -27,17 +24,18 @@ export function pipelineAnalizadores(document: CoreTextDocument, contexto: CoreA
   violaciones.push(...analizarEstatico(document, undefined, {
     directoryExceptions: config.directoryExceptions ?? [],
     portableBoundaries: config.portableBoundaries,
+    ajustes,
   }));
 
   if (tipo === 'php') {
-    violaciones.push(...analizarPhp(document));
+    violaciones.push(...analizarPhp(document, ajustes));
   } else if (tipo === 'tsx' || tipo === 'jsx') {
-    violaciones.push(...analizarReact(document, { workspaceRoots, carpetasUi: config.rutasGlory?.carpetasUi }));
+    violaciones.push(...analizarReact(document, { workspaceRoots, carpetasUi: config.rutasGlory?.carpetasUi, ajustes }));
   } else if (tipo === 'rust') {
     violaciones.push(...analizarRust(document));
   }
 
-  violaciones.push(...analizarGlory(document));
+  violaciones.push(...analizarGlory(document, ajustes));
   violaciones.push(...analizarApiEndpoints(document, workspace));
   return violaciones;
 }

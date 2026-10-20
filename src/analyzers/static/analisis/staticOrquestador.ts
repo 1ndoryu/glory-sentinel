@@ -10,6 +10,7 @@ import { REGLAS_LIMITE_LINEAS, verificarLimiteLineas, verificarUseStateExcesivo,
 import { verificarCardIconoExtiendeBase, verificarCssAdhocButtonStyle, verificarCssEspecificacionDisenoLocal, verificarModalSemanticaNoCanonica, verificarNomenclaturaCssIngles, verificarCssElementoHTMLDirecto, verificarCssHardcoded } from '../staticCssRules';
 import { PortableBoundaryConfig, verificarReglasPortables } from '../portableRules';
 import { reglasDeshabilitadasEnArchivo } from './staticSentinelDisable';
+import { AjustesProyecto, AJUSTES_PROYECTO_DEFECTO } from '../../ajustesProyecto';
 import { ejecutarReglaPorLinea } from './staticReglasPorLinea';
 import { ejecutarReglaCompleta } from './staticReglaCompleta';
 
@@ -32,6 +33,8 @@ export interface StaticAnalysisOptions {
     /* [149A-1] Sufijos de ruta de productores HTML declarados por el proyecto
      * (patron directoryExceptions). Default vacio: cada consumidor declara. */
     htmlProductoresPermitidos?: string[];
+    /* Marcadores Glory y exenciones del proyecto; sin valor usa los de por defecto. */
+    ajustes?: AjustesProyecto;
 }
 
 export function analizarEstatico(
@@ -46,6 +49,7 @@ export function analizarEstatico(
      * de mas abajo sin tener que añadirlos uno a uno. */
     const extension = extensionCanonica('.' + nombreArchivo.split('.').pop());
     const violaciones: Violacion[] = [];
+    const ajustes = opciones.ajustes ?? AJUSTES_PROYECTO_DEFECTO;
 
     /* Excluir prototipos de referencia */
     const nombreBase = nombreArchivo.replace(/\.[^.]+$/, '');
@@ -90,7 +94,7 @@ export function analizarEstatico(
         /* Excluir barras-decorativas en Glory/ */
         if (regla.id === 'barras-decorativas') {
             const rutaNorm = documento.fileName.replace(/\\/g, '/');
-            if (esRutaGlory(rutaNorm)) {
+            if (esRutaGlory(rutaNorm, ajustes.marcadoresGlory)) {
                 continue;
             }
         }
@@ -105,7 +109,7 @@ export function analizarEstatico(
     /* Limites de lineas (excluir Glory/) */
     if (REGLAS_LIMITE_LINEAS.some(reglaId => reglaHabilitada(reglaId))) {
         const rutaNormLimite = documento.fileName.replace(/\\/g, '/');
-        if (!esRutaGlory(rutaNormLimite)) {
+        if (!esRutaGlory(rutaNormLimite, ajustes.marcadoresGlory)) {
             violaciones.push(...verificarLimiteLineas(documento, nombreArchivo));
         }
     }
@@ -165,15 +169,15 @@ export function analizarEstatico(
     /* Reglas CSS */
     if (['.css', '.scss'].includes(extension)) {
         const rutaNormCss = documento.fileName.replace(/\\/g, '/');
-        if (reglaHabilitada('nomenclatura-css-ingles') && !esRutaGlory(rutaNormCss)) {
+        if (reglaHabilitada('nomenclatura-css-ingles') && !esRutaGlory(rutaNormCss, ajustes.marcadoresGlory)) {
             violaciones.push(...verificarNomenclaturaCssIngles(texto, documento, nombreArchivo));
         }
         if (reglaHabilitada('css-adhoc-button-style')) {
             /* [15A-25] Coste con cache; solo se calcula si la regla esta habilitada. */
-            violaciones.push(...verificarCssAdhocButtonStyle(texto, documento, nombreArchivo, obtenerWorkspaceRoots()));
+            violaciones.push(...verificarCssAdhocButtonStyle(texto, documento, nombreArchivo, obtenerWorkspaceRoots(), ajustes));
         }
         if (reglaHabilitada('css-especificacion-diseno-local')) {
-            violaciones.push(...verificarCssEspecificacionDisenoLocal(texto, documento, nombreArchivo, obtenerWorkspaceRoots()));
+            violaciones.push(...verificarCssEspecificacionDisenoLocal(texto, documento, nombreArchivo, obtenerWorkspaceRoots(), ajustes));
         }
         if (reglaHabilitada('card-icono-debe-extender-base')) {
             violaciones.push(...verificarCardIconoExtiendeBase(texto, documento, nombreArchivo));
@@ -181,10 +185,10 @@ export function analizarEstatico(
         if (reglaHabilitada('modal-semantica-no-canonica')) {
             /* [119A-4 S4] Coste con cache; solo se calcula si la regla esta habilitada. */
             const tieneModalCanonico = proyectoTieneModalCanonico(obtenerWorkspaceRoots());
-            violaciones.push(...verificarModalSemanticaNoCanonica(texto, documento, nombreArchivo, tieneModalCanonico));
+            violaciones.push(...verificarModalSemanticaNoCanonica(texto, documento, nombreArchivo, tieneModalCanonico, ajustes));
         }
         if (reglaHabilitada('css-elemento-html-directo')) {
-            violaciones.push(...verificarCssElementoHTMLDirecto(texto, documento, nombreArchivo));
+            violaciones.push(...verificarCssElementoHTMLDirecto(texto, documento, nombreArchivo, ajustes));
         }
         /* [318A-4] Regla reactivada: colores hardcodeados fuera de tokens. */
         if (reglaHabilitada('css-hardcoded-value')) {
