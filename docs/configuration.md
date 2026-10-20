@@ -32,6 +32,16 @@ Las reglas que tratan `/Glory/` y `/glory-core/` como código del framework (exe
 usan esos marcadores por defecto. Un proyecto con otro nombre de framework los declara en
 `marcadoresGlory` (lista de fragmentos de ruta, junto a `rules`); una lista vacía vuelve al defecto.
 
+Las exenciones son opt-in: sin la clave, el análisis no omite ninguna ruta ni componente. Para el framework Glory:
+
+```json
+{ "exenciones": { "perfil": "glory" } }
+```
+
+El perfil `glory` exime las rutas `/glory-rs/` y `/public/assets/` de las reglas CSS de estilo ad-hoc, y los
+componentes `PageRenderer`, `ModalAcciones`, `GloryLink` y `Range` de la regla de HTML nativo. `rutas` y
+`componentes` añaden más fragmentos propios; las claves desconocidas dentro de `exenciones` se rechazan.
+
 Las reglas de WordPress y de Glory vienen desactivadas por defecto, porque en un proyecto ajeno dan falsos
 positivos. Si Sentinel detecta el perfil (carpeta `Glory`, `wp-content`, `wp-config.php` o un tema con
 `Theme Name:`), el informe del gate lo indica y sugiere la ruta exacta para activarlas. Nunca las activa solo.

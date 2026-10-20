@@ -63,6 +63,14 @@ export interface CoreRutasGlory {
   carpetasUi?: string[][];
 }
 
+/* Exenciones del proyecto: rutas y componentes que el analizador no juzga.
+ * `perfil` activa un conjunto con nombre (p. ej. "glory"); `rutas` y `componentes` se suman. */
+export interface CoreExenciones {
+  perfil?: string;
+  rutas?: string[];
+  componentes?: string[];
+}
+
 export interface CoreAnalysisConfig {
   enabled: boolean;
   includePatterns: string[];
@@ -71,6 +79,8 @@ export interface CoreAnalysisConfig {
   directoryExceptions?: string[];
   /* Carpetas que marcan el framework Glory; vacio o ausente = por defecto */
   marcadoresGlory?: string[];
+  /* Exenciones opt-in por proyecto; ausente = no exime nada. */
+  exenciones?: CoreExenciones;
   /* Traduccion de rutas legacy a rutas del openapi (analizador de endpoints). Ausente = defaults del analizador. */
   apiRutas?: CoreApiRutas;
   rutasGlory?: CoreRutasGlory;

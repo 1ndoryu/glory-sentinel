@@ -6,6 +6,7 @@
 
 import { Violacion } from '../../types';
 import { CoreTextDocument } from '../../core/runtime-proyecto/types';
+import { rutaExentaPorProyecto } from '../../config/exencionesProyecto';
 import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
 import {
   claseAplicada,
@@ -312,8 +313,7 @@ export function verificarCssEspecificacionDisenoLocal(
     return [];
   }
 
-  if (rutaNorm.includes('/node_modules/') || rutaNorm.includes('/vendor/') ||
-      rutaNorm.includes('/glory-rs/') || rutaNorm.includes('/public/assets/')) {
+  if (rutaNorm.includes('/node_modules/') || rutaNorm.includes('/vendor/') || rutaExentaPorProyecto(rutaNorm)) {
     return [];
   }
 

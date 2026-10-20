@@ -11,12 +11,15 @@ import { analizarRust } from './rust/rustAnalyzer';
 import { analizarGlory } from './gloryAnalyzer';
 import { analizarApiEndpoints } from './externos/apiEndpointAnalyzer';
 import { configurarMarcadoresGlory } from '../utils/analisis/rutasYContenido';
+import { configurarExenciones } from '../config/exencionesProyecto';
 
 /* Ejecuta todos los analizadores que aplican al tipo del documento. */
 export function pipelineAnalizadores(document: CoreTextDocument, contexto: CoreAnalysisContext): Violacion[] {
   const { config, workspace } = contexto;
   // Los marcadores de framework llegan de la config del proyecto; sin ella, los de por defecto
   configurarMarcadoresGlory(config.marcadoresGlory);
+  // Las exenciones son opt-in: sin la clave, el análisis no exime ninguna ruta ni componente
+  configurarExenciones(config.exenciones);
   const workspaceRoots = workspace ? [workspace.rootPath] : [];
   const tipo = obtenerTipoArchivo(document.languageId, document.fileName);
   const violaciones: Violacion[] = [];

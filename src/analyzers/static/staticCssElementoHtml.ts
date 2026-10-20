@@ -2,6 +2,7 @@
 import { Violacion } from '../../types';
 import { CoreTextDocument } from '../../core/runtime-proyecto/types';
 import { obtenerSeveridadRegla } from '../../config/ruleRegistry';
+import { rutaExentaPorProyecto } from '../../config/exencionesProyecto';
 import {
   tieneSentinelDisable,
   tieneSentinelDisableFile,
@@ -35,8 +36,7 @@ export function verificarCssElementoHTMLDirecto(
   }
 
   const rutaNorm = documento.fileName.replace(/\\/g, '/');
-  if (rutaNorm.includes('/node_modules/') || rutaNorm.includes('/vendor/') ||
-      rutaNorm.includes('/glory-rs/') || rutaNorm.includes('/public/assets/')) {
+  if (rutaNorm.includes('/node_modules/') || rutaNorm.includes('/vendor/') || rutaExentaPorProyecto(rutaNorm)) {
     return [];
   }
 

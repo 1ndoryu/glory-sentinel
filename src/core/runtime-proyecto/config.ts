@@ -1,5 +1,6 @@
 import { ConfigReglaUsuario, obtenerIdsReglas } from '../../config/ruleRegistry';
-import { CoreAnalysisConfig, CoreApiRutas, CoreRutasGlory } from './types';
+import { CoreAnalysisConfig, CoreApiRutas, CoreExenciones, CoreRutasGlory } from './types';
+import { assertStringArray, validarExenciones } from './validacion/configValidacion';
 import { isSafeBranch } from '../task/branchValidation';
 import { HEAVY_BUDGET_CLASSES } from '../gate/heavyBudget';
 
@@ -9,6 +10,8 @@ export interface SentinelConfigFile {
   directoryExceptions?: string[];
   /* Carpetas que marcan el framework Glory (por defecto /Glory/ y /glory-core/) */
   marcadoresGlory?: string[];
+  /* Exenciones opt-in (perfil con nombre y/o rutas y componentes propios); sin clave, no exime nada. */
+  exenciones?: CoreExenciones;
   /* Rutas legacy -> openapi del analizador de endpoints; sin esta clave se usan los defaults del analizador. */
   apiRutas?: CoreApiRutas;
   /* Carpetas del framework Glory (controllers PHP y design system React); sin esta clave, los defaults. */
@@ -71,7 +74,7 @@ export const DEFAULT_EXCLUDE_PATTERNS = [
   '**/target/**',
 ];
 
-const CONFIG_KEYS = new Set(['includePatterns', 'excludePatterns', 'directoryExceptions', 'marcadoresGlory', 'apiRutas', 'rutasGlory', 'rules', 'portableBoundaries', 'project', 'schemaVersion', 'mode', 'gate', 'guard', 'runtime', 'analyzers', 'budgets']);
+const CONFIG_KEYS = new Set(['includePatterns', 'excludePatterns', 'directoryExceptions', 'marcadoresGlory', 'exenciones', 'apiRutas', 'rutasGlory', 'rules', 'portableBoundaries', 'project', 'schemaVersion', 'mode', 'gate', 'guard', 'runtime', 'analyzers', 'budgets']);
 const PORTABLE_BOUNDARY_KEYS = new Set(['dom', 'window', 'services', 'loggerModules', 'tooling']);
 const API_RUTAS_KEYS = new Set(['mapa', 'mantener', 'prefijosMantener', 'prefijosMapa']);
 const RUTAS_GLORY_KEYS = new Set(['controladores', 'carpetasUi']);
@@ -81,12 +84,6 @@ const VALID_SEVERITIES = new Set(['error', 'warning', 'information', 'hint']);
 
 export function isSafePrimaryBranch(value: string): boolean {
   return isSafeBranch(value);
-}
-
-function assertStringArray(value: unknown, key: string): asserts value is string[] {
-  if (!Array.isArray(value) || value.some(item => typeof item !== 'string')) {
-    throw new Error(`sentinel.config.json: '${key}' debe ser string[]`);
-  }
 }
 
 /* Mapa string->string (apiRutas.mapa, apiRutas.prefijosMapa); rechaza cualquier valor que no sea texto. */
@@ -206,6 +203,8 @@ export function validateSentinelConfig(value: unknown): asserts value is Sentine
       assertStringArray(boundaries[key], `portableBoundaries.${key}`);
     }
   }
+
+  if (config.exenciones !== undefined) validarExenciones(config.exenciones);
 
   if (config.apiRutas !== undefined) {
     if (!config.apiRutas || typeof config.apiRutas !== 'object' || Array.isArray(config.apiRutas)) {
@@ -372,6 +371,7 @@ export function buildCoreConfig(config: SentinelConfigFile): CoreAnalysisConfig 
     excludePatterns: analyzerConfig.excludePatterns ?? DEFAULT_EXCLUDE_PATTERNS,
     directoryExceptions: analyzerConfig.directoryExceptions ?? [],
     marcadoresGlory: analyzerConfig.marcadoresGlory,
+    exenciones: analyzerConfig.exenciones,
     apiRutas: analyzerConfig.apiRutas,
     rutasGlory: analyzerConfig.rutasGlory,
     ruleOverrides: Object.fromEntries(
