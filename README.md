@@ -115,7 +115,7 @@ Los consumidores antiguos pueden conservar temporalmente `task:check` o `scripts
 
 - Node.js 20 o superior (`engines.node` y CI usan 20). En servidores, el `node` por defecto puede ser más antiguo: comprueba `node --version` en la misma terminal donde ejecutarás `npm ci` y `npm run compile`.
 - `git` en el PATH.
-- Windows: el shim `sentinel.cmd` se ejecuta con `cmd`; `--with-path` escribe el PATH de usuario.
+- Windows: el shim `sentinel.cmd` se ejecuta con `cmd`. `--with-path` escribe el PATH de usuario de Windows: antepone `<destino>\shims` y `<destino>\bin` y conserva el resto. `--without-path` retira solo esas dos entradas (ver los puntos de PATH en «Instalación desde un release»).
 - Fuera de Windows: el shim `bin/sentinel` (sh) se marca ejecutable al instalar.
 
 ## Instalación desde un release
@@ -155,6 +155,7 @@ La versión visible no basta para garantizar capacidades. Los proyectos que depe
 Destino por defecto: `%LOCALAPPDATA%\GlorySentinel` en Windows; si no existe `LOCALAPPDATA`, `~/.glory-sentinel`. `--target-root` existe en `install`, `update`, `rollback` y `uninstall`; para fijar el destino, pásalo explícitamente.
 
 - Fuera de Windows, `--with-path` no toca el PATH (el dry-run informa `[path] unsupported`); ver el paso del PATH arriba.
+- PATH de usuario en Windows: `--with-path` escribe en el PATH de usuario (no en el de sistema) y lo cambia para terminales nuevas. `install --without-path --target-root <destino>` retira solo `<destino>\shims` y `<destino>\bin`; el resto de entradas no se toca. Usa `--dry-run` primero: el informe muestra el PATH resultante (`[path] REMOVED … → …`) sin escribirlo. Si `--with-path` se ejecutó con un destino distinto del que pasas, la entrada no se encuentra y el resultado es `unchanged`: repite el comando con el mismo `--target-root`.
 - `--with-shims` intercepta solo algunos comandos: `npm`, `npx` y `cargo` en `cmd`; `cargo`, `cargo.exe`, `rustfmt`, `npm`, `npx`, `vitest`, `tsc`, `eslint` y `prettier` en bash y PowerShell. Cualquier otro comando no pasa por Sentinel.
 - `doctor` no acepta `--target-root` (sale 2 si se pasa) y reporta el runtime global, no el de un destino personalizado. El comportamiento del lock (`lock-missing`) está descrito arriba, en la comprobación de consumidores.
 - Desinstalar: `sentinel uninstall --dry-run` primero. Retira solo entradas administradas (PATH, shims, marcadores de perfil, versiones y `current`). `--keep-runtime` conserva `versions/`, `current` y `bin/`.
