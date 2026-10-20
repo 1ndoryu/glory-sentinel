@@ -28,7 +28,7 @@ export const STACK_PRESETS: Record<StackPreset, PresetDefinition> = {
       npmScripts: ['lint', 'test', 'build', 'check'],
       npxTools: ['eslint', 'tsc', 'typescript'],
       cargoSubcommands: [],
-      tools: ['git'],
+      tools: [],
     },
   },
   rust: {
@@ -38,7 +38,7 @@ export const STACK_PRESETS: Record<StackPreset, PresetDefinition> = {
       npmScripts: [],
       npxTools: [],
       cargoSubcommands: ['check', 'test', 'nextest', 'clippy', 'fmt'],
-      tools: ['git'],
+      tools: [],
     },
   },
   python: {
@@ -48,7 +48,7 @@ export const STACK_PRESETS: Record<StackPreset, PresetDefinition> = {
       npmScripts: [],
       npxTools: [],
       cargoSubcommands: [],
-      tools: ['git', 'python', 'pip'],
+      tools: [],
     },
   },
   mixed: {
@@ -64,7 +64,7 @@ export const STACK_PRESETS: Record<StackPreset, PresetDefinition> = {
       npmScripts: ['lint', 'test', 'build', 'check'],
       npxTools: ['eslint', 'tsc', 'typescript'],
       cargoSubcommands: ['check', 'test', 'nextest', 'clippy', 'fmt'],
-      tools: ['git', 'python', 'pip'],
+      tools: [],
     },
   },
 };

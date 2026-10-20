@@ -24,10 +24,12 @@ suite('Sentinel core listas de comandos del guard (SQ-13)', () => {
 
   test('todo preset por stack declara solo comandos cubiertos por la lista genérica', () => {
     for (const [nombre, preset] of Object.entries(STACK_PRESETS)) {
-      const { npmScripts, npxTools, cargoSubcommands } = preset.directCommands;
+      const { npmScripts, npxTools, cargoSubcommands, tools } = preset.directCommands;
       assert.ok(contenidoEn(LISTA_NPM_SCRIPTS, npmScripts), `${nombre}: npmScripts fuera de la lista genérica`);
       assert.ok(contenidoEn(LISTA_TOOLS, npxTools), `${nombre}: npxTools fuera de la lista genérica`);
       assert.ok(contenidoEn(LISTA_CARGO_COMMANDS, cargoSubcommands), `${nombre}: cargoSubcommands fuera de la lista genérica`);
+      /* Los presets no bloquean binarios de propósito general (git, python, pip). */
+      assert.ok(contenidoEn(LISTA_TOOLS, tools), `${nombre}: tools fuera de la lista genérica`);
     }
   });
 
