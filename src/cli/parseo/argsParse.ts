@@ -4,7 +4,9 @@
 import type { ParsedCliArgs } from './argsTypes';
 import { parseTaskCliArgs } from './argsTask';
 import { takeValue } from './argsValue';
-import { AyudaSolicitada, usage } from './argsUsage';
+import { AyudaSolicitada, errorDeUso, usage } from './argsUsage';
+
+const COMANDOS = ['analyze', 'check', 'guard', 'doctor', 'status', 'install', 'update', 'rollback', 'uninstall', 'lease', 'init', 'migrate', 'uninit'];
 
 /* Entero >= 0 para los límites de analyze; 0 significa sin límite. */
 function parseLimite(valor: string, opcion: string): number {
@@ -15,15 +17,17 @@ function parseLimite(valor: string, opcion: string): number {
 
 export function parseCliArgs(args: string[]): ParsedCliArgs {
   if (args[0] === 'task') return parseTaskCliArgs(args) as unknown as ParsedCliArgs;
-  if (!['analyze', 'check', 'guard', 'doctor', 'status', 'install', 'update', 'rollback', 'uninstall', 'lease', 'init', 'migrate', 'uninit'].includes(args[0] ?? '')) {
-    throw new Error(usage());
-  }
 
-  /* La ayuda vale para cualquier comando y se pide antes de `--`, porque lo que
-   * va detrás es para el ejecutable de `guard`. */
+  /* La ayuda vale para cualquier comando y en cualquier posición; se mira antes del
+   * comando para que `--help scan` también salga con rc 0. Va antes de `--`, porque lo
+   * que sigue es para el ejecutable de `guard`. */
   const separador = args.indexOf('--');
   const opciones = separador === -1 ? args : args.slice(0, separador);
   if (opciones.includes('--help') || opciones.includes('-h')) throw new AyudaSolicitada(usage());
+
+  if (!COMANDOS.includes(args[0] ?? '')) {
+    throw new Error(errorDeUso(args[0] === undefined ? 'Falta el comando.' : `Comando no reconocido: ${args[0]}.`));
+  }
 
   const parsed: ParsedCliArgs = {
     command: args[0] as ParsedCliArgs['command'],
@@ -48,7 +52,7 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
         parsed.workspacePath = takeValue(before, index, arg);
         index++;
       } else {
-        throw new Error(`Opcion no reconocida: ${arg}\n${usage()}`);
+        throw new Error(errorDeUso(`Opcion no reconocida: ${arg}`));
       }
     }
     return parsed;
@@ -57,7 +61,7 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
   if (args[0] === 'lease') {
     const action = args[1];
     if (!['issue', 'list', 'revoke', 'verify'].includes(action ?? '')) {
-      throw new Error(`Acción lease no reconocida: ${String(action)}\n${usage()}`);
+      throw new Error(errorDeUso(`Acción lease no reconocida: ${String(action)}`));
     }
     parsed.command = 'lease';
     parsed.leaseAction = action as ParsedCliArgs['leaseAction'];
@@ -88,7 +92,7 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
       } else if (arg === '--json') {
         parsed.json = true;
       } else {
-        throw new Error(`Opcion no reconocida: ${arg}\n${usage()}`);
+        throw new Error(errorDeUso(`Opcion no reconocida: ${arg}`));
       }
     }
     return parsed;
@@ -121,7 +125,7 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
       } else if (arg === '--json') {
         parsed.json = true;
       } else {
-        throw new Error(`Opcion no reconocida: ${arg}\n${usage()}`);
+        throw new Error(errorDeUso(`Opcion no reconocida: ${arg}`));
       }
     }
     return parsed;
@@ -155,7 +159,7 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
       } else if (arg === '--json') {
         parsed.json = true;
       } else {
-        throw new Error(`Opcion no reconocida: ${arg}\n${usage()}`);
+        throw new Error(errorDeUso(`Opcion no reconocida: ${arg}`));
       }
     }
     return parsed;
@@ -246,7 +250,7 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
         index++;
         break;
       default:
-        throw new Error(`Opcion no reconocida: ${arg}\n${usage()}`);
+        throw new Error(errorDeUso(`Opcion no reconocida: ${arg}`));
     }
   }
 

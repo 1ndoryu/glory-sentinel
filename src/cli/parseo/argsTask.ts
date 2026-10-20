@@ -1,7 +1,7 @@
 /* [108A-1 Fase 2] Parser del subcomando `sentinel task` y formato de su salida.
  * Separado de args.ts para mantener cada módulo bajo el límite de líneas. */
 import type { TaskAction, TaskCliArgs, TaskCliResult } from './argsTypes';
-import { AyudaSolicitada, taskUsage } from './argsUsage';
+import { AyudaSolicitada, errorDeUso, taskUsage } from './argsUsage';
 import { takeValue } from './argsValue';
 
 export function formatTaskResult(result: TaskCliResult, json = false): string {
@@ -76,7 +76,7 @@ export function parseTaskCliArgs(args: string[]): TaskCliArgs {
       parsed.outputPath = takeValue(args, index, arg);
       index++;
     } else {
-      throw new Error(`Opcion no reconocida: ${arg}\n${taskUsage()}`);
+      throw new Error(errorDeUso(`Opcion no reconocida: ${arg}`, 'sentinel task --help'));
     }
   }
   if (parsed.taskAction !== 'status' && !parsed.taskId) throw new Error(`task ${parsed.taskAction} requiere <id>`);

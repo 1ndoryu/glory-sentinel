@@ -5,6 +5,11 @@
  * el CLI la imprime en stdout con rc 0 (los errores de uso siguen con rc 2). */
 export class AyudaSolicitada extends Error {}
 
+/* Error de uso de una línea con la pista hacia la ayuda; el uso completo solo sale con --help. */
+export function errorDeUso(mensaje: string, ayuda = '--help'): string {
+  return `${mensaje} Ejecuta con ${ayuda}.`;
+}
+
 export function taskUsage(): string {
   return [
     'Uso de tareas:',
