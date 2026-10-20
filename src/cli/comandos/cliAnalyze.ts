@@ -7,11 +7,12 @@ import { promisify } from 'util';
 import { Minimatch } from 'minimatch';
 import { analizarDocumento } from '../../analyzers/pipeline';
 import { inicializarGloryAnalyzer } from '../../analyzers/gloryAnalyzer';
+import { limpiarDirectoriosReportados } from '../../analyzers/static/analisis/staticOrquestador';
 import { buildCoreConfig } from '../../core/runtime-proyecto/config';
 import { generarReporteMarkdown, CoreReportEntry } from '../../core/diagnostico/report';
 import { CoreAnalysisConfig, createCoreDocument } from '../../core/runtime-proyecto/types';
 import { languageIdForFile } from '../../core/runtime-proyecto/language';
-import { CliAnalysisResult, ParsedCliArgs, SENTINEL_JSON_SCHEMA_VERSION } from '../parseo/argsTypes';
+import { CliAnalysisLimits, CliAnalysisResult, ParsedCliArgs, SENTINEL_JSON_SCHEMA_VERSION } from '../parseo/argsTypes';
 import { readConfig } from './cliShared';
 import { GIT_MAX_BUFFER, GIT_TIMEOUT_MS } from '../../utils/gitLimites';
 
@@ -19,6 +20,10 @@ const execFileAsync = promisify(execFile);
 
 /* Archivos analizados en paralelo: suficiente para solapar E/S sin disparar la memoria. */
 const LOTE_ANALISIS = 8;
+
+/* [SQ-4] Tope por archivo por defecto (1 MiB). Un volcado o bundle de cientos de MB no aporta
+ * hallazgos útiles y su lectura completa dispara la memoria. 0 en --max-file-bytes = sin límite. */
+const MAX_BYTES_ARCHIVO_DEFECTO = 1024 * 1024;
 
 function normalizarRuta(ruta: string): string {
   return ruta.replace(/\\/g, '/');
@@ -123,7 +128,16 @@ async function collectFiles(rootPath: string, config: CoreAnalysisConfig): Promi
   return files;
 }
 
-async function analyzeFile(filePath: string, rootPath: string, config: CoreAnalysisConfig): Promise<CoreReportEntry> {
+/* Devuelve null si el archivo supera el tope: se mira el tamaño antes de leerlo para no cargarlo. */
+async function analyzeFile(
+  filePath: string,
+  rootPath: string,
+  config: CoreAnalysisConfig,
+  maxFileBytes: number,
+): Promise<CoreReportEntry | null> {
+  if (maxFileBytes > 0 && (await fs.stat(filePath)).size > maxFileBytes) {
+    return null;
+  }
   const content = await fs.readFile(filePath, 'utf8');
   const document = createCoreDocument({
     uri: `file://${normalizarRuta(filePath)}`,
@@ -180,6 +194,9 @@ export async function analyzeCliTarget(args: ParsedCliArgs): Promise<CliAnalysis
   const configFile = await readConfig(args.configPath, workspacePath);
   const config = buildCoreConfig(configFile);
   inicializarGloryAnalyzer([workspacePath], config.rutasGlory);
+  /* [por que] La dedup de directorio-abarrotado vive a nivel de módulo: sin limpiarla, un segundo
+   * analyze en el mismo proceso (tests, uso como librería) perdería ese hallazgo. */
+  limpiarDirectoriosReportados();
 
   const files = args.filePath
     ? [path.resolve(args.filePath)]
@@ -187,22 +204,86 @@ export async function analyzeCliTarget(args: ParsedCliArgs): Promise<CliAnalysis
       ? await collectFilesFromList(args.filesFromPath, workspacePath, config)
       : await collectFiles(workspacePath, config);
 
+  const maxFileBytes = args.maxFileBytes ?? MAX_BYTES_ARCHIVO_DEFECTO;
+  const deadlineMs = args.deadlineMs ?? 0;
+  const maxFindings = args.maxFindings ?? 0;
+
   /* [por que] Por lotes: las lecturas de un lote se solapan, pero nunca hay más de
-   * LOTE_ANALISIS archivos en memoria a la vez. Cada lote conserva el orden de `files`. */
+   * LOTE_ANALISIS archivos en memoria a la vez. Cada lote conserva el orden de `files`.
+   * El deadline se comprueba entre lotes: un lote en curso termina, así que el corte nunca deja
+   * un resultado a medias. */
+  const limite = deadlineMs > 0 ? startedAt + deadlineMs : Infinity;
   const entries: CoreReportEntry[] = [];
+  let archivosOmitidosPorTamano = 0;
+  let procesados = 0;
   for (let i = 0; i < files.length; i += LOTE_ANALISIS) {
+    if (Date.now() >= limite) break;
     const lote = await Promise.all(
-      files.slice(i, i + LOTE_ANALISIS).map(filePath => analyzeFile(filePath, workspacePath, config)),
+      files.slice(i, i + LOTE_ANALISIS).map(filePath => analyzeFile(filePath, workspacePath, config, maxFileBytes)),
     );
-    entries.push(...lote.filter(entry => entry.findings.length > 0));
+    for (const entry of lote) {
+      if (entry === null) archivosOmitidosPorTamano++;
+      else if (entry.findings.length > 0) entries.push(entry);
+    }
+    procesados = i + lote.length;
   }
 
-  return {
-    entries,
-    totalArchivos: files.length,
-    hasErrors: entries.some(entry => entry.findings.some(finding => finding.severity === 'error')),
-    durationMs: Date.now() - startedAt,
+  /* [por que] hasErrors se calcula sobre todo lo analizado, antes de truncar: el código de salida
+   * no depende de --max-findings. */
+  const hasErrors = entries.some(entry => entry.findings.some(finding => finding.severity === 'error'));
+  const totalHallazgos = contarHallazgos(entries);
+  const mostrados = maxFindings > 0 ? truncarHallazgos(entries, maxFindings) : entries;
+  const hallazgosMostrados = contarHallazgos(mostrados);
+
+  const limites: CliAnalysisLimits = {
+    maxFileBytes,
+    archivosOmitidosPorTamano,
+    deadlineMs,
+    deadlineAlcanzado: procesados < files.length,
+    archivosNoAnalizados: files.length - procesados,
+    maxFindings,
+    hallazgosOmitidos: totalHallazgos - hallazgosMostrados,
   };
+
+  return {
+    entries: mostrados,
+    totalArchivos: files.length,
+    hasErrors,
+    durationMs: Date.now() - startedAt,
+    limites,
+  };
+}
+
+function contarHallazgos(entries: CoreReportEntry[]): number {
+  return entries.reduce((total, entry) => total + entry.findings.length, 0);
+}
+
+/* [SQ-5] Conserva los primeros `max` hallazgos en orden de archivo y descarta los archivos que se quedan sin ninguno. */
+function truncarHallazgos(entries: CoreReportEntry[], max: number): CoreReportEntry[] {
+  let restantes = max;
+  const recortados: CoreReportEntry[] = [];
+  for (const entry of entries) {
+    if (restantes <= 0) break;
+    const findings = entry.findings.slice(0, restantes);
+    restantes -= findings.length;
+    recortados.push({ ...entry, findings });
+  }
+  return recortados;
+}
+
+/* Avisos de límites aplicados; vacío si no se ha truncado nada. */
+function avisosDeLimites(limites: CliAnalysisLimits): string[] {
+  const avisos: string[] = [];
+  if (limites.archivosOmitidosPorTamano > 0) {
+    avisos.push(`${limites.archivosOmitidosPorTamano} archivo(s) omitidos por superar ${limites.maxFileBytes} bytes (--max-file-bytes)`);
+  }
+  if (limites.deadlineAlcanzado) {
+    avisos.push(`análisis cortado al llegar a ${limites.deadlineMs} ms (--deadline-ms); ${limites.archivosNoAnalizados} archivo(s) sin analizar`);
+  }
+  if (limites.hallazgosOmitidos > 0) {
+    avisos.push(`${limites.hallazgosOmitidos} hallazgo(s) omitidos (--max-findings ${limites.maxFindings})`);
+  }
+  return avisos;
 }
 
 function severityCounts(result: CliAnalysisResult): Record<string, number> {
@@ -224,10 +305,12 @@ export function renderOutput(result: CliAnalysisResult, args: ParsedCliArgs, too
       totalArchivos: result.totalArchivos,
       totalArchivosConViolaciones: result.entries.length,
       entries: result.entries,
+      limites: result.limites,
     }, null, 2)}\n`;
   }
 
-  return `${generarReporteMarkdown({
+  const avisos = avisosDeLimites(result.limites).map(aviso => `> Aviso: ${aviso}.\n`).join('');
+  return `${avisos}${avisos ? '\n' : ''}${generarReporteMarkdown({
     entries: result.entries,
     totalArchivos: result.totalArchivos,
     rutaBase: path.resolve(args.workspacePath ?? process.cwd()),

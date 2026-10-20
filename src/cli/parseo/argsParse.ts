@@ -6,6 +6,13 @@ import { parseTaskCliArgs } from './argsTask';
 import { takeValue } from './argsValue';
 import { AyudaSolicitada, usage } from './argsUsage';
 
+/* Entero >= 0 para los límites de analyze; 0 significa sin límite. */
+function parseLimite(valor: string, opcion: string): number {
+  const n = Number(valor);
+  if (!Number.isSafeInteger(n) || n < 0) throw new Error(`${opcion} debe ser un entero mayor o igual que 0 (0 = sin límite)`);
+  return n;
+}
+
 export function parseCliArgs(args: string[]): ParsedCliArgs {
   if (args[0] === 'task') return parseTaskCliArgs(args) as unknown as ParsedCliArgs;
   if (!['analyze', 'check', 'guard', 'doctor', 'status', 'install', 'update', 'rollback', 'uninstall', 'lease', 'init', 'migrate', 'uninit'].includes(args[0] ?? '')) {
@@ -226,6 +233,18 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
       case '--shims':
         parsed.doctorShims = true;
         break;
+      case '--max-file-bytes':
+        parsed.maxFileBytes = parseLimite(takeValue(args, index, arg), arg);
+        index++;
+        break;
+      case '--deadline-ms':
+        parsed.deadlineMs = parseLimite(takeValue(args, index, arg), arg);
+        index++;
+        break;
+      case '--max-findings':
+        parsed.maxFindings = parseLimite(takeValue(args, index, arg), arg);
+        index++;
+        break;
       default:
         throw new Error(`Opcion no reconocida: ${arg}\n${usage()}`);
     }
@@ -233,6 +252,11 @@ export function parseCliArgs(args: string[]): ParsedCliArgs {
 
   if (parsed.filePath && (parsed.workspacePath || parsed.filesFromPath)) {
     throw new Error('Usa --file o --files-from/--workspace, no ambos');
+  }
+  /* [por que] Los límites solo tienen sentido en analyze; en otro comando se rechazan en vez de ignorarse. */
+  const soloAnalyze = parsed.maxFileBytes !== undefined || parsed.deadlineMs !== undefined || parsed.maxFindings !== undefined;
+  if (soloAnalyze && parsed.command !== 'analyze') {
+    throw new Error('--max-file-bytes, --deadline-ms y --max-findings solo aplican a analyze');
   }
 
   parsed.workspacePath ??= process.cwd();

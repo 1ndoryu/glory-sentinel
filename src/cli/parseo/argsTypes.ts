@@ -82,6 +82,21 @@ export interface ParsedCliArgs {
   initPrimaryBranch?: string;
   initAlias?: string;
   initAnalyzerVersion?: string;
+  /* [SQ-4/SQ-5] Límites de analyze. 0 = sin límite. */
+  maxFileBytes?: number;
+  deadlineMs?: number;
+  maxFindings?: number;
+}
+
+/* [SQ-4/SQ-5] Qué límites se aplicaron y qué quedó fuera; el reporte lo muestra. */
+export interface CliAnalysisLimits {
+  maxFileBytes: number;
+  archivosOmitidosPorTamano: number;
+  deadlineMs: number;
+  deadlineAlcanzado: boolean;
+  archivosNoAnalizados: number;
+  maxFindings: number;
+  hallazgosOmitidos: number;
 }
 
 export interface CliAnalysisResult {
@@ -89,6 +104,7 @@ export interface CliAnalysisResult {
   totalArchivos: number;
   hasErrors: boolean;
   durationMs: number;
+  limites: CliAnalysisLimits;
 }
 
 export const SENTINEL_JSON_SCHEMA_VERSION = '1';
