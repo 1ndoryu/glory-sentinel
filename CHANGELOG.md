@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.7.27] - 2026-10-20
+
+> Recoge los cambios desde 0.7.26 (33 commits): endurecimiento de CI y autogate, revisión de terceros y correcciones de reglas.
+
+### Calidad y gate
+
+- Autogate versionado y fail-closed (`sentinel-autogate.json`, `maxArchivosConHallazgos: 0`); `analyze` acepta rc 1 (hallazgos) y decide por el umbral.
+- `check:reglas`: `rules.md` se compara exacto con el catálogo generado.
+- `staticCodeRules` partido en módulos por regla; reglas de código no leen el texto de las cadenas.
+- Reglas todo-prosa y singleton en su partición; marcador de tarea fuera de comentarios.
+- Guard: tope de tamaño para `sentinel.config.json`.
+
+### Rendimiento y robustez
+
+- `analyze` procesa archivos por lotes acotados.
+- Llamadas a git con timeout y `maxBuffer` acotados.
+- LSP: debounce de la validación al editar.
+- Recorrido de directorios y lista de omitidos compartidos (`utils`).
+
+### Correcciones
+
+- `--help` de un subcomando sale con rc 0 y muestra el uso en stdout.
+- Directorios temporales compartidos (`tempDir`) se borran al terminar cada ejecución de test.
+- Lease: verificación que sale con 2 si el lease es inválido; config v1 válida como legado; caché LSP invalidada al recargar.
+- Cuatro reglas huérfanas registradas; `api-endpoint-faltante` condicionada.
+- `apiRutas` y `rutasGlory` configurables y validadas.
+- `non-null-assertion` ignora `!` dentro de cadenas.
+
+### Documentación
+
+- README alineado con el código: códigos de salida, destino de instalación, shims, verificación sin `doctor` y PATH fuera de Windows.
+- Documentado `portableBoundaries` y su semántica.
+- `Agente/` y `roadmap.md` fuera del índice; el roadmap sigue en disco, ignorado.
+
 ## [0.7.26] - 2026-10-19
 
 > Recoge también 0.7.24 y 0.7.25, que no tienen sección propia.
