@@ -128,11 +128,12 @@
     "check:zed": "cargo check --manifest-path integrations/zed/Cargo.toml --target wasm32-wasip2",
     "build:zed": "node scripts/build-zed.mjs",
     "smoke:lsp": "node scripts/smoke-lsp-stdio.mjs",
+    "smoke:lsp-config": "node scripts/smoke-lsp-config.mjs",
     "docs:reglas": "node scripts/catalogo-reglas.mjs",
     "check:reglas": "node scripts/catalogo-reglas.mjs --check",
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js",
-    "test:unit": "npm run compile && npm run check:core && npm run check:reglas && npm run smoke:lsp && mocha",
+    "test:unit": "npm run compile && npm run check:core && npm run check:reglas && npm run smoke:lsp && npm run smoke:lsp-config && mocha",
     "quality:check": "npm run test:unit && node scripts/autogate.mjs"
   },
   "devDependencies": {

@@ -15,7 +15,7 @@ import {
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { analizarDocumento } from '../analyzers/pipeline';
-import { buildCoreConfig, SentinelConfigFile } from '../core/runtime-proyecto/config';
+import { buildCoreConfig, SentinelConfigFile, validateSentinelConfig } from '../core/runtime-proyecto/config';
 import { CoreRutasGlory, createCoreDocument } from '../core/runtime-proyecto/types';
 import { languageIdForFile } from '../core/runtime-proyecto/language';
 import { inicializarGloryParaWorkspaces } from '../analyzers/gloryAnalyzer';
@@ -76,7 +76,10 @@ async function readConfig(rootPath: string): Promise<SentinelConfigFile> {
 
   try {
     const raw = await fs.readFile(candidate, 'utf8');
-    return JSON.parse(raw) as SentinelConfigFile;
+    // Mismo validador que la CLI: una config inválida se rechaza en vez de aplicarse a medias.
+    const parsed: unknown = JSON.parse(raw);
+    validateSentinelConfig(parsed);
+    return parsed;
   } catch (error) {
     if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT') {
       return {};
