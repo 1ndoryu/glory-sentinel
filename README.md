@@ -120,12 +120,11 @@ Los consumidores antiguos pueden conservar temporalmente `task:check` o `scripts
 
 ## Instalación desde un release
 
-Mientras no exista un paquete publicado para tu registry, instala desde el checkout de un release verificado. Es la única vía documentada:
+Mientras no exista un paquete publicado para tu registry, instala desde el checkout de `main`. Es la única vía documentada: el último tag (`v0.7.27`) no incluye `install:sentinel`.
 
 ```bash
 git clone https://github.com/1ndoryu/glory-sentinel.git
 cd glory-sentinel
-git checkout v0.7.27
 npm ci
 npm run install:sentinel
 ```
