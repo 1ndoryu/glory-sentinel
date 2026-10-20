@@ -95,7 +95,9 @@ export async function runCli(rawArgs: string[]): Promise<number> {
       const result = await rollbackCliTarget(args);
       const output = args.json ? `${JSON.stringify(result, null, 2)}\n` : formatRuntimeResult(result);
       await writeOrPrint(output, args.outputPath);
-      return 0;
+      /* [por que] Un rollback que no restaura nada (sin versión anterior o sin hash verificado)
+       * debe salir con fallo: con 0 el script que lo llame creería que la versión volvió. */
+      return !result.dryRun && !result.restoredVersion ? 1 : 0;
     }
     const result = await installCliTarget(args);
     const targetRoot = result.targetRoot;

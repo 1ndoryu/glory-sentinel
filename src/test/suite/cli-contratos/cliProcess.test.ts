@@ -155,6 +155,22 @@ suite('CLI de proceso — stdout/stderr, doctor y dry-run (108A-1 Fase 1)', () =
     }
   });
 
+  test('rollback sin versión anterior conservada sale con rc 1; con --dry-run sale con rc 0', () => {
+    const targetRoot = tempDir('sentinel-rollback-');
+    try {
+      /* Sin runtime previo no hay nada que restaurar: el rc 1 evita que un script crea que la versión volvió. */
+      const real = runCli(['rollback', '--target-root', targetRoot, '--version', '0.9.0', '--json'], targetRoot);
+      assert.strictEqual(real.status, 1, `rollback sin restauración debe salir con rc 1; stderr=${real.stderr}`);
+      const realJson = parseJsonOutput(real.stdout, 'rollback --json');
+      assert.strictEqual(realJson.restoredVersion, null);
+      const dry = runCli(['rollback', '--target-root', targetRoot, '--version', '0.9.0', '--dry-run', '--json'], targetRoot);
+      assert.strictEqual(dry.status, 0, `dry-run no restaura y sale con rc 0; stderr=${dry.stderr}`);
+      assert.strictEqual(parseJsonOutput(dry.stdout, 'rollback --dry-run').dryRun, true);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
   test('--help de cualquier subcomando imprime el uso en stdout con rc 0; un uso erróneo sigue con rc 2', () => {
     const cwd = tempDir('sentinel-help-');
     for (const comando of [['analyze', '--help'], ['update', '-h'], ['task', '--help'], ['guard', '--help']]) {
