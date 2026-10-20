@@ -6,6 +6,7 @@ import * as path from 'path';
 import { proyectoTieneModalCanonico } from '../../../utils/analisisHelpers';
 import { invalidarCachesModulo, registrarCacheModulo } from '../../../utils/analisis/cachesModulo';
 import { esFuenteDeIndice, indiceProyecto, invalidarIndiceProyecto } from '../../../utils/analisis/indiceProyecto';
+import { leerCargoToml } from '../../../analyzers/rust/rustCargoToml';
 import { tempDir } from '../../temporales';
 
 suite('cachés de módulo (M-S8)', () => {
@@ -25,6 +26,24 @@ suite('cachés de módulo (M-S8)', () => {
     fs.writeFileSync(css, '.otra { color: red; }');
     invalidarCachesModulo();
     assert.strictEqual(proyectoTieneModalCanonico([raiz]), false);
+  });
+});
+
+/* [M-S11] Cargo.toml se lee una vez por ruta; tras invalidar, el contenido nuevo se ve. */
+suite('Cargo.toml compartido (M-S11)', () => {
+  test('tras invalidar, leerCargoToml devuelve el contenido editado', () => {
+    const raiz = tempDir('sentinel-cargo-toml-');
+    const toml = path.join(raiz, 'Cargo.toml');
+    fs.writeFileSync(toml, '[package]\nname = "a"\n');
+    assert.strictEqual(leerCargoToml(raiz)?.includes('name = "a"'), true);
+
+    fs.writeFileSync(toml, '[package]\nname = "b"\n');
+    invalidarCachesModulo();
+    assert.strictEqual(leerCargoToml(raiz)?.includes('name = "b"'), true);
+  });
+
+  test('sin Cargo.toml, leerCargoToml devuelve null', () => {
+    assert.strictEqual(leerCargoToml(tempDir('sentinel-cargo-toml-vacio-')), null);
   });
 });
 

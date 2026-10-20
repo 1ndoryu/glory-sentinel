@@ -6,6 +6,7 @@ import { tieneSentinelDisableFile } from '../../../utils/analisisHelpers';
 import { esArchivoSoloTest } from '../rustTestScope';
 import { REGLA_POST_SIN_RL, tieneDisableSiguiente } from './rustReglasCompartidas';
 import { registrarCacheModulo } from '../../../utils/analisis/cachesModulo';
+import { leerCargoToml } from '../rustCargoToml';
 
 /* ------------------------------------------------------------------ */
 /* [149A-1] ruta-post-sin-rate-limit (error)                           */
@@ -34,15 +35,8 @@ function proyectoConRateLimit(texto: string, rutaArchivo?: string): boolean {
   let resultado = false;
   let dir = dirInicio;
   for (let nivel = 0; nivel < 4 && !resultado; nivel++) {
-    try {
-      const rutaToml = path.join(dir, 'Cargo.toml');
-      if (fs.existsSync(rutaToml)) {
-        const toml = fs.readFileSync(rutaToml, 'utf8');
-        resultado = /governor/i.test(toml);
-      }
-    } catch {
-      /* toml ilegible: se sigue subiendo */
-    }
+    const toml = leerCargoToml(dir);
+    if (toml !== null) { resultado = /governor/i.test(toml); }
     const padre = path.dirname(dir);
     if (padre === dir) { break; }
     dir = padre;

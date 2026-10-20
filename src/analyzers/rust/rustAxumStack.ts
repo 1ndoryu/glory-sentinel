@@ -15,6 +15,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { registrarCacheModulo } from '../../utils/analisis/cachesModulo';
+import { leerCargoToml } from './rustCargoToml';
 
 export type SintaxisAxum = 'nueva' | 'antigua' | 'desconocida';
 
@@ -94,7 +95,6 @@ export function detectarStackAxum(rutaArchivo: string): StackAxum {
   let dir = dirInicio;
   for (let nivel = 0; nivel < 8; nivel++) {
     let lock: string | null = null;
-    let toml: string | null = null;
     try {
       const rutaLock = path.join(dir, 'Cargo.lock');
       if (fs.existsSync(rutaLock)) {
@@ -103,14 +103,7 @@ export function detectarStackAxum(rutaArchivo: string): StackAxum {
     } catch {
       /* lock ilegible: se sigue subiendo */
     }
-    try {
-      const rutaToml = path.join(dir, 'Cargo.toml');
-      if (fs.existsSync(rutaToml)) {
-        toml = fs.readFileSync(rutaToml, 'utf8');
-      }
-    } catch {
-      /* toml ilegible: se sigue subiendo */
-    }
+    const toml = leerCargoToml(dir);
     const stack = stackDesdeLockToml(lock, toml);
     if (stack) {
       resultado = stack;
