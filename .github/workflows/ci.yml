@@ -22,27 +22,18 @@ jobs:
 
       - run: npm ci
       - run: npm run lint
-      - run: npm run compile
-      - run: npm run check:core
-      - run: npm run check:reglas
-      - run: npm run smoke:lsp
 
-      # Autogate: Sentinel se analiza a sí mismo; falla si quedan archivos con hallazgos.
-      - name: Autogate
-        run: |
-          node scripts/autogate.mjs
-
-      - name: Run unit tests
-        id: unit
-        continue-on-error: true
-        env:
-          MOCHA_COLORS: 0
+      # Una sola definición de la calidad: compila, checks, smoke LSP, mocha y autogate (ver package.json).
+      # Falla en el propio paso; sin continue-on-error ni fallo diferido.
+      - name: Calidad y tests
+        id: calidad
         run: |
           set -o pipefail
-          npx mocha --reporter spec --full-trace 2>&1 | tee mocha-output.log
+          npm run quality:check 2>&1 | tee quality-output.log
 
-      - name: Publish unit-test diagnostics
-        if: steps.unit.outcome == 'failure'
+      # Solo si la calidad falla: extrae los tests fallidos para el resumen y los adjunta.
+      - name: Diagnósticos de fallo
+        if: failure() && steps.calidad.outcome == 'failure'
         run: |
           set +e
           npx mocha --reporter json --full-trace > mocha-json.log 2>&1
@@ -80,24 +71,21 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${summary}\n`);
           NODE
           {
-            echo '## Unit-test diagnostics'
+            echo '## Calidad: salida (últimas 300 líneas)'
             echo
             echo '```text'
-            tail -n 300 mocha-output.log
+            tail -n 300 quality-output.log
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload unit-test diagnostics
-        if: steps.unit.outcome == 'failure'
+      - name: Subir diagnósticos de fallo
+        if: failure() && steps.calidad.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
-          name: sentinel-unit-test-diagnostics
+          name: sentinel-diagnostics
           path: |
-            mocha-output.log
+            quality-output.log
             mocha-json.log
-          if-no-files-found: error
+          if-no-files-found: ignore
 
-      - name: Fail if unit tests failed
-        if: steps.unit.outcome == 'failure'
-        run: exit 1
       - run: npm run check:zed
