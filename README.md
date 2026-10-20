@@ -120,10 +120,10 @@ Los consumidores antiguos pueden conservar temporalmente `task:check` o `scripts
 
 ## Instalación desde un release
 
-Mientras no exista un paquete publicado para tu registry, instala desde el checkout de `main`. Es la única vía documentada: el tag `v0.7.28` es el primero que incluye `install:sentinel`.
+Mientras no exista un paquete publicado para tu registry, instala desde el tag `v0.7.28`, el primero que incluye `install:sentinel`. Es la única vía documentada.
 
 ```bash
-git clone https://github.com/1ndoryu/glory-sentinel.git
+git clone --branch v0.7.28 --depth 1 https://github.com/1ndoryu/glory-sentinel.git
 cd glory-sentinel
 npm ci
 npm run install:sentinel
@@ -154,9 +154,9 @@ La versión visible no basta para garantizar capacidades. Los proyectos que depe
 
 Destino por defecto: `%LOCALAPPDATA%\GlorySentinel` en Windows; si no existe `LOCALAPPDATA`, `~/.glory-sentinel`. `--target-root` existe en `install`, `update`, `rollback` y `uninstall`; para fijar el destino, pásalo explícitamente.
 
-- `--with-path` añade al PATH de usuario de Windows los directorios de shims y `bin`. Fuera de Windows no toca el PATH: el dry-run informa `[path] unsupported` y hay que añadir `<destino>/bin` a tu shell a mano.
+- Fuera de Windows, `--with-path` no toca el PATH (el dry-run informa `[path] unsupported`); ver el paso del PATH arriba.
 - `--with-shims` intercepta solo algunos comandos: `npm`, `npx` y `cargo` en `cmd`; `cargo`, `cargo.exe`, `rustfmt`, `npm`, `npx`, `vitest`, `tsc`, `eslint` y `prettier` en bash y PowerShell. Cualquier otro comando no pasa por Sentinel.
-- `sentinel doctor` lee el `sentinel.lock.json` del workspace solo si tiene `sentinel.config.json` o `quality.config.json`; si ese lock falta, informa `lock-missing` y sale 1. Un proyecto consumidor debe tenerlo; el repo de Sentinel no es un consumidor. `doctor` no acepta `--target-root` (sale 2 si se pasa) y reporta el runtime global, no el de un destino personalizado.
+- `doctor` no acepta `--target-root` (sale 2 si se pasa) y reporta el runtime global, no el de un destino personalizado. El comportamiento del lock (`lock-missing`) está descrito arriba, en la comprobación de consumidores.
 - Desinstalar: `sentinel uninstall --dry-run` primero. Retira solo entradas administradas (PATH, shims, marcadores de perfil, versiones y `current`). `--keep-runtime` conserva `versions/`, `current` y `bin/`.
 
 ## Añadir Sentinel a un proyecto nuevo
