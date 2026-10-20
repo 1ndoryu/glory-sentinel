@@ -36,7 +36,7 @@
 
 ## [0.7.26] - 2026-10-19
 
-> Recoge también 0.7.24 y 0.7.25, que no tienen sección propia.
+> Recoge también 0.7.24 y 0.7.25, que no tienen sección propia ni tag en git: el salto de versiones se documenta aquí y no se crean tags retroactivos.
 
 ### Calidad y arquitectura
 
