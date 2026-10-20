@@ -120,18 +120,17 @@ Los consumidores antiguos pueden conservar temporalmente `task:check` o `scripts
 
 ## Instalación desde un release
 
-Mientras no exista un paquete publicado para tu registry, instala desde el checkout de un release verificado:
+Mientras no exista un paquete publicado para tu registry, instala desde el checkout de un release verificado. Es la única vía documentada:
 
 ```bash
 git clone https://github.com/1ndoryu/glory-sentinel.git
 cd glory-sentinel
 git checkout v0.7.27
 npm ci
-npm run compile
-node out/cli/index.js install --source-root . --with-shims --with-path
+npm run install:sentinel
 ```
 
-Fuera de Windows, `--with-path` no toca el PATH: añade el directorio `bin` del destino a tu shell (por defecto `~/.glory-sentinel/bin`):
+`install:sentinel` compila y ejecuta `install --source-root . --with-shims --with-path` sobre el checkout. Fuera de Windows, `--with-path` no toca el PATH: añade el directorio `bin` del destino (por defecto `~/.glory-sentinel/bin`) a tu shell:
 
 ```bash
 export PATH="$HOME/.glory-sentinel/bin:$PATH"

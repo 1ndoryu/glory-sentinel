@@ -120,6 +120,7 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "cli": "npm run compile && node ./out/cli/index.js",
+    "install:sentinel": "npm run compile && node ./out/cli/index.js install --source-root . --with-shims --with-path",
     "test:task-coordinator": "npm run compile && mocha out/test/suite/task/taskCoordinator.test.js",
     "lsp": "npm run compile && node ./out/lsp/server.js --stdio",
     "watch": "tsc -watch -p ./",
