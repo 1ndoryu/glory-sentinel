@@ -7,6 +7,7 @@ import { exclusionesCon } from '../../../core/exclusiones';
 import { tieneSentinelDisableFile } from '../../../utils/analisisHelpers';
 import { esArchivoSoloTest } from '../rustTestScope';
 import { REGLA_PORT_FS } from './rustReglasCompartidas';
+import { registrarCacheModulo } from '../../../utils/analisis/cachesModulo';
 
 /* ------------------------------------------------------------------ */
 /* [149A-1] port-fs-duplicado-rs (warning, pasada workspace)           */
@@ -24,7 +25,7 @@ const MIN_LINEAS_FS = 20;
 const MAX_CANDIDATOS_FS = 30;
 const MAX_LINEAS_CANDIDATO_FS = 2000;
 const DIRS_EXCLUIDOS_FS = exclusionesCon(['tests', 'examples', '.sentinel']);
-const cacheCandidatosFs = new Map<string, string[]>();
+const cacheCandidatosFs = registrarCacheModulo(new Map<string, string[]>());
 
 function conjuntoLineasFs(texto: string): Set<string> {
   const conjunto = new Set<string>();

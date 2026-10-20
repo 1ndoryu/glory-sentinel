@@ -14,6 +14,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { registrarCacheModulo } from '../../utils/analisis/cachesModulo';
 
 export type SintaxisAxum = 'nueva' | 'antigua' | 'desconocida';
 
@@ -23,7 +24,7 @@ export interface StackAxum {
   axum: string | null;
 }
 
-const cacheStackAxum = new Map<string, StackAxum>();
+const cacheStackAxum = registrarCacheModulo(new Map<string, StackAxum>());
 
 function versionPaqueteLock(contenido: string, nombre: string): string | null {
   const lineas = contenido.split('\n');

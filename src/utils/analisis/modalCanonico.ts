@@ -1,12 +1,13 @@
 import * as fs from 'fs';
 import { recorrerFicherosSync } from '../recorrido';
+import { registrarCacheModulo } from './cachesModulo';
 /* Deteccion del Modal canonico del proyecto y de sus sufijos semanticos. Extraido de src/utils/analisisHelpers.ts (fachada). */
 
 /* [119A-4 S4] Clases canonicas del sistema Modal que las reglas
  * modal-*-no-canonica presuponen. Si el proyecto no define ninguna, sugerir
  * "usa modalAcciones/modalTexto/..." es un falso positivo: no hay sistema. */
 const CLASES_MODAL_CANONICAS_BUSQUEDA = /\.modal(?:Acciones|Formulario|Campo|Titulo|Texto)\b/;
-const cacheModalCanonico = new Map<string, boolean>();
+const cacheModalCanonico = registrarCacheModulo(new Map<string, boolean>());
 
 function contieneClaseModalCanonica(dir: string): boolean {
   return recorrerFicherosSync(dir, ruta => {

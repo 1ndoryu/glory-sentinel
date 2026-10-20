@@ -5,6 +5,7 @@ import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
 import { tieneSentinelDisableFile } from '../../../utils/analisisHelpers';
 import { esArchivoSoloTest } from '../rustTestScope';
 import { REGLA_POST_SIN_RL, tieneDisableSiguiente } from './rustReglasCompartidas';
+import { registrarCacheModulo } from '../../../utils/analisis/cachesModulo';
 
 /* ------------------------------------------------------------------ */
 /* [149A-1] ruta-post-sin-rate-limit (error)                           */
@@ -20,7 +21,7 @@ import { REGLA_POST_SIN_RL, tieneDisableSiguiente } from './rustReglasCompartida
  * Sin evidencia se flaggea: el fallo abierto por defecto es peor que el FP,
  * y el waiver es sentinel-disable-file. */
 const PATRON_POST_ROUTE = /\.route\s*\(\s*"[^"]*"\s*,\s*[^)]*?\bpost\s*\(/;
-const cacheRateLimitToml = new Map<string, boolean>();
+const cacheRateLimitToml = registrarCacheModulo(new Map<string, boolean>());
 
 function proyectoConRateLimit(texto: string, rutaArchivo?: string): boolean {
   if (/governor|RateLimit|rate_limit|tower::limit/i.test(texto)) { return true; }

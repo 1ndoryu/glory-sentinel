@@ -7,6 +7,8 @@
  * honesto de "solo compila en tests". Extraido de rustReglasNuevas.ts (902c45e)
  * para reutilizarlo en rustAnalyzer.ts sin duplicar ni romper el budget. */
 
+import { registrarCacheModulo } from '../../utils/analisis/cachesModulo';
+
 const ES_ARCHIVO_TEST = /(?:^|\r?\n)\s*#!\[cfg\(test\)\]/;
 
 export function esArchivoSoloTest(texto: string): boolean {
@@ -58,7 +60,7 @@ const VENTANA_ATRIBUTOS = 240;
 /* Cache por directorio: el analisis recorre muchos ficheros y la respuesta
  * depende de los hermanos, no del fichero. Mismo criterio que
  * `cacheRateLimitToml` en rustReglasRutas.ts. */
-const cache = new Map<string, boolean>();
+const cache = registrarCacheModulo(new Map<string, boolean>());
 
 /* ¿Algun hermano declara ESTE fichero bajo `#[cfg(test)]`?
  *

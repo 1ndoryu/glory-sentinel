@@ -22,6 +22,7 @@ import { inicializarGloryParaWorkspaces } from '../analyzers/gloryAnalyzer';
 import { logError } from '../utils/logger';
 import { invalidarOpenapiIndex } from '../analyzers/externos/apiEndpointAnalyzer';
 import { invalidarIndiceProyecto } from '../utils/analisis/indiceProyecto';
+import { invalidarCachesModulo } from '../utils/analisis/cachesModulo';
 import { findingToLspDiagnostic } from './diagnostics';
 
 const connection = createConnection(ProposedFeatures.all);
@@ -163,6 +164,7 @@ function validateAllOpenDocuments(): void {
 function reloadWorkspaceIndexes(rootPath?: string): void {
   invalidarOpenapiIndex(rootPath);
   invalidarIndiceProyecto();
+  invalidarCachesModulo();
   initialization = undefined;
 }
 
