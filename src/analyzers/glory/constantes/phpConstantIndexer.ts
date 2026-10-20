@@ -11,6 +11,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { logInfo } from '../../../utils/logger';
 import { obtenerWorkspaceRoots } from '../../../core/seguridad-rutas/workspaceRoots';
+import { exclusionesCon } from '../../../core/exclusiones';
 
 /* Informacion indexada de una clase PHP */
 interface InfoClase {
@@ -63,7 +64,7 @@ export function obtenerConstantesDeClase(nombreClase: string): Set<string> | nul
 const CARPETAS_ESCANEO = ['App', path.join('Glory', 'src')];
 
 /* Carpetas a excluir */
-const CARPETAS_EXCLUIDAS = new Set(['vendor', 'node_modules', '_generated']);
+const CARPETAS_EXCLUIDAS = exclusionesCon(['_generated']);
 
 /*
  * Parsea un archivo PHP y extrae el nombre de clase, sus constantes y herencia.

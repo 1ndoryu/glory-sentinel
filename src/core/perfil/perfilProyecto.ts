@@ -9,6 +9,7 @@ import path from 'node:path';
 import { CategoriaRegla } from '../../types';
 import { obtenerTodasLasReglas } from '../../config/ruleRegistry';
 import { analyzerSubConfig, validateSentinelConfig } from '../runtime-proyecto/config';
+import { exclusionesCon } from '../exclusiones';
 
 export interface PerfilProyecto {
   wordpress: boolean;
@@ -18,7 +19,7 @@ export interface PerfilProyecto {
 /* Acotado: los marcadores viven cerca de la raiz y el recorrido no debe crecer con el repo */
 const PROFUNDIDAD_MAX = 3;
 const DIRECTORIOS_MAX = 2000;
-const IGNORADOS = new Set(['node_modules', 'vendor', '.git', 'out', 'dist', 'build', 'target', '.agent', 'Agente']);
+const IGNORADOS = exclusionesCon(['.agent', 'Agente']);
 const ARCHIVOS_WORDPRESS = new Set(['wp-config.php', 'wp-config-sample.php']);
 
 /* Categorias de reglas que pertenecen a cada perfil */

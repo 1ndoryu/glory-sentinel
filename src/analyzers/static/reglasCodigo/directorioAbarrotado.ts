@@ -6,6 +6,7 @@
 import * as fs from 'fs';
 import { Violacion } from '../../../types';
 import { CoreTextDocument } from '../../../core/runtime-proyecto/types';
+import { EXCLUSIONES_BASE } from '../../../core/exclusiones';
 import { tieneSentinelDisableFile } from '../../../utils/analisisHelpers';
 import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
 
@@ -78,7 +79,7 @@ export function verificarDirectorioAbarrotado(
 
   /* Excluir directorios de infraestructura. [por que] dist-server es la salida de build del backend
    * (dist-server/server/tareas/...): se mira cualquier segmento ancestro, no solo el directorio inmediato. */
-  const dirExcluidos = ['node_modules', 'target', '.git', 'dist', 'build', '.sqlx', 'completados'];
+  const dirExcluidos = [...EXCLUSIONES_BASE, '.sqlx', 'completados'];
   if (dirExcluidos.includes(nombreDirectorio) || partes.includes('dist-server')) {
     return [];
   }

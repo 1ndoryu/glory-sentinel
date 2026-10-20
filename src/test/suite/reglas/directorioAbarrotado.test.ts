@@ -74,6 +74,23 @@ suite('directorioAbarrotado (filtro no-codigo)', () => {
     }
   });
 
+  test('ignora vendor y out (lista base compartida con el resto de analizadores)', () => {
+    /* [por que] Antes solo se excluian node_modules/target/.git/dist/build; vendor y out quedaban dentro. */
+    for (const nombre of ['vendor', 'out']) {
+      const base = crearDirTemporal(`base-${nombre}`);
+      const dir = path.join(base, nombre);
+      try {
+        fs.mkdirSync(dir);
+        for (let i = 0; i < 12; i++) { fs.writeFileSync(path.join(dir, `mod${i}.php`), '<?php\n'); }
+        invalidarCacheDirectorios();
+        const doc = crearDocumentoEn(dir, 'mod0.php');
+        assert.strictEqual(verificarDirectorioAbarrotado(doc).length, 0, `${nombre}/ no debe contar`);
+      } finally {
+        fs.rmSync(base, { recursive: true, force: true });
+      }
+    }
+  });
+
   test('dispara cuando hay mas de 10 archivos de codigo reales', () => {
     const dir = crearDirTemporal('muchocodigo');
     try {

@@ -3,6 +3,7 @@ import * as path from 'path';
 import { Violacion } from '../../../types';
 import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
 import { obtenerWorkspaceRoots, resolverWorkspaceRoot } from '../../../core/seguridad-rutas/workspaceRoots';
+import { exclusionesCon } from '../../../core/exclusiones';
 import { tieneSentinelDisableFile } from '../../../utils/analisisHelpers';
 import { esArchivoSoloTest } from '../rustTestScope';
 import { REGLA_PORT_FS } from './rustReglasCompartidas';
@@ -22,7 +23,7 @@ const UMBRAL_SIMILITUD_FS = 0.8;
 const MIN_LINEAS_FS = 20;
 const MAX_CANDIDATOS_FS = 30;
 const MAX_LINEAS_CANDIDATO_FS = 2000;
-const DIRS_EXCLUIDOS_FS = new Set(['target', 'node_modules', '.git', 'tests', 'examples', 'out', 'dist', '.sentinel']);
+const DIRS_EXCLUIDOS_FS = exclusionesCon(['tests', 'examples', '.sentinel']);
 const cacheCandidatosFs = new Map<string, string[]>();
 
 function conjuntoLineasFs(texto: string): Set<string> {
