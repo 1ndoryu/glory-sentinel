@@ -8,6 +8,12 @@ import { recorrerFicherosSync } from '../recorrido';
 /* Cache por conjunto de roots: el indice se reconstruye solo si cambian. Solo lo usa este modulo. */
 const cacheIndice = new Map<string, IndiceProyecto>();
 const RE_FUENTE_JS = /\.(?:ts|tsx|js|jsx)$/;
+const RE_FUENTE_INDICE = /\.(?:ts|tsx|js|jsx|css)$/;
+
+/* [M-S9] Ficheros cuyo contenido alimenta el índice: guardarlos obliga a reindexar. */
+export function esFuenteDeIndice(ruta: string): boolean {
+  return RE_FUENTE_INDICE.test(ruta);
+}
 
 function listarFuentes(dir: string, salida: string[]): void {
   recorrerFicherosSync(dir, ruta => { salida.push(ruta); });

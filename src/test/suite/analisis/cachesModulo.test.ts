@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { proyectoTieneModalCanonico } from '../../../utils/analisisHelpers';
 import { invalidarCachesModulo, registrarCacheModulo } from '../../../utils/analisis/cachesModulo';
+import { esFuenteDeIndice, indiceProyecto, invalidarIndiceProyecto } from '../../../utils/analisis/indiceProyecto';
 import { tempDir } from '../../temporales';
 
 suite('cachés de módulo (M-S8)', () => {
@@ -24,5 +25,26 @@ suite('cachés de módulo (M-S8)', () => {
     fs.writeFileSync(css, '.otra { color: red; }');
     invalidarCachesModulo();
     assert.strictEqual(proyectoTieneModalCanonico([raiz]), false);
+  });
+});
+
+/* [M-S9] El índice no se refresca solo: tras guardar un estilo, la clase nueva debe verse. */
+suite('índice del LSP tras guardar (M-S9)', () => {
+  test('esFuenteDeIndice acepta fuentes y estilos, no el resto', () => {
+    assert.strictEqual(esFuenteDeIndice('/repo/src/Panel.tsx'), true);
+    assert.strictEqual(esFuenteDeIndice('/repo/src/estilos.css'), true);
+    assert.strictEqual(esFuenteDeIndice('/repo/README.md'), false);
+    assert.strictEqual(esFuenteDeIndice('/repo/config.json'), false);
+  });
+
+  test('tras invalidarIndiceProyecto, una clase CSS guardada aparece en el índice', () => {
+    const raiz = tempDir('sentinel-indice-save-');
+    const css = path.join(raiz, 'estilos.css');
+    fs.writeFileSync(css, '.viejo { color: red; }');
+    assert.strictEqual(indiceProyecto([raiz]).cuerposCss.has('nuevo'), false);
+
+    fs.writeFileSync(css, '.nuevo { color: blue; }');
+    invalidarIndiceProyecto();
+    assert.strictEqual(indiceProyecto([raiz]).cuerposCss.has('nuevo'), true);
   });
 });

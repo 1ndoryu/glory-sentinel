@@ -21,7 +21,7 @@ import { languageIdForFile } from '../core/runtime-proyecto/language';
 import { inicializarGloryParaWorkspaces } from '../analyzers/gloryAnalyzer';
 import { logError } from '../utils/logger';
 import { invalidarOpenapiIndex } from '../analyzers/externos/apiEndpointAnalyzer';
-import { invalidarIndiceProyecto } from '../utils/analisis/indiceProyecto';
+import { esFuenteDeIndice, invalidarIndiceProyecto } from '../utils/analisis/indiceProyecto';
 import { invalidarCachesModulo } from '../utils/analisis/cachesModulo';
 import { findingToLspDiagnostic } from './diagnostics';
 
@@ -193,7 +193,15 @@ documents.onDidChangeContent(event => {
   validarConDebounce(event.document.uri);
 });
 
+/* [M-S9] El cliente no reenvía cambios de ficheros a este LSP (no registra watchers):
+ * al guardar una fuente o un estilo el índice se descarta y se revalidan los abiertos,
+ * que pueden usar la clase o el componente recién guardado. */
 documents.onDidSave(event => {
+  if (esFuenteDeIndice(fsPathFromUri(event.document.uri))) {
+    invalidarIndiceProyecto();
+    validateAllOpenDocuments();
+    return;
+  }
   void validateTextDocument(event.document);
 });
 
