@@ -16,7 +16,7 @@ copian a proyectos nuevos.
 ## Reglas y perfiles
 
 Cada regla se ajusta con `habilitada` (boolean) y `severidad`. Los ids y su categoría están en
-[rules.md](rules.md). La ruta depende de `schemaVersion`:
+[rules.md](../rules.md). La ruta depende de `schemaVersion`:
 
 - v2: `analyzers.sentinel.config.rules`.
 - v1: `rules` en la raíz.
