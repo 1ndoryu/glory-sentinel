@@ -25,7 +25,7 @@ import {
  * contradecia su propio mensaje («contenido directo») y su propia premisa: el
  * <Modal> canonico SI pinta titulo cuando recibe la prop `titulo`
  * (Modal.tsx:92-94, <h2 className="modalTitulo"> a 13px). Los ocho casos de
- * KAMPLES eran encabezados propios de modales que necesitan una cabecera mas
+ * un proyecto real eran encabezados propios de modales que necesitan una cabecera mas
  * rica que esa barra compacta (icono + titulo en linea, titulo centrado de
  * 18px, rotulo de seccion de 12px en mayusculas) y NINGUNO era hijo directo.
  *
@@ -87,7 +87,7 @@ export function verificarModalConTitulo(lineas: string[]): Violacion[] {
  * Contrato: el unico contenedor de botones valido en un modal es className="modalAcciones".
  *
  * [15A-25] El nombre no basta: `XAcciones` solo reescribe la receta cuando su hoja
- * define de verdad una zona de acciones. Las cuatro clases de KAMPLES que disparaban
+ * define de verdad una zona de acciones. Las cuatro clases de un proyecto real que disparaban
  * no lo hacian — .configAcciones y .generosAcciones son pies con borde propio y
  * reparto a los extremos, .modalCodigoExpiradoAcciones anade flex-end + flex-wrap — y
  * seguir la recomendacion habria metido el flex:1 de .modalAcciones, encogiendo los
@@ -218,7 +218,7 @@ export function verificarModalEstructuraNoCanonica(
       /* [15A-25] La prop `className` de <Modal> no sustituye al contenedor: Modal.tsx
        * la concatena (`const clasesContenedor = ['modalContenedor', mapaTamano[tamano],
        * className]`). Con esa evidencia la clase local es una variante, no una
-       * redefinicion, y el aviso era falso para los cuatro casos de KAMPLES. */
+       * redefinicion, y el aviso era falso para los cuatro casos del proyecto real. */
       const claseContenedorLocal = (esLineaModal && !tieneClaseCanonica && !modalFusionaClassName)
         ? clases[0]
         : undefined;

@@ -39,7 +39,7 @@ const PATRON_JOIN_ASYNC = /\bjoin!|try_join|JoinSet|join_all|futures::/;
 const PATRON_PERSISTENCIA_CALLEE =
   /\b(sqlx|pool|conn|connection|persistencia|sqlite|diesel|rusqlite|sea_orm|mongodb?|supabase|surreal(db)?|database|db|query\w*|stmt|fetch_\w*|dao|repositor\w*)\b\s*(::|!\s*\(|\.\w+\s*\(|\()/;
 
-/* [sqlite-carga] Falsos positivos de NAKOMI (2026-10-10), dos causas:
+/* [sqlite-carga] Falsos positivos medidos en un proyecto real (2026-10-10), varias causas:
  * - Ramas excluyentes: dos awaits en ramas distintas de un mismo if/else o
  *   match nunca corren juntos, asi que no suman. Cada await lleva su camino
  *   (cadena de if/match + indice de rama) y dos caminos son compatibles si
@@ -53,7 +53,7 @@ const PATRON_PERSISTENCIA_CALLEE =
  *   cuenta. Sigue cubierta la dependencia de datos.
  * - Condiciones complementarias: dos `if` separados sobre el mismo atomo con
  *   polaridad opuesta (`x == "a"` y `!x.eq("a")`, `x != "a"`) nunca corren juntos
- *   (NAKOMI rest_messages.rs:291). Se modelan como un atomo booleano. */
+ *   (caso real: módulo REST de mensajes, línea 291). Se modelan como un atomo booleano. */
 const PATRON_LITERAL_CADENA = /"(?:[^"\\]|\\.)*"/g;
 const PATRON_LET = /\blet\s+(?:mut\s+)?(\([^)]*\)|[a-z_]\w*)\s*(?::[^=]*)?=/g;
 const PATRON_HANDLE = /\.(begin|acquire|transaction)\s*\(/;
@@ -65,7 +65,7 @@ const PATRON_HANDLE = /\.(begin|acquire|transaction)\s*\(/;
 const PATRON_TRANSACCION = /\.\w+\s*\(\s*&mut\s*\*{0,2}\s*\w+\b/;
 /* [por que] Un bloque con cabecera (`if let ... = x.await {`) cierra su statement
  * en esa linea. Si no, el cuerpo se fusiona con la cabecera y sus awaits heredan
- * la consulta del encabezado (falso positivo en NAKOMI rest_messages.rs:292). */
+ * la consulta del encabezado (falso positivo en el mismo módulo REST, línea 292). */
 const PATRON_CABECERA_BLOQUE = /\b(?:if|else|match|while|for)\b[^;]*\{\s*$/;
 const PATRON_ELSE = /\belse\b/;
 const PATRON_IF = /\bif\b/;

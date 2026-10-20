@@ -27,7 +27,7 @@ export function esArchivoSoloTest(texto: string): boolean {
  * atributo interno ni un bloque `#[cfg(test)] mod`, y `calcularRangosTest` no
  * encuentra nada que marcar.
  *
- * Medido en KAMPLES el 2026-10-16: de 109 hallazgos de `expect-produccion-rs`,
+ * Medido en un proyecto Rust real el 2026-10-16: de 109 hallazgos de `expect-produccion-rs`,
  * 103 estaban en ficheros `tests.rs` — el 94 % de la regla era falso positivo.
  * El mismo hueco afectaba a `unwrap-produccion-rs` (3 de 4) y a
  * `ruta-post-sin-rate-limit` (4 de 65).
@@ -69,7 +69,7 @@ const cache = new Map<string, boolean>();
 /* Ficheros donde puede estar la declaracion de `<dir>/<nombre>.rs`.
  *
  * El modulo dueño de un directorio vive DENTRO (`<dir>/mod.rs`) o FUERA
- * (`<dir>.rs`, hermano del directorio). En KAMPLES gana el de fuera:
+ * (`<dir>.rs`, hermano del directorio). En un proyecto real gana el de fuera:
  * `src/audio/bpm/tests.rs` lo declara `src/audio/bpm.rs:378`. Mirar solo los
  * hermanos del fichero dejaba 93 de los 99 `expect-produccion-rs` sin excluir.
  *
