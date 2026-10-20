@@ -10,6 +10,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { writeAtomic } from '../seguridad-rutas/atomicFile';
 import { conjuntoConstante } from '../../utils/conjuntoConstante';
+import { GIT_LISTA_MAX_BUFFER, GIT_LISTA_TIMEOUT_MS } from '../../utils/gitLimites';
 
 const execFileAsync = promisify(execFile);
 
@@ -73,16 +74,12 @@ function normalize(value: string): string {
   return value.replace(/\\/g, '/');
 }
 
-/* Salida de git acotada: una lista de archivos cambiados cabe de sobra en 8 MiB;
- * si no cabe, el fallo es explicito (abajo) y no se consume memoria sin limite. */
-const GIT_SALIDA_MAX_BYTES = 8 * 1024 * 1024;
-
 async function gitLines(root: string, args: string[]): Promise<string[]> {
   try {
     const { stdout } = await execFileAsync('git', args, {
       cwd: root,
-      timeout: 20_000,
-      maxBuffer: GIT_SALIDA_MAX_BYTES,
+      timeout: GIT_LISTA_TIMEOUT_MS,
+      maxBuffer: GIT_LISTA_MAX_BUFFER,
       windowsHide: true,
     });
     return stdout.split(/\r?\n/).map(item => normalize(item.trim())).filter(Boolean);
