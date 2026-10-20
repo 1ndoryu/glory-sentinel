@@ -120,7 +120,7 @@ Los consumidores antiguos pueden conservar temporalmente `task:check` o `scripts
 
 ## Instalación desde un release
 
-Mientras no exista un paquete publicado para tu registry, instala desde el checkout de `main`. Es la única vía documentada: el último tag (`v0.7.27`) no incluye `install:sentinel`.
+Mientras no exista un paquete publicado para tu registry, instala desde el checkout de `main`. Es la única vía documentada: el tag `v0.7.28` es el primero que incluye `install:sentinel`.
 
 ```bash
 git clone https://github.com/1ndoryu/glory-sentinel.git
@@ -227,7 +227,7 @@ La coordinación es opcional: puedes usar Sentinel únicamente como analizador o
 | 0.6.x   | Preflight fail-closed, validación de release y recuperación segura    |
 | 0.7.x   | `init`, `migrate`, `uninit`, readiness separada y stages declarativos |
 
-La versión actual es **0.7.27** (`v0.7.27`), la que fija la instalación de arriba. Los cambios por versión están en el [CHANGELOG](CHANGELOG.md).
+La versión actual es **0.7.28** (`v0.7.28`), la que fija la instalación de arriba. Los cambios por versión están en el [CHANGELOG](CHANGELOG.md).
 
 ## Documentación
 

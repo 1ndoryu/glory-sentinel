@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.7.28] - 2026-10-20
+
+> Recoge los cambios desde 0.7.27 (16 commits). Primer tag con `install:sentinel`: la instalación del README apunta a este tag.
+
+### Cambios de comportamiento
+
+- `analyze` no analiza archivos de más de 1 MiB por defecto (`--max-file-bytes`; 0 = sin límite).
+- Glory solo se activa con el perfil Glory (carpeta `Glory`, profundidad 3) o con `rutasGlory`; las reglas genéricas no cambian.
+- Listas de exclusión únicas (`src/core/exclusiones.ts`): directorio-abarrotado ignora `vendor`/`out`; rust port-fs ignora `vendor`/`build`; phpConstantIndexer ignora `out`/`dist`/`build`/`target`/`.git`.
+- `rollback` sale con 1 cuando no restaura nada (antes salía 0).
+
+### Calidad y gate
+
+- CI con una sola invocación `npm run quality:check`, sin `continue-on-error`.
+- Listas de guard en una sola fuente (`src/core/guard/listasComandos.ts`); nombres de carpeta del guard y del scheduler en `src/core/marca.ts`.
+- Presets de `init` sin herramientas de git, python ni pip (`tools` vacío); test de presets contra `LISTA_TOOLS`.
+- `--analyzer-version` en la ayuda de `init`; `runCli` se toma de `cliMain`.
+- Límites de la lista rápida de git centralizados en `gitLimites.ts`.
+- Versionado el `Cargo.lock` del adaptador de Zed; tarea de autogate en el editor.
+
+### Instalación
+
+- Una sola vía de instalación: `npm run install:sentinel` (script y README).
+
+### Límites de análisis
+
+- `analyze` acepta `--max-file-bytes`, `--deadline-ms` (entre lotes) y `--max-findings`; el JSON añade el bloque `limites` y el Markdown muestra avisos `> Aviso:`.
+
 ## [0.7.27] - 2026-10-20
 
 > Recoge los cambios desde 0.7.26 (33 commits): endurecimiento de CI y autogate, revisión de terceros y correcciones de reglas.
