@@ -9,6 +9,7 @@ import { lstatSync, readFileSync } from 'node:fs';
 import { decisionForGuard } from './policyDecision';
 import { findQualityRoot, hasQualityMarker } from '../gate/scheduler';
 import { LEASE_ENV_VAR, verifyLease } from '../gate/lease';
+import { leerEntornoSentinel } from '../entorno/variablesSentinel';
 import { LISTA_CARGO_COMMANDS, LISTA_NPM_SCRIPTS, LISTA_TOOLS } from './listasComandos';
 
 export const QUALITY_GUARD_EXIT_CODE = 78;
@@ -154,12 +155,12 @@ export interface GuardDecision {
 
 export async function inspectDirectCommand(options: GuardInspectOptions = {}): Promise<GuardDecision> {
   const { executable = '', args = [], cwd = process.cwd(), projectRoot, env = process.env } = options;
-  const leasePath = env[LEASE_ENV_VAR];
+  const leasePath = leerEntornoSentinel(env, LEASE_ENV_VAR);
   /* [297A-58] Token legacy: las etapas internas del gate anterior se eximen
    * con un valor aleatorio por ejecución. [028A-6 Fase 2] Con lease presente
    * la exención pasa por el lease firmado (más abajo); el token solo aplica
    * cuando no hay lease (migración del orquestador anterior). */
-  if (!leasePath && env.GLORY_QUALITY_GATE_TOKEN) return { blocked: false, root: null, reason: 'legacy-token' };
+  if (!leasePath && leerEntornoSentinel(env, 'SENTINEL_GATE_TOKEN')) return { blocked: false, root: null, reason: 'legacy-token' };
   const candidate = await findQualityRoot(projectRoot ? path.resolve(projectRoot) : cwd);
   /* [028A-6] El fallback de findQualityRoot es el startPath; sin marcador
    * declarativo real no hay política que aplicar y el comando pasa. */

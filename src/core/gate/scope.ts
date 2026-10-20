@@ -9,6 +9,7 @@ import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { writeAtomic } from '../seguridad-rutas/atomicFile';
+import { leerEntornoSentinel } from '../entorno/variablesSentinel';
 import { conjuntoConstante } from '../../utils/conjuntoConstante';
 import { GIT_LISTA_MAX_BUFFER, GIT_LISTA_TIMEOUT_MS } from '../../utils/gitLimites';
 
@@ -237,9 +238,8 @@ export function resolveExplicitProfiles(
   env: NodeJS.ProcessEnv = process.env,
 ): { profiles: Set<string>; explicit: boolean; source: 'cli' | 'env' | null } {
   const cliProfiles = Array.isArray(args.profiles) ? args.profiles : [];
-  const envProfiles = typeof env.GLORY_QUALITY_PROFILE === 'string' && env.GLORY_QUALITY_PROFILE.trim().length > 0
-    ? env.GLORY_QUALITY_PROFILE.split(',').map(profile => profile.trim()).filter(Boolean)
-    : [];
+  /* Vacío o solo espacios → sin perfiles (el filtro descarta los tokens vacíos). */
+  const envProfiles = (leerEntornoSentinel(env, 'SENTINEL_PROFILE') ?? '').split(',').map(profile => profile.trim()).filter(Boolean);
   const requested = cliProfiles.length > 0 ? cliProfiles : envProfiles;
   if (requested.length === 0) return { profiles: new Set(), explicit: false, source: null };
   const unique = [...new Set(requested)];

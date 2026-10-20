@@ -2,7 +2,7 @@
  * ejecución un lease HMAC-SHA256 que exime a sus propias herramientas
  * pesadas de los shims interceptores, atado a PID emisor, proyecto,
  * expiración y task ID, con auditoría append-only. Sustituye el
- * GLORY_QUALITY_GATE_TOKEN plano (exención por mera presencia) por un
+ * SENTINEL_GATE_TOKEN plano (exención por mera presencia) por un
  * credencial verificable: un token robado o copiado deja de servir fuera
  * del árbol de procesos del gate, en otro proyecto o tras expirar.
  *

@@ -1,6 +1,6 @@
 /* [028A-6] Contrato de los leases: constantes y tipos compartidos por los
  * módulos lease*.ts. Sin lógica, así ningún módulo depende de otro al importarlo. */
-export const LEASE_ENV_VAR = 'GLORY_QUALITY_GATE_LEASE';
+export const LEASE_ENV_VAR = 'SENTINEL_GATE_LEASE';
 export const LEASE_DEFAULT_TTL_MS = 2 * 60 * 60 * 1000;
 
 export interface LeasePayload {

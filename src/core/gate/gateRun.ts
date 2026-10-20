@@ -18,6 +18,7 @@ import { ensureContainedDirectory } from '../seguridad-rutas/pathContainment';
 import { createReport, compactLines, GateStage, ReportPolicyIdentity } from './gateReport';
 import { issueLease, revokeLease, LEASE_ENV_VAR } from './lease';
 import type { IssuedLease } from './lease';
+import { fijarEntornoSentinel, leerEntornoSentinel } from '../entorno/variablesSentinel';
 import { policyDecision } from '../guard/policyDecision';
 import { recomendacionesPerfil } from '../perfil/perfilProyecto';
 
@@ -121,10 +122,11 @@ export async function runCheck(args: CheckRunArgs): Promise<CheckRunResult> {
    * token legacy y los shims nuevos no eximen (el guard bloquea, nunca
    * degrada a permisivo). El lease se revoca SIEMPRE al cerrar, aunque el
    * gate falle. */
-  const previousGateToken = process.env.GLORY_QUALITY_GATE_TOKEN;
-  const previousLeaseEnv = process.env[LEASE_ENV_VAR];
-  process.env.GLORY_QUALITY_GATE_TOKEN ||= globalThis.crypto?.randomUUID?.()
-    ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  const tokenPrevio = leerEntornoSentinel(process.env, 'SENTINEL_GATE_TOKEN');
+  const restaurarToken = fijarEntornoSentinel(process.env, 'SENTINEL_GATE_TOKEN', tokenPrevio
+    || globalThis.crypto?.randomUUID?.()
+    || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);
+  let restaurarLease: (() => void) | null = null;
   let issuedLease: IssuedLease | null = null;
   try {
     /* [108A-1 Fase 1] El lease es una escritura en el runtime (aunque
@@ -138,7 +140,7 @@ export async function runCheck(args: CheckRunArgs): Promise<CheckRunResult> {
           taskId: args.taskId ?? null,
           command: 'gate',
         });
-        process.env[LEASE_ENV_VAR] = issuedLease.path;
+        restaurarLease = fijarEntornoSentinel(process.env, LEASE_ENV_VAR, issuedLease.path);
       } catch (error) {
         /* Sin lease: el token legacy cubre las etapas, pero el operador debe
          * saber que los shims nuevos no eximirán (el guard bloquea, nunca
@@ -151,10 +153,8 @@ export async function runCheck(args: CheckRunArgs): Promise<CheckRunResult> {
     return await runCheckWithToken(args, workspace, reportRoot, requestedFull, requestedCi);
   } finally {
     if (issuedLease) await revokeLease({ leasePath: issuedLease.path }).catch(() => {});
-    if (previousLeaseEnv === undefined) delete process.env[LEASE_ENV_VAR];
-    else process.env[LEASE_ENV_VAR] = previousLeaseEnv;
-    if (previousGateToken === undefined) delete process.env.GLORY_QUALITY_GATE_TOKEN;
-    else process.env.GLORY_QUALITY_GATE_TOKEN = previousGateToken;
+    restaurarLease?.();
+    restaurarToken();
   }
 }
 

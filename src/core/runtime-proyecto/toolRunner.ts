@@ -12,10 +12,11 @@ const ENV_ALLOWLIST = [
   'DATABASE_URL', 'CARGO_TARGET_DIR_BASE', 'GLORY_CARGO_TARGET_DIR',
   /* [297A-58] El lease pesado adquirido por el gate debe llegar a los
    * subcomandos pesados; el guard del proyecto ya las reconoce como override
-   * sancionado. GLORY_QUALITY_GATE_TOKEN exime a las etapas internas del
+   * sancionado. SENTINEL_GATE_TOKEN exime a las etapas internas del
    * guard de comandos directos (solo lo conoce el árbol de procesos del
    * gate). */
-  'GLORY_HEAVY_RUN_TOKEN', 'GLORY_QUALITY_ALLOW_HEAVY', 'GLORY_QUALITY_GATE_TOKEN',
+  'GLORY_HEAVY_RUN_TOKEN', 'SENTINEL_ALLOW_HEAVY', 'SENTINEL_GATE_TOKEN',
+  'GLORY_QUALITY_ALLOW_HEAVY', 'GLORY_QUALITY_GATE_TOKEN',
   /* El motivo de un override pesado (--heavy-reason) debe llegar al guard del
    * subcomando; sin él el guard lo registra como `reason: null` y rechaza el
    * override. Sin esta clave, la sanción del gate se pierde en la frontera de
@@ -24,7 +25,7 @@ const ENV_ALLOWLIST = [
   /* [028A-6 Fase 2] El lease firmado del gate llega a los subcomandos por
    * env; los shims lo verifican (firma/proyecto/PID/expiración) para eximir
    * solo las herramientas pesadas de la ejecución actual. */
-  'GLORY_QUALITY_GATE_LEASE',
+  'SENTINEL_GATE_LEASE', 'GLORY_QUALITY_GATE_LEASE',
 ];
 const MAX_CAPTURE_BYTES = 64 * 1024;
 const activeChildren = new Set<ChildProcess>();

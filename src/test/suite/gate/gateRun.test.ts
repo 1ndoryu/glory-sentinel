@@ -48,7 +48,7 @@ suite('Sentinel core gate run (orquestador agnóstico)', () => {
       const stagesPath = path.join(root, 'stages-lease.json');
       fs.writeFileSync(stagesPath, JSON.stringify([{
         name: 'probe-lease', executable: process.execPath,
-        args: ['-e', "const fs=require('fs'); fs.writeFileSync(process.argv[1], process.env.GLORY_QUALITY_GATE_LEASE || ''); fs.writeFileSync(process.argv[2], JSON.stringify({schemaVersion:1,entries:[]}));", leaseCapture, '{reportPath}'],
+        args: ['-e', "const fs=require('fs'); fs.writeFileSync(process.argv[1], process.env.SENTINEL_GATE_LEASE || ''); fs.writeFileSync(process.argv[2], JSON.stringify({schemaVersion:1,entries:[]}));", leaseCapture, '{reportPath}'],
         expectedSchemaVersion: '1', timeoutMs: 10000,
       }]), 'utf8');
       const result = await runCheck({ workspace: root, reportRoot: path.join(root, '.quality-reports', 'check', 'RUN-LEASE'), dryRun: false, taskId: 'RUN-LEASE', stagesPath });

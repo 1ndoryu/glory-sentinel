@@ -5,13 +5,14 @@ import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import { writeAtomic } from '../../seguridad-rutas/atomicFile';
+import { leerEntornoSentinel } from '../../entorno/variablesSentinel';
 import { resolveGuardRoot, resolveTargetBase } from '../scheduler';
 import { LEASE_DEFAULT_TTL_MS, LEASE_ENV_VAR } from './leaseTipos';
 import type { IssueLeaseOptions, IssuedLease, LeaseFile } from './leaseTipos';
 import { loadOrCreateKey, normalizeRoot, signLease } from './leaseClave';
 import { appendAudit, leaseDir, pruneExpiredLeases } from './leaseRegistro';
 export function leaseTtlFromEnv(env: NodeJS.ProcessEnv = process.env): number {
-  const ms = Number(env.GLORY_QUALITY_GATE_LEASE_TTL_MS);
+  const ms = Number(leerEntornoSentinel(env, 'SENTINEL_GATE_LEASE_TTL_MS'));
   return Number.isFinite(ms) && ms > 0 ? ms : LEASE_DEFAULT_TTL_MS;
 }
 

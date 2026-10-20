@@ -10,6 +10,7 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import { tmpBaseDir } from '../seguridad-rutas/tmpDir';
 import { CARPETA_GUARD, CARPETA_TARGET } from '../marca';
+import { leerEntornoSentinel } from '../entorno/variablesSentinel';
 
 /* 0 = sin cooldown por defecto (decisión de la usuaria, 2026-10-12). Un proyecto
  * lo reactiva con heavyRun.cooldownMinutes > 0 en sentinel.config.json o quality.config.json. */
@@ -233,7 +234,7 @@ export function isHeavyOverride(options: { allowHeavy?: boolean; ci?: boolean } 
   return Boolean(
     options.allowHeavy
     || options.ci
-    || process.env.GLORY_QUALITY_ALLOW_HEAVY === '1'
+    || leerEntornoSentinel(process.env, 'SENTINEL_ALLOW_HEAVY') === '1'
     || process.env.GLORY_HEAVY_RUN_TOKEN,
   );
 }
