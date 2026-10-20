@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { inicializarGloryAnalyzer } from '../../analyzers/gloryAnalyzer';
+import { estaGloryActivo, inicializarGloryParaWorkspaces } from '../../analyzers/gloryAnalyzer';
 import { recargarSchema } from '../../analyzers/glory/schema/schemaLoader';
 import { recargarIslasRegistradas } from '../../analyzers/glory/calidad/islandTracker';
 import { actualizarArchivoEnIndice, recargarIndiceConstantes } from '../../analyzers/glory/constantes/phpConstantIndexer';
@@ -119,9 +119,11 @@ function registrarWatcherOpenapi(context: vscode.ExtensionContext, root: string)
   });
 }
 
-export function inicializarGloryAnalyzerVsCode(context: vscode.ExtensionContext): void {
+export async function inicializarGloryAnalyzerVsCode(context: vscode.ExtensionContext): Promise<void> {
   const roots = workspaceRootsFromVsCode();
-  inicializarGloryAnalyzer(roots);
+  await inicializarGloryParaWorkspaces(roots);
+  /* [SQ-3] Sin perfil Glory no hay índices que vigilar. */
+  if (!estaGloryActivo()) { return; }
 
   for (const root of roots) {
     registrarWatchersSchema(context, root);

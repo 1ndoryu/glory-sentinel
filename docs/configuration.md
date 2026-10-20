@@ -36,6 +36,10 @@ Las reglas de WordPress y de Glory vienen desactivadas por defecto, porque en un
 positivos. Si Sentinel detecta el perfil (carpeta `Glory`, `wp-content`, `wp-config.php` o un tema con
 `Theme Name:`), el informe del gate lo indica y sugiere la ruta exacta para activarlas. Nunca las activa solo.
 
+El analizador Glory (índices de schema, constantes, contratos API e islas, y las reglas `GlorySchema` como
+`api-endpoint-faltante`) solo se activa si el proyecto tiene carpeta `Glory` (profundidad máxima 3) o declara
+`rutasGlory`. En cualquier otro proyecto no indexa nada ni aplica esas reglas; las genéricas sí siguen activas.
+
 Las reglas portables de arquitectura usan fronteras por fragmento de ruta en `portableBoundaries`:
 `dom`, `window`, `services` y `loggerModules`. Si una clave se declara, sustituye su valor por defecto
 (`src/analyzers/static/portableRules.ts`, p. ej. `/platform/` y `/adapters/` en `dom`); una lista vacía

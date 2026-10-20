@@ -26,6 +26,7 @@ import { logInfo, logWarn } from '../../utils/logger';
 import { CoreApiRutas, CoreTextDocument, CoreWorkspaceContext } from '../../core/runtime-proyecto/types';
 import { resolverWorkspaceRoot } from '../../core/seguridad-rutas/workspaceRoots';
 import { reglaHabilitada } from '../../config/ruleRegistry';
+import { estaGloryActivo } from '../gloryAnalyzer';
 
 /* Defaults de mapeo (replica de wpJsonStub.ts del frontend Kamples). Se usan solo si el
  * sentinel.config.json no declara `apiRutas`; con esa clave, sus valores sustituyen a estos. */
@@ -185,6 +186,8 @@ function archivoAplica(fileName: string): boolean {
 
 export function analizarApiEndpoints(documento: CoreTextDocument, workspace?: CoreWorkspaceContext): Violacion[] {
   if (!archivoAplica(documento.fileName)) return [];
+  /* [SQ-3] openapi.json y services legacy son del framework Glory: sin perfil Glory no aplica. */
+  if (!estaGloryActivo()) return [];
   /* Desactivable desde la configuracion de reglas; sin ella no hay nada que comparar. */
   if (!reglaHabilitada('api-endpoint-faltante')) return [];
 

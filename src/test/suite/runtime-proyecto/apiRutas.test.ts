@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { buildCoreConfig, validateSentinelConfig } from '../../../core/runtime-proyecto/config';
 import { analizarApiEndpoints } from '../../../analyzers/externos/apiEndpointAnalyzer';
+import { inicializarGloryAnalyzer } from '../../../analyzers/gloryAnalyzer';
 import { createCoreDocument } from '../../../core/runtime-proyecto/types';
 import { tempDir } from '../../temporales';
 
@@ -24,6 +25,8 @@ suite('apiRutas configurable [T2b]', () => {
 
   test('el analyzer usa la tabla configurada en vez de los defaults', () => {
     const root = tempDir('api-rutas-');
+    /* [SQ-3] El analyzer solo corre con Glory activo: se activa explícitamente para este caso. */
+    inicializarGloryAnalyzer([root], {}, true);
     try {
       fs.writeFileSync(path.join(root, 'openapi.json'), JSON.stringify({ paths: { '/api/users/me': { get: {} } } }));
       const fileName = path.join(root, 'legacy', 'services', 'perfil.ts');
@@ -45,6 +48,7 @@ suite('apiRutas configurable [T2b]', () => {
       assert.strictEqual(sinMapeo.length, 1);
       assert.ok(sinMapeo[0].mensaje.includes('GET /api/me'));
     } finally {
+      inicializarGloryAnalyzer([], undefined, false);
       fs.rmSync(root, { recursive: true, force: true });
     }
   });

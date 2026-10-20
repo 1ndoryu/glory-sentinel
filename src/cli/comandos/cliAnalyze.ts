@@ -6,7 +6,7 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { Minimatch } from 'minimatch';
 import { analizarDocumento } from '../../analyzers/pipeline';
-import { inicializarGloryAnalyzer } from '../../analyzers/gloryAnalyzer';
+import { inicializarGloryParaWorkspaces } from '../../analyzers/gloryAnalyzer';
 import { limpiarDirectoriosReportados } from '../../analyzers/static/analisis/staticOrquestador';
 import { buildCoreConfig } from '../../core/runtime-proyecto/config';
 import { generarReporteMarkdown, CoreReportEntry } from '../../core/diagnostico/report';
@@ -193,7 +193,7 @@ export async function analyzeCliTarget(args: ParsedCliArgs): Promise<CliAnalysis
   const workspacePath = path.resolve(args.workspacePath ?? process.cwd());
   const configFile = await readConfig(args.configPath, workspacePath);
   const config = buildCoreConfig(configFile);
-  inicializarGloryAnalyzer([workspacePath], config.rutasGlory);
+  await inicializarGloryParaWorkspaces([workspacePath], config.rutasGlory);
   /* [por que] La dedup de directorio-abarrotado vive a nivel de módulo: sin limpiarla, un segundo
    * analyze en el mismo proceso (tests, uso como librería) perdería ese hallazgo. */
   limpiarDirectoriosReportados();

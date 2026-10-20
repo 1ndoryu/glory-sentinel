@@ -29,7 +29,7 @@ import {
  * Funcion de activacion de la extension.
  * Se ejecuta cuando se abre un archivo de un lenguaje soportado.
  */
-export function activate(context: vscode.ExtensionContext): void {
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
   /* Canal de output PRIMERO para que todos los logs sean visibles: el logger
    * no conoce vscode, así que el canal se crea aquí y se inyecta. */
   const canal = vscode.window.createOutputChannel('Code Sentinel');
@@ -46,7 +46,7 @@ export function activate(context: vscode.ExtensionContext): void {
   inicializarDiagnosticProvider(context);
 
   /* Inicializar Glory analyzer (carga Schema Cols/Enums y watcher) */
-  inicializarGloryAnalyzerVsCode(context);
+  await inicializarGloryAnalyzerVsCode(context);
 
   /* Registrar CodeActionProvider para quick fixes */
   const selectorDocumentos: vscode.DocumentSelector = config.languages.map(lang => ({

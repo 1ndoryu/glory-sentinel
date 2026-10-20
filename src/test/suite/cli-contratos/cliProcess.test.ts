@@ -87,6 +87,8 @@ suite('CLI de proceso — stdout/stderr, doctor y dry-run (108A-1 Fase 1)', () =
   test('analyze --format json: stdout es un único JSON y los diagnósticos del analyzer van a stderr', () => {
     const workspace = makeWorkspace(false);
     try {
+      /* [SQ-3] Los warnings de Glory/apiEndpoint solo existen con perfil Glory: el workspace lo declara. */
+      fs.mkdirSync(path.join(workspace, 'Glory'));
       const result = runCli(['analyze', '--workspace', workspace, '--format', 'json'], workspace);
       assert.strictEqual(result.status, 0, `exit 0 esperado; stderr=${result.stderr}`);
       const parsed = parseJsonOutput(result.stdout, 'analyze --format json');

@@ -18,7 +18,7 @@ import { analizarDocumento } from '../analyzers/pipeline';
 import { buildCoreConfig, SentinelConfigFile } from '../core/runtime-proyecto/config';
 import { CoreRutasGlory, createCoreDocument } from '../core/runtime-proyecto/types';
 import { languageIdForFile } from '../core/runtime-proyecto/language';
-import { inicializarGloryAnalyzer } from '../analyzers/gloryAnalyzer';
+import { inicializarGloryParaWorkspaces } from '../analyzers/gloryAnalyzer';
 import { logError } from '../utils/logger';
 import { invalidarOpenapiIndex } from '../analyzers/externos/apiEndpointAnalyzer';
 import { invalidarIndiceProyecto } from '../utils/analisis/indiceProyecto';
@@ -27,9 +27,10 @@ import { findingToLspDiagnostic } from './diagnostics';
 const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
 let workspaceRoot: string | undefined;
-let initializedWorkspaceRoot: string | undefined;
-/* Rutas Glory con las que se indexó; si el config cambia, hay que reindexar aunque la raíz sea la misma. */
-let initializedRutasGlory = '';
+/* Inicialización en curso o terminada. Se guarda la promesa para que validaciones concurrentes esperen la misma. */
+let initialization: Promise<void> | undefined;
+/* Raíz + rutas Glory con las que se indexó; si cambia cualquiera, hay que reindexar. */
+let initializedKey = '';
 
 function fsPathFromUri(uri: string): string {
   try {
@@ -90,7 +91,7 @@ async function validateTextDocument(document: TextDocument): Promise<void> {
 
   try {
     const config = buildCoreConfig(await readConfig(rootPath));
-    ensureWorkspaceInitialized(rootPath, config.rutasGlory);
+    await ensureWorkspaceInitialized(rootPath, config.rutasGlory);
     const findings = analizarDocumento(
       coreDocumentFromLsp(document),
       config,
@@ -112,15 +113,20 @@ async function validateTextDocument(document: TextDocument): Promise<void> {
   }
 }
 
-function ensureWorkspaceInitialized(rootPath: string, rutasGlory?: CoreRutasGlory): void {
-  const claveRutas = JSON.stringify(rutasGlory ?? {});
-  if (initializedWorkspaceRoot === rootPath && initializedRutasGlory === claveRutas) {
-    return;
+/* [SQ-3] La activación Glory depende del perfil del proyecto (async), así que se espera antes de analizar. */
+function ensureWorkspaceInitialized(rootPath: string, rutasGlory?: CoreRutasGlory): Promise<void> {
+  const clave = `${rootPath}\n${JSON.stringify(rutasGlory ?? {})}`;
+  if (initialization && initializedKey === clave) {
+    return initialization;
   }
 
-  initializedWorkspaceRoot = rootPath;
-  initializedRutasGlory = claveRutas;
-  inicializarGloryAnalyzer([rootPath], rutasGlory);
+  initializedKey = clave;
+  /* Si falla, se olvida la promesa para reintentar en la siguiente validación. */
+  initialization = inicializarGloryParaWorkspaces([rootPath], rutasGlory).catch(error => {
+    initialization = undefined;
+    throw error;
+  });
+  return initialization;
 }
 
 /* [por que] Cada tecla dispara onDidChangeContent: se espera a que la edición pare
@@ -150,16 +156,11 @@ function validateAllOpenDocuments(): void {
   }
 }
 
+/* Olvida la inicialización: la siguiente validación reindexa con la config vigente. */
 function reloadWorkspaceIndexes(rootPath?: string): void {
   invalidarOpenapiIndex(rootPath);
   invalidarIndiceProyecto();
-  if (!rootPath) {
-    initializedWorkspaceRoot = undefined;
-    return;
-  }
-
-  initializedWorkspaceRoot = undefined;
-  ensureWorkspaceInitialized(rootPath);
+  initialization = undefined;
 }
 
 connection.onInitialize((params: InitializeParams): InitializeResult => {
