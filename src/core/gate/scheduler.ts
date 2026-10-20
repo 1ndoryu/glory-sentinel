@@ -9,12 +9,13 @@ import { lstatSync } from 'node:fs';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import { tmpBaseDir } from '../seguridad-rutas/tmpDir';
+import { CARPETA_GUARD, CARPETA_TARGET } from '../marca';
 
 /* 0 = sin cooldown por defecto (decisión de la usuaria, 2026-10-12). Un proyecto
  * lo reactiva con heavyRun.cooldownMinutes > 0 en sentinel.config.json o quality.config.json. */
 const DEFAULT_COOLDOWN_MS = 0;
 /* Mismo criterio que tmpBaseDir: C:/tmp en Windows, os.tmpdir() en el resto. */
-const DEFAULT_TARGET_BASE = path.join(tmpBaseDir(), 'glory-target');
+const DEFAULT_TARGET_BASE = path.join(tmpBaseDir(), CARPETA_TARGET);
 
 export interface HeavyRunOptions {
   projectRoot: string;
@@ -72,7 +73,7 @@ export function resolveTargetBase(): string {
 }
 
 export function resolveGuardRoot(targetBase: string = resolveTargetBase()): string {
-  return path.join(path.dirname(path.resolve(targetBase)), 'glory-quality-guard');
+  return path.join(path.dirname(path.resolve(targetBase)), CARPETA_GUARD);
 }
 
 function statePath(targetBase: string): string {

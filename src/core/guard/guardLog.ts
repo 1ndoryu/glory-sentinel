@@ -7,6 +7,7 @@ import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import { cargoSubcommand, type GuardDecision } from './guardCommand';
 import { tmpBaseDir } from '../seguridad-rutas/tmpDir';
+import { CARPETA_GUARD } from '../marca';
 
 /* Tope por fichero: al superarlo se rota a guard-log.1.ndjson (sustituye al
  * anterior), así el total queda acotado a ~2 MiB. */
@@ -18,7 +19,7 @@ const COMANDO_MAX_CHARS = 120;
 /* GLORY_GUARD_LOG_DIR permite aislar el registro (los tests lo fijan). */
 export function guardLogDir(env: NodeJS.ProcessEnv = process.env): string {
   if (env.GLORY_GUARD_LOG_DIR) return env.GLORY_GUARD_LOG_DIR;
-  return path.join(tmpBaseDir(env), 'glory-quality-guard');
+  return path.join(tmpBaseDir(env), CARPETA_GUARD);
 }
 
 /* Solo ejecutable y subcomando: nunca el resto de argumentos (pueden llevar
