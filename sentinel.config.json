@@ -10,7 +10,7 @@
   "rules": {},
   "guard": {
     "directCommands": {
-      "npmScripts": ["lint", "test", "build", "check"],
+      "npmScripts": ["lint", "test", "test:unit", "quality:check"],
       "npxTools": ["eslint", "tsc", "typescript"],
       "cargoSubcommands": [],
       "tools": []

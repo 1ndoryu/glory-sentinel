@@ -9,21 +9,17 @@ import { lstatSync, readFileSync } from 'node:fs';
 import { decisionForGuard } from './policyDecision';
 import { findQualityRoot, hasQualityMarker } from '../gate/scheduler';
 import { LEASE_ENV_VAR, verifyLease } from '../gate/lease';
+import { LISTA_CARGO_COMMANDS, LISTA_NPM_SCRIPTS, LISTA_TOOLS } from './listasComandos';
 
 export const QUALITY_GUARD_EXIT_CODE = 78;
 // Tope de la política v2: una configuración real pesa unos KB; más de 1 MiB no es una política válida.
 const TAMANO_MAX_POLITICA_BYTES = 1024 * 1024;
 
-/* Defaults genéricos de herramientas que deben entrar por el gate. La
- * política v2 de un proyecto puede sobrescribirlos. */
-export const BLOCKED_NPM_SCRIPTS = Object.freeze([
-  '__sentinel_guard_probe__',
-  'test', 'test:changed', 'test:full', 'test:file', 'test:watch',
-  'type-check', 'lint', 'check', 'check:back', 'check:front',
-  'fmt', 'fmt:check', 'build',
-]);
-export const BLOCKED_TOOLS = Object.freeze(['vitest', 'tsc', 'eslint', 'prettier', 'rustfmt']);
-export const BLOCKED_CARGO_COMMANDS = Object.freeze(['check', 'clippy', 'test', 'bench', 'fmt']);
+/* Defaults genéricos de fallback (sin política v2); la política de un proyecto
+ * puede sobrescribirlos. Viven en listasComandos.ts, única fuente. */
+export const BLOCKED_NPM_SCRIPTS = LISTA_NPM_SCRIPTS;
+export const BLOCKED_TOOLS = LISTA_TOOLS;
+export const BLOCKED_CARGO_COMMANDS = LISTA_CARGO_COMMANDS;
 
 function normalizeExecutable(value = ''): string {
   return path.basename(String(value)).toLowerCase().replace(/\.(cmd|exe)$/u, '');
