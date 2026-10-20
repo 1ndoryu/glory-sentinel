@@ -16,6 +16,13 @@
     ]
   },
   {
+    "label": "Glory Sentinel: autogate",
+    "command": "node",
+    "args": [
+      "scripts/autogate.mjs"
+    ]
+  },
+  {
     "label": "Glory Sentinel: archivo JSON",
     "command": "npm",
     "args": [
