@@ -1,6 +1,6 @@
 /* [M-S3] Validadores de los bloques de sentinel.config.json añadidos después. Viven aparte
  * para que config.ts no supere el límite de líneas por archivo. */
-import { PERFILES_EXENCION } from '../../../config/exencionesProyecto';
+import { PERFILES_EXENCION } from '../../../config/perfilesExencion';
 
 const EXENCIONES_KEYS = new Set(['perfil', 'rutas', 'componentes']);
 

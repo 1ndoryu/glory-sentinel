@@ -2,19 +2,9 @@
  * Por defecto no exime nada; el proyecto activa un perfil con nombre (p. ej. "glory")
  * o lista sus propias rutas y componentes. Mismo patron de setter que marcadoresGlory. */
 import type { CoreExenciones } from '../core/runtime-proyecto/types';
+import { ExencionesResueltas, PERFILES_EXENCION } from './perfilesExencion';
 
-export interface ExencionesResueltas {
-  rutas: string[];
-  componentes: string[];
-}
-
-/* Perfiles conocidos. Cada uno agrupa lo que el framework Glory define por su cuenta. */
-export const PERFILES_EXENCION: Readonly<Record<string, ExencionesResueltas>> = {
-  glory: {
-    rutas: ['/glory-rs/', '/public/assets/'],
-    componentes: ['PageRenderer', 'ModalAcciones', 'GloryLink', 'Range'],
-  },
-};
+export type { ExencionesResueltas } from './perfilesExencion';
 
 export const SIN_EXENCIONES: ExencionesResueltas = { rutas: [], componentes: [] };
 

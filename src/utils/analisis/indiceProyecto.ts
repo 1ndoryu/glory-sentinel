@@ -5,7 +5,9 @@ import { leerAliases } from './indiceAlias';
 import { indexarCss, indexarJsx } from './indiceJsxCss';
 import { recorrerFicherosSync } from '../recorrido';
 
-/* Cache por conjunto de roots: el indice se reconstruye solo si cambian. Solo lo usa este modulo. */
+/* Cache por conjunto de roots: el indice se reconstruye solo si cambian. Solo lo usa este modulo.
+ * Acotada: un proceso LSP que visita muchos workspaces no debe acumular indices sin tope. */
+const MAX_INDICES_CACHEADOS = 8;
 const cacheIndice = new Map<string, IndiceProyecto>();
 const RE_FUENTE_JS = /\.(?:ts|tsx|js|jsx)$/;
 const RE_FUENTE_INDICE = /\.(?:ts|tsx|js|jsx|css)$/;
@@ -68,6 +70,11 @@ export function indiceProyecto(roots: string[]): IndiceProyecto {
     }
   }
 
+  /* Al llegar al tope se desaloja la entrada más antigua (orden de inserción del Map). */
+  if (cacheIndice.size >= MAX_INDICES_CACHEADOS) {
+    const masAntigua = cacheIndice.keys().next().value;
+    if (masAntigua !== undefined) { cacheIndice.delete(masAntigua); }
+  }
   cacheIndice.set(clave, indice);
   return indice;
 }
