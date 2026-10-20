@@ -2,7 +2,7 @@
 
 ## [0.7.28] - 2026-10-20
 
-> Recoge los cambios desde 0.7.27 (16 commits). Primer tag con `install:sentinel`: la instalación del README apunta a este tag.
+> Recoge los cambios desde 0.7.27 (16 commits). Primer tag con `install:sentinel`. El README instala desde `main`, que incluye los cambios posteriores a este tag.
 
 ### Cambios de comportamiento
 

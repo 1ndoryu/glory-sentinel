@@ -120,10 +120,10 @@ Los consumidores antiguos pueden conservar temporalmente `task:check` o `scripts
 
 ## Instalación desde un release
 
-Mientras no exista un paquete publicado para tu registry, instala desde el tag `v0.7.28`, el primero que incluye `install:sentinel`. Es la única vía documentada.
+Mientras no exista un paquete publicado para tu registry, instala desde la rama `main`. Es la única vía documentada: el tag `v0.7.28` es la release histórica (la primera con `install:sentinel`) y no incluye los cambios posteriores.
 
 ```bash
-git clone --branch v0.7.28 --depth 1 https://github.com/1ndoryu/glory-sentinel.git
+git clone --branch main --depth 1 https://github.com/1ndoryu/glory-sentinel.git
 cd glory-sentinel
 npm ci
 npm run install:sentinel
@@ -230,7 +230,7 @@ La coordinación es opcional: puedes usar Sentinel únicamente como analizador o
 | 0.6.x   | Preflight fail-closed, validación de release y recuperación segura    |
 | 0.7.x   | `init`, `migrate`, `uninit`, readiness separada y stages declarativos |
 
-La versión actual es **0.7.28** (`v0.7.28`), la que fija la instalación de arriba. Los cambios por versión están en el [CHANGELOG](CHANGELOG.md).
+La versión del paquete es **0.7.28** (tag `v0.7.28`); la rama `main` contiene los cambios posteriores, que aún no tienen versión ni tag. Los cambios por versión están en el [CHANGELOG](CHANGELOG.md).
 
 ## Documentación
 
