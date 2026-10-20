@@ -44,9 +44,7 @@ import {
   verificarModalAccionesNoCanonico,
   verificarModalEstructuraNoCanonica,
   verificarMenuContextualOverride,
-  configurarWorkspaceRootsReact,
-  configurarBasesUiReact,
-  obtenerWorkspaceRootsReact,
+  crearCatalogoUiReact,
 } from './reglas/reactComponentRules';
 import { verificarFormularioConfigSinSistema } from './formularioConfigSystem';
 import { verificarAccesoApiSinFallback } from '../glory/api/apiFallbackRules';
@@ -64,8 +62,8 @@ export interface ReactAnalysisOptions {
  * Complementa al staticAnalyzer con detecciones mas contextuales.
  */
 export function analizarReact(documento: CoreTextDocument, opciones: ReactAnalysisOptions = {}): Violacion[] {
-  configurarWorkspaceRootsReact(opciones.workspaceRoots ?? []);
-  configurarBasesUiReact(opciones.carpetasUi);
+  /* Catálogo propio de este análisis: sus raíces y carpetas no se filtran a otros archivos. */
+  const catalogo = crearCatalogoUiReact(opciones.workspaceRoots ?? [], opciones.carpetasUi);
   const texto = documento.getText();
   const lineas = texto.split('\n');
   const nombreArchivo = path.basename(documento.fileName);
@@ -122,7 +120,7 @@ export function analizarReact(documento: CoreTextDocument, opciones: ReactAnalys
       violaciones.push(...verificarPromiseSinCatch(lineas));
     }
     if (reglaHabilitada('html-nativo-en-vez-de-componente') && !esWrapperSistemaDiseno(documento.fileName)) {
-      violaciones.push(...verificarHtmlNativoEnVezDeComponente(lineas, nombreArchivo, ajustes));
+      violaciones.push(...verificarHtmlNativoEnVezDeComponente(lineas, nombreArchivo, ajustes, catalogo));
     }
     if (reglaHabilitada('formulario-config-sin-sistema-declarativo')) {
       violaciones.push(...verificarFormularioConfigSinSistema(lineas, nombreArchivo));
@@ -156,13 +154,13 @@ export function analizarReact(documento: CoreTextDocument, opciones: ReactAnalys
     }
     if (reglaHabilitada('modal-acciones-no-canonico')) {
       /* [15A-25] Coste con cache; solo se calcula si la regla esta habilitada. */
-      violaciones.push(...verificarModalAccionesNoCanonico(lineas, obtenerWorkspaceRootsReact()));
+      violaciones.push(...verificarModalAccionesNoCanonico(lineas, catalogo.roots));
     }
     if (reglaHabilitada('modal-estructura-no-canonica')) {
       /* [119A-4 S4] Coste con cache; solo se calcula si la regla esta habilitada. */
-      const tieneModalCanonico = proyectoTieneModalCanonico(obtenerWorkspaceRootsReact());
+      const tieneModalCanonico = proyectoTieneModalCanonico(catalogo.roots);
       /* [15A-25] Un <Modal className="X"> no redefine el contenedor: lo append. */
-      const fusionaClassName = indiceProyecto(obtenerWorkspaceRootsReact()).modalFusionaClassName;
+      const fusionaClassName = indiceProyecto(catalogo.roots).modalFusionaClassName;
       violaciones.push(...verificarModalEstructuraNoCanonica(lineas, nombreArchivo, tieneModalCanonico, fusionaClassName));
     }
     if (reglaHabilitada('menu-contextual-override-diseno')) {

@@ -9,7 +9,7 @@ import { obtenerSeveridadRegla } from '../../../config/ruleRegistry';
 import { componenteExentoPorProyecto } from '../../../config/exencionesProyecto';
 import { AjustesProyecto, AJUSTES_PROYECTO_DEFECTO } from '../../ajustesProyecto';
 import { esComentario, tieneSentinelDisable, tieneSentinelDisableFile } from '../../../utils/analisisHelpers';
-import { existeComponenteUi } from './reactUiCatalog';
+import { CatalogoUiReact, crearCatalogoUiReact } from './reactUiCatalog';
 
 /* [08AA-26] components/ui es el sistema de diseno: sus wrappers construyen el elemento
  * nativo a proposito (ui/textarea.tsx envuelve <textarea>). La regla vigila el uso en la
@@ -31,7 +31,12 @@ export function esDisparadorDisclosure(lineas: string[], i: number): boolean {
  * Excluye: archivos que SON los propios componentes UI, tests,
  * wrappers (Campo*, Toggle*, Switch*), Glory framework.
  */
-export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArchivo: string, ajustes: AjustesProyecto = AJUSTES_PROYECTO_DEFECTO): Violacion[] {
+export function verificarHtmlNativoEnVezDeComponente(
+  lineas: string[],
+  nombreArchivo: string,
+  ajustes: AjustesProyecto = AJUSTES_PROYECTO_DEFECTO,
+  catalogo: CatalogoUiReact = crearCatalogoUiReact([]),
+): Violacion[] {
   /* Componentes propios del proyecto (Boton, Input...) que renderizan HTML nativo a propósito.
    * Los del framework Glory (GloryLink, PageRenderer...) salen del perfil `glory`. */
   const archivosExcluidos = [
@@ -56,13 +61,13 @@ export function verificarHtmlNativoEnVezDeComponente(lineas: string[], nombreArc
   const texto = lineas.join('\n');
   if (tieneSentinelDisableFile(texto, 'html-nativo-en-vez-de-componente')) { return []; }
 
-  const tieneBotonUi = existeComponenteUi(['Button', 'Boton', 'BotonBase']);
-  const tieneInputUi = existeComponenteUi(['Input', 'CampoTexto']);
-  const tieneTextareaUi = existeComponenteUi(['Textarea']);
-  const tieneGloryLinkUi = existeComponenteUi(['GloryLink']);
+  const tieneBotonUi = catalogo.existe(['Button', 'Boton', 'BotonBase']);
+  const tieneInputUi = catalogo.existe(['Input', 'CampoTexto']);
+  const tieneTextareaUi = catalogo.existe(['Textarea']);
+  const tieneGloryLinkUi = catalogo.existe(['GloryLink']);
   /* [318A-3] El aviso de <Select> deprecado solo aplica donde existe SelectDropdown
    * (rule 205A-2); en proyectos con Select propio y sin SelectDropdown era FP puro. */
-  const tieneSelectDropdownUi = existeComponenteUi(['SelectDropdown']);
+  const tieneSelectDropdownUi = catalogo.existe(['SelectDropdown']);
 
   for (let i = 0; i < lineas.length; i++) {
     const linea = lineas[i];

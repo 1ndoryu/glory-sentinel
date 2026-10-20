@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
-import { verificarHtmlNativoEnVezDeComponente, configurarWorkspaceRootsReact } from '../../../analyzers/react/reglas/reactComponentRules';
+import { verificarHtmlNativoEnVezDeComponente, crearCatalogoUiReact } from '../../../analyzers/react/reglas/reactComponentRules';
 import { tempDir } from '../../temporales';
 import { resolverAjustesProyecto } from '../../../analyzers/ajustesProyecto';
 
@@ -46,12 +46,11 @@ suite('base-rutas-components-ui-318a3', () => {
   test('detecta componentes UI en frontend/src/app/components/ui', () => {
     const raiz = crearFixture();
     try {
-      configurarWorkspaceRootsReact([raiz]);
       const violaciones = verificarHtmlNativoEnVezDeComponente([
         '<button onClick={guardar}>Guardar</button>',
         '<input value={draft} onChange={cambiar} />',
         '<textarea value={texto} onChange={cambiar} />',
-      ], 'Pagina.tsx');
+      ], 'Pagina.tsx', undefined, crearCatalogoUiReact([raiz]));
       assert.strictEqual(violaciones.length, 3);
     } finally {
       fs.rmSync(raiz, {recursive: true, force: true});
@@ -62,11 +61,10 @@ suite('base-rutas-components-ui-318a3', () => {
   test('Range (components/shared) no se auto-flaggea si el proyecto lo declara', () => {
     const raiz = crearFixture();
     try {
-      configurarWorkspaceRootsReact([raiz]);
       const ajustes = resolverAjustesProyecto({ exenciones: { componentes: ['Range'] } });
       const violaciones = verificarHtmlNativoEnVezDeComponente([
         '<input type="range" min={0} max={100} value={v} onChange={cambiar} />',
-      ], 'Range.tsx', ajustes);
+      ], 'Range.tsx', ajustes, crearCatalogoUiReact([raiz]));
       assert.strictEqual(violaciones.length, 0);
     } finally {
       fs.rmSync(raiz, {recursive: true, force: true});
@@ -76,10 +74,9 @@ suite('base-rutas-components-ui-318a3', () => {
   test('<Select> no se marca deprecated cuando no existe SelectDropdown', () => {
     const raiz = crearFixture();
     try {
-      configurarWorkspaceRootsReact([raiz]);
       const violaciones = verificarHtmlNativoEnVezDeComponente([
         '<Select claseAdicional="x" opciones={opciones} value={v} onChange={c>} />',
-      ], 'Formulario.tsx');
+      ], 'Formulario.tsx', undefined, crearCatalogoUiReact([raiz]));
       assert.strictEqual(violaciones.length, 0);
     } finally {
       fs.rmSync(raiz, {recursive: true, force: true});

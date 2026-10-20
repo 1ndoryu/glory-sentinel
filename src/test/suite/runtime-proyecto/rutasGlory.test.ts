@@ -3,8 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { buildCoreConfig, validateSentinelConfig } from '../../../core/runtime-proyecto/config';
 import { configurarRutasControllers, obtenerRutasControllers } from '../../../analyzers/glory/api/apiContractIndexer';
-import { configurarBasesUiReact, existeComponenteUi } from '../../../analyzers/react/reglas/reactUiCatalog';
-import { configurarWorkspaceRootsReact } from '../../../analyzers/react/reglas/reactComponentRules';
+import { crearCatalogoUiReact } from '../../../analyzers/react/reglas/reactUiCatalog';
 import { tempDir } from '../../temporales';
 
 /* [T2c] `rutasGlory` del sentinel.config.json sustituye las carpetas Glory por defecto
@@ -14,8 +13,6 @@ suite('rutasGlory configurable [T2c]', () => {
 
   teardown(() => {
     configurarRutasControllers(undefined);
-    configurarBasesUiReact(undefined);
-    configurarWorkspaceRootsReact([]);
   });
 
   test('acepta el contrato y lo pasa a la config del core', () => {
@@ -48,15 +45,28 @@ suite('rutasGlory configurable [T2c]', () => {
     try {
       fs.mkdirSync(path.join(root, 'mi-ui'), { recursive: true });
       fs.writeFileSync(path.join(root, 'mi-ui', 'Boton.tsx'), '');
-      configurarWorkspaceRootsReact([root]);
 
       /* Con los defaults, mi-ui no es una carpeta de design system. */
-      configurarBasesUiReact(undefined);
-      assert.strictEqual(existeComponenteUi(['Boton']), false);
+      assert.strictEqual(crearCatalogoUiReact([root]).existe(['Boton']), false);
 
-      /* Al configurarla, el componente aparece. El cambio de bases vacia la cache de existencia. */
-      configurarBasesUiReact([['mi-ui']]);
-      assert.strictEqual(existeComponenteUi(['Boton']), true);
+      /* Con la carpeta configurada, el componente aparece. */
+      assert.strictEqual(crearCatalogoUiReact([root], [['mi-ui']]).existe(['Boton']), true);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  /* [M-S13] Cada catálogo tiene sus raíces y su caché: uno no hereda lo del anterior. */
+  test('dos catalogos no comparten raices ni cache', () => {
+    const root = tempDir('rutas-glory-aislado-');
+    try {
+      fs.mkdirSync(path.join(root, 'mi-ui'), { recursive: true });
+      fs.writeFileSync(path.join(root, 'mi-ui', 'Boton.tsx'), '');
+      const conRaiz = crearCatalogoUiReact([root], [['mi-ui']]);
+      const sinRaiz = crearCatalogoUiReact([], [['mi-ui']]);
+
+      assert.strictEqual(conRaiz.existe(['Boton']), true);
+      assert.strictEqual(sinRaiz.existe(['Boton']), false);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }

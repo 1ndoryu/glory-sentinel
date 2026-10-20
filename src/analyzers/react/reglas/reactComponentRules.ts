@@ -4,7 +4,8 @@
  * los importadores (reactAnalyzer, tests) no cambien.
  */
 
-export { configurarWorkspaceRootsReact, obtenerWorkspaceRootsReact, configurarBasesUiReact } from './reactUiCatalog';
+export { crearCatalogoUiReact } from './reactUiCatalog';
+export type { CatalogoUiReact } from './reactUiCatalog';
 export {
   verificarModalConTitulo,
   verificarModalAccionesNoCanonico,

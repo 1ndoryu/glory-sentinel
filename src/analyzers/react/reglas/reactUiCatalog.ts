@@ -1,15 +1,12 @@
 /*
  * Catálogo del design system UI del workspace para las reglas React.
  * Responde si un componente canónico (Button, Input...) existe en alguna
- * raíz del workspace. Extraído de reactComponentRules.ts sin cambio de
- * comportamiento: la caché es de módulo y se vacía al reconfigurar las raíces.
+ * raíz del workspace. Cada análisis crea el suyo con sus raíces y carpetas:
+ * sin estado de módulo, dos análisis no se pisan la configuración ni la caché [M-S13].
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
-
-const cacheComponentesUi = new Map<string, boolean>();
-let workspaceRootsReact: string[] = [];
 
 /* Carpetas (segmentos desde cada raiz) donde vive el design system. Por defecto cubre los
  * layouts conocidos de los proyectos Glory; `rutasGlory.carpetasUi` del config las sustituye. */
@@ -24,58 +21,44 @@ const BASES_UI_REACT_POR_DEFECTO: string[][] = [
   ['frontend', 'src', 'app', 'components', 'shared'],
 ];
 
-let basesUiReact: string[][] = BASES_UI_REACT_POR_DEFECTO;
+const EXTENSIONES_UI = ['tsx', 'ts', 'jsx', 'js'];
 
-const claveBases = (bases: string[][]): string => bases.map(segmentos => segmentos.join('/')).join('|');
-
-/* Lista vacia o ausente = defaults. Si cambia, la cache de existencia deja de ser valida y se vacia. */
-export function configurarBasesUiReact(bases?: string[][]): void {
-  const nuevas = bases && bases.length > 0 ? bases : BASES_UI_REACT_POR_DEFECTO;
-  if (claveBases(nuevas) === claveBases(basesUiReact)) {
-    return;
-  }
-
-  basesUiReact = nuevas;
-  cacheComponentesUi.clear();
+export interface CatalogoUiReact {
+  /* Raíces normalizadas (barras '/'); las usan también los análisis de modal. */
+  roots: string[];
+  existe(nombres: string[]): boolean;
 }
 
-export function configurarWorkspaceRootsReact(roots: string[]): void {
-  const normalizadas = roots.map(root => root.replace(/\\/g, '/'));
-  if (normalizadas.join('|') === workspaceRootsReact.join('|')) {
-    return;
-  }
+/* Sin raíces, nada existe (la regla no flaggea). Bases vacías o ausentes = defaults. */
+export function crearCatalogoUiReact(roots: string[], bases?: string[][]): CatalogoUiReact {
+  const raices = roots.map(root => root.replace(/\\/g, '/'));
+  const carpetas = bases && bases.length > 0 ? bases : BASES_UI_REACT_POR_DEFECTO;
+  /* Caché propia del catálogo: vive lo que dura el análisis que lo creó. */
+  const cache = new Map<string, boolean>();
 
-  workspaceRootsReact = normalizadas;
-  cacheComponentesUi.clear();
+  return {
+    roots: raices,
+    existe(nombres: string[]): boolean {
+      const clave = nombres.join('|');
+      const cached = cache.get(clave);
+      if (cached !== undefined) { return cached; }
+
+      const encontrado = buscarComponenteUi(raices, carpetas, nombres);
+      cache.set(clave, encontrado);
+      return encontrado;
+    },
+  };
 }
 
-/* [119A-4 S4] Expone las roots para que reactAnalyzer calcule
- * proyectoTieneModalCanonico() una vez por archivo. */
-export function obtenerWorkspaceRootsReact(): string[] {
-  return workspaceRootsReact;
-}
-
-export function existeComponenteUi(nombres: string[]): boolean {
-  const cacheKey = nombres.join('|');
-  const cached = cacheComponentesUi.get(cacheKey);
-  if (cached !== undefined) { return cached; }
-
-  const extensiones = ['tsx', 'ts', 'jsx', 'js'];
-
-  for (const workspaceRoot of workspaceRootsReact) {
-    for (const segmentosBase of basesUiReact) {
+function buscarComponenteUi(raices: string[], carpetas: string[][], nombres: string[]): boolean {
+  for (const raiz of raices) {
+    for (const segmentos of carpetas) {
       for (const nombre of nombres) {
-        for (const extension of extensiones) {
-          const rutaArchivo = path.join(workspaceRoot, ...segmentosBase, `${nombre}.${extension}`);
-          if (fs.existsSync(rutaArchivo)) {
-            cacheComponentesUi.set(cacheKey, true);
-            return true;
-          }
+        for (const extension of EXTENSIONES_UI) {
+          if (fs.existsSync(path.join(raiz, ...segmentos, `${nombre}.${extension}`))) { return true; }
         }
       }
     }
   }
-
-  cacheComponentesUi.set(cacheKey, false);
   return false;
 }
