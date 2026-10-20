@@ -2,15 +2,7 @@
 
 ## Proyecto nuevo
 
-Con un release que exponga las capabilities requeridas:
-
-```bash
-sentinel init --preset <node|rust|python|mixed> --project-root . --primary-branch <rama-real>
-sentinel doctor --json --workspace .
-npm run gate:check -- BOOTSTRAP-01
-```
-
-`init --dry-run` no muta. `doctor` distingue `readyForAnalyze` de `readyForGate`.
+La receta de alta (init, doctor y primer gate) vive en el [README](../README.md#añadir-sentinel-a-un-proyecto-nuevo), una sola vez. Aquí solo queda lo operativo: `init --dry-run` no muta, y `doctor` distingue `readyForAnalyze` de `readyForGate`.
 
 ## Gate y reportes
 

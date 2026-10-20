@@ -204,6 +204,8 @@ Consulta la [guía de migración legacy](docs/migration.md) antes de retirar cob
 | LSP `sentinel-lsp`     | El mismo análisis en editores compatibles con Language Server Protocol |
 | Reportes Markdown/JSON | Evidencia legible y automatizable para equipos, CI y agentes           |
 
+Instalación, comandos y ajustes de la extensión y del LSP: [docs/editores.md](docs/editores.md).
+
 ## Coordinación opcional para agentes
 
 `sentinel task` ayuda a evitar que dos agentes reclamen el mismo trabajo o modifiquen un checkout compartido. El recorrido conserva ownership y usa ramas y worktrees aislados:

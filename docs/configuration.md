@@ -13,6 +13,23 @@ Durante la transición, pueden existir `quality.config.json`, `quality-tools.jso
 y `quality-adapter.json`. Son superficies legacy: se conservan mientras el adapter las necesite y no se
 copian a proyectos nuevos.
 
+## Claves de análisis
+
+Dentro del analizador (`analyzers.sentinel.config` o la raíz v1):
+
+- `includePatterns`: los defaults completan las extensiones que la ficha omite, dentro de los ámbitos
+  que la ficha declara. Una familia sin ningún patrón declarado queda fuera del alcance.
+- `excludePatterns`: sustituye los defaults de exclusión; es la vía para quitar algo que los defaults incluyen.
+- `directoryExceptions`: patrones glob de directorios que la regla de directorio abarrotado no revisa.
+- `apiRutas`: contrato de rutas del endpoint analyzer. `mapa` y `prefijosMapa` (string → string) reescriben rutas legacy; `mantener` y `prefijosMantener` dejan intactas las que listan. Claves desconocidas dan error. Sin la clave, se usan los valores por defecto del analizador.
+- `marcadoresGlory`, `rutasGlory`: marcadores y carpetas del perfil Glory (ver «Reglas y perfiles»).
+
+Nivel raíz de la política v2:
+
+- `mode`: `enforce`, `observe` o `pass-through`. Otro valor da error.
+- `runtime`: `minimumVersion`, `protocolVersion` y `lockFile`. Se valida su forma; el análisis no lo usa.
+- `budgets`: `mode` (`observe` o `enforce`) y `limits` (objeto de número por tipo). Lo lee el tope físico, no el analizador.
+
 ## Reglas y perfiles
 
 Cada regla se ajusta con `habilitada` (boolean) y `severidad`. Los ids y su categoría están en
