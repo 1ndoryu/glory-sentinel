@@ -8,8 +8,9 @@
  * resolviendo aquí. */
 export * from './args';
 export * from './commands';
+export { runCli } from './cliMain';
 export { languageIdForFile } from '../core/runtime-proyecto/language';
-import { runCli } from './commands';
+import { runCli } from './cliMain';
 
 if (require.main === module) {
   runCli(process.argv.slice(2))
