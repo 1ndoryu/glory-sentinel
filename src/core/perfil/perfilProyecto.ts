@@ -25,7 +25,7 @@ const ARCHIVOS_WORDPRESS = new Set(['wp-config.php', 'wp-config-sample.php']);
 /* Categorias de reglas que pertenecen a cada perfil */
 const CATEGORIAS_PERFIL: Record<keyof PerfilProyecto, CategoriaRegla[]> = {
   wordpress: [CategoriaRegla.WordPressPhp],
-  glory: [CategoriaRegla.GlorySchema],
+  glory: [CategoriaRegla.EsquemaProyecto],
 };
 
 export async function detectarPerfilProyecto(raiz: string): Promise<PerfilProyecto> {

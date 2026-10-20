@@ -32,6 +32,9 @@ export enum CategoriaRegla {
   WordPressPhp = 'wordpress-php',
   SeguridadSql = 'seguridad-sql',
   ReactPatrones = 'react-patrones',
+  /* [S-R1] Nombre canónico; el valor es el id persistido en configs, no cambia. */
+  EsquemaProyecto = 'glory-schema',
+  /** @deprecated Usa EsquemaProyecto. Mismo valor; se conserva para consumidores externos. */
   GlorySchema = 'glory-schema',
   RustPatrones = 'rust-patrones',
 }

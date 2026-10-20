@@ -50,7 +50,7 @@ export const categoriasRegla: MetadataCategoria[] = [
     seccionProtocolo: 'Seccion 7',
   },
   {
-    id: CategoriaRegla.GlorySchema,
+    id: CategoriaRegla.EsquemaProyecto,
     nombre: 'Glory Schema & Seguridad',
     descripcion: 'Enforcement del Schema System (Cols/Enums), repository pattern, INTERVAL seguro, redirects',
     seccionProtocolo: 'Seccion 7',

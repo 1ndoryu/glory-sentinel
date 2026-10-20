@@ -30,7 +30,7 @@ import { cargarTipos } from './glory/schema/tsTypeResolver';
 import { verificarArrayAsociativoComoLista, verificarServiceRetornaAsociativo } from './php/phpArrayShapeRules';
 
 /* [SQ-3] Glory solo actúa en proyectos Glory: sin perfil ni rutasGlory no se indexa nada
- * y sus reglas GlorySchema se saltan. Las reglas genéricas (SeguridadSql, estructura) siguen igual. */
+ * y sus reglas EsquemaProyecto (antes GlorySchema) se saltan. Las reglas genéricas (SeguridadSql, estructura) siguen igual. */
 let gloryActivo = false;
 
 export function estaGloryActivo(): boolean {
