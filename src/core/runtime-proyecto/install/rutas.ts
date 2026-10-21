@@ -9,6 +9,6 @@ export function resolveRuntimeRoot(env: NodeJS.ProcessEnv = process.env): string
 }
 
 export function resolveSourceRoot(sourceRoot?: string): string {
-  // Desde out/core/runtime-proyecto (o src/...) la raíz del repo está tres niveles arriba.
+  // Desde out/core/runtime-proyecto/install (o src/...) la raíz del repo está cuatro niveles arriba.
   return path.resolve(sourceRoot ?? path.resolve(__dirname, '../../../..'));
 }
