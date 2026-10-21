@@ -52,7 +52,7 @@ suite('Sentinel core interceptorShims (shims y perfiles)', () => {
   });
 
   test('el guard del runtime queda fuera del cwd anidado', () => {
-    const runtime = 'C:\\Users\\Owner\\AppData\\Local\\GlorySentinel';
+    const runtime = 'C:\\GlorySentinel-test\\Runtime';
     const npm = generateCmdShim('npm', runtime);
     const custom = generateCmdShim('npm', runtime, 'C:\\tmp\\sentinel-shims');
 
@@ -270,7 +270,7 @@ suite('Sentinel core interceptorShims (shims y perfiles)', () => {
     assert.throws(() => assertSafeRuntimePath('C:\\foo..\\bar'), /\.\./);
     /* Rutas normales con espacios y guiones pasan. */
     const normalRuntime = process.platform === 'win32'
-      ? 'C:\\Users\\Owner\\Glory Sentinel-runtime'
+      ? 'C:\\Glory Sentinel-test\\runtime'
       : path.join(os.tmpdir(), 'Glory Sentinel-runtime');
     assert.strictEqual(assertSafeRuntimePath(normalRuntime), path.resolve(normalRuntime));
     assert.throws(() => generateCmdShim('npm', 'C:\\foo&calc\\bar'), /caracteres no permitidos/);
