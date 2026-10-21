@@ -4,7 +4,7 @@ Sentinel ofrece dos superficies de edición que consumen el mismo motor de anál
 
 ## Extensión de VS Code
 
-Se instala desde el paquete `.vsix` que genera el proyecto (`npm run compile` seguido de `vsce package`; el empaquetado lo hace el mantenedor). Diagnósticos en vivo al editar y comandos sobre archivo o workspace.
+La extensión se instala desde el paquete `.vsix` que genera el proyecto (`npm run compile` seguido de `vsce package`; el empaquetado lo hace el mantenedor). Es un componente aparte del CLI: el CLI de Sentinel se instala solo con `npm run install:sentinel`. Diagnósticos en vivo al editar y comandos sobre archivo o workspace.
 
 Comandos (`Ctrl+Shift+P`):
 
