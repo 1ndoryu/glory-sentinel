@@ -80,7 +80,7 @@ export function usage(): string {
     '  --analyzer-version <v> Versión del analizador registrada en el lock (init; por defecto la del paquete)',
     '  --command <cmd>     Comando/propósito del lease (issue/verify)',
     '  --ttl-ms <ms>       TTL del lease en ms (issue)',
-    '  --json              Salida JSON (guard/doctor/status/install/update/rollback/lease)',
+    '  --json              Salida JSON (guard/doctor/status/install/update/rollback/uninstall/lease/task/init/migrate/uninit)',
     '  --help              Muestra esta ayuda',
     '  --version           Muestra la version instalada',
   ].join('\n');
