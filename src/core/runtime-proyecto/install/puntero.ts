@@ -53,6 +53,8 @@ if (args[0] === 'guard' && fs.existsSync(guardEntry)) {
   );
 } else {
   const cli = path.join(root, 'versions', current.version, 'out', 'cli', 'index.js');
+  /* [SQ-3] Sin timeout a proposito: el shim reenvia un comando del usuario o una etapa del gate
+   * que puede tardar minutos; matarlo convertiria un gate largo en un falso fallo. */
   const child = spawnSync(process.execPath, [cli, ...args], { stdio: 'inherit' });
   process.exit(child.status ?? 2);
 }

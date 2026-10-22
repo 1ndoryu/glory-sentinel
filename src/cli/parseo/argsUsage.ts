@@ -57,7 +57,7 @@ export function usage(): string {
     '  --format <type>     markdown | json. Por defecto: markdown',
     '  --output <path>     Escribe salida en archivo; si falta, imprime en stdout',
     '  --max-file-bytes <n> Omite en analyze los archivos mayores de n bytes (0 = sin límite; por defecto 1048576)',
-    '  --deadline-ms <ms>  Corta analyze al llegar a ms, comprobado entre lotes (0 = sin límite)',
+    '  --deadline-ms <ms>  Corta analyze al llegar a ms, comprobado entre lotes (0 = sin límite; por defecto 600000)',
     '  --max-findings <n>  Muestra como máximo n hallazgos en analyze (0 = sin límite)',
     '  --config <path>     Carga sentinel.config.json',
     '  --task-id <id>      Tarea a comprobar (check)',

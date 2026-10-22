@@ -71,6 +71,8 @@ Códigos de salida de `analyze`: `0` si no hay hallazgos `error` (los `warning` 
 
 Este modo es útil en cualquier carpeta y no necesita coordinación de tareas ni un gate completo.
 
+Límites de `analyze`, ajustables por opción: `--max-file-bytes` omite los archivos de más de 1 MiB (0 lo desactiva), `--deadline-ms` corta a los 10 minutos comprobando entre lotes (0 lo desactiva) y `--max-findings` no recorta por defecto (0). El reporte avisa de lo omitido y, en JSON, lo detalla en `limites`.
+
 ### 2. Quality gate
 
 Cuando el proyecto necesita una decisión de cierre, `sentinel check` ejecuta las etapas declaradas y crea el reporte combinado:

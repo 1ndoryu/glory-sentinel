@@ -110,6 +110,22 @@ suite('Sentinel CLI: límites de analyze (tamaño, deadline, hallazgos)', () => 
     }
   });
 
+  test('el deadline por defecto esta acotado y --deadline-ms 0 lo desactiva', async () => {
+    const workspace = crearWorkspace({ 'a.ts': 'export const a = 1;\n' });
+    try {
+      const porDefecto = await analyzeCliTarget(parseCliArgs(['analyze', '--workspace', workspace, '--format', 'json']));
+      assert.strictEqual(porDefecto.limites.deadlineMs, 600000);
+      assert.strictEqual(porDefecto.limites.deadlineAlcanzado, false);
+
+      const sinLimite = await analyzeCliTarget(parseCliArgs([
+        'analyze', '--workspace', workspace, '--deadline-ms', '0', '--format', 'json',
+      ]));
+      assert.strictEqual(sinLimite.limites.deadlineMs, 0);
+    } finally {
+      fs.rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
   test('rechaza valores no enteros y límites fuera de analyze', () => {
     assert.throws(() => parseCliArgs(['analyze', '--max-file-bytes', '-1']), /entero mayor o igual que 0/);
     assert.throws(() => parseCliArgs(['analyze', '--deadline-ms', '1.5']), /--deadline-ms debe ser/);

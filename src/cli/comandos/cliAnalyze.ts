@@ -25,6 +25,11 @@ const LOTE_ANALISIS = 8;
  * hallazgos útiles y su lectura completa dispara la memoria. 0 en --max-file-bytes = sin límite. */
 const MAX_BYTES_ARCHIVO_DEFECTO = 1024 * 1024;
 
+/* [SQ-3] Tope de tiempo por defecto de analyze (10 min): un arbol patologico o una ruta de red
+ * colgada no dejan el proceso sin fin. Se comprueba entre lotes, asi que el corte nunca deja un
+ * resultado a medias, y el reporte avisa de los archivos no analizados. 0 en --deadline-ms = sin limite. */
+const DEADLINE_ANALYZE_DEFECTO_MS = 10 * 60 * 1000;
+
 function normalizarRuta(ruta: string): string {
   return ruta.replace(/\\/g, '/');
 }
@@ -205,7 +210,7 @@ export async function analyzeCliTarget(args: ParsedCliArgs): Promise<CliAnalysis
       : await collectFiles(workspacePath, config);
 
   const maxFileBytes = args.maxFileBytes ?? MAX_BYTES_ARCHIVO_DEFECTO;
-  const deadlineMs = args.deadlineMs ?? 0;
+  const deadlineMs = args.deadlineMs ?? DEADLINE_ANALYZE_DEFECTO_MS;
   const maxFindings = args.maxFindings ?? 0;
 
   /* [por que] Por lotes: las lecturas de un lote se solapan, pero nunca hay más de

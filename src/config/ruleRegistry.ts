@@ -5,6 +5,8 @@
  * via la propiedad codeSentinel.rules en settings.json.
  *
  * Este modulo es la UNICA FUENTE DE VERDAD para el estado activo de las reglas.
+ * [SQ-5] La implementacion (patron) de las reglas regex vive en defaultRules.ts; este registro
+ * manda sobre id, severidad y categoria, y coherenciaReglas.test.ts impide que ambas tablas diverjan.
  * Todos los analyzers deben consultar reglaHabilitada() y obtenerSeveridadRegla()
  * antes de reportar violaciones.
  */
