@@ -59,6 +59,11 @@ if (!Number.isInteger(conHallazgos)) {
   console.error('Autogate: el reporte no trae totalArchivosConViolaciones; no se puede decidir');
   process.exit(1);
 }
+// Testigo positivo: un "0 archivos con hallazgos" solo vale si de verdad se analizo algo.
+if (!Number.isInteger(resultado.totalArchivos) || resultado.totalArchivos === 0) {
+  console.error('Autogate: el reporte no trae archivos analizados; un 0 sin cobertura no decide');
+  process.exit(1);
+}
 if (conHallazgos > umbral) {
   console.error(`Autogate: ${conHallazgos} archivos con hallazgos (umbral ${umbral})`);
   process.exit(1);

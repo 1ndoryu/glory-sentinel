@@ -150,7 +150,7 @@ Para comprobar el primer análisis de un proyecto (desde su carpeta raíz; escri
 sentinel analyze --workspace . --format json --output sentinel-reporte.json
 ```
 
-`sentinel doctor --json` comprueba un proyecto consumidor. Solo lo trata como consumidor si tiene `sentinel.config.json` o `quality.config.json`; en ese caso lee su `sentinel.lock.json` y sale 1 con `lock-missing` si no lo tiene. Un directorio sin ninguno de los dos marcadores sale 0 sin avisos de lock: no es un fallo de la instalación. No es un paso de la instalación del propio Sentinel.
+`sentinel doctor --json` comprueba un proyecto consumidor. Solo lo trata como consumidor si tiene `sentinel.config.json` o `quality.config.json`; en ese caso lee su `sentinel.lock.json` y sale 1 con `lock-missing` si no lo tiene. Un directorio sin ninguno de los dos marcadores sale 0 sin avisos de lock: no es un fallo de la instalación. No es un paso de la instalación del propio Sentinel. En un clon de este repositorio sale 1 con `lock-missing` porque el repo declara `sentinel.config.json` (su política de autoanálisis) y no fija lock de consumidor; es el resultado esperado.
 
 La versión visible no basta para garantizar capacidades. Los proyectos que dependen de Sentinel deben fijar también el commit, el protocolo y el hash del artefacto en su lock.
 
