@@ -1,7 +1,7 @@
 /*
  * [08AA-26] handler-accede-bd-rs (rustAnalyzer.ts) debe ignorar el SQL de
  * fixtures dentro de #[cfg(test)]: el DIP aplica a produccion. Antes
- * flaggeaba 112 lineas de tests en MN-Inmobiliaria (chat_tools.rs).
+ * marcaba 112 lineas de tests de un consumidor real (chat_tools.rs).
  */
 
 import * as assert from 'assert';

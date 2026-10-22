@@ -109,8 +109,8 @@ export function obtenerLimiteArchivo(nombreArchivo: string, rutaArchivo: string)
    * complejidad de produccion: en Rust, `contarLineasEfectivas` ya excluye el
    * modulo `#[cfg(test)]` por esa misma razon. Sin esta rama, un `.test.ts` o un
    * `.test.mjs` caia en el techo de componente (300) y un archivo de pruebas sano
-   * salia como hallazgo (doctor.test.mjs con 516 lineas efectivas y
-   * remoto.test.mjs con 398, en workspace-manager). */
+   * salia como hallazgo (dos archivos de pruebas reales de 516 y 398 lineas
+   * efectivas en un consumidor). */
   if (esArchivoDeTests(nombreLower, rutaLower)) {
     return { tipo: 'test-integracion', limite: 1000 };
   }
