@@ -59,7 +59,7 @@ suite('directorioAbarrotado (filtro no-codigo)', () => {
   });
 
   test('ignora dist-server en cualquier nivel (salida de build, como dist)', () => {
-    /* [por que] Temporal bajo tmpBaseDir (C:/tmp en Windows, AGENTS.md §0.2; os.tmpdir() en el resto). */
+    /* [por que] Temporal bajo tmpBaseDir (C:/tmp en Windows; os.tmpdir() en el resto). */
     fs.mkdirSync(tmpBaseDir(), { recursive: true });
     const base = fs.mkdtempSync(path.join(tmpBaseDir(), 'sentinel-dist-server-'));
     const dir = path.join(base, 'dist-server', 'server', 'tareas');

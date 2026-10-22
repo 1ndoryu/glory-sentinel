@@ -1,5 +1,19 @@
 # Changelog
 
+## [No publicado]
+
+> Cambios en `main` posteriores al tag `v0.7.28`.
+
+### Cambios de comportamiento
+
+- `analyze` corta a los 10 minutos por defecto (`--deadline-ms`; `0` lo desactiva). Se comprueba entre lotes y el reporte avisa de los archivos no analizados.
+
+### Calidad
+
+- El autogate falla si el reporte no trae archivos analizados: un «0 hallazgos» sin cobertura ya no decide.
+- Test de coherencia entre el registro de reglas y la tabla estática (`coherenciaReglas.test.ts`).
+- El README aclara que `doctor` sale 1 con `lock-missing` en un clon del propio Sentinel.
+
 ## [0.7.28] - 2026-10-20
 
 > Recoge los cambios desde 0.7.27 (16 commits). Primer tag con `install:sentinel`. El README instala desde `main`, que incluye los cambios posteriores a este tag.
