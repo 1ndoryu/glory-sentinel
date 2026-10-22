@@ -256,7 +256,7 @@ node out/cli/index.js --help
 
 Autogate: Sentinel se analiza a sí mismo con `node out/cli/index.js analyze --workspace . --format markdown` (tras `npm run compile`). `npm run quality:check` es el gate local: lint, compilación, `check:core`, `check:reglas`, `smoke:lsp`, mocha y el autogate. El CI (`.github/workflows/ci.yml`) ejecuta `npm ci`, `npm run quality:check` y `npm run check:zed`. El umbral vive en `sentinel-autogate.json` (`maxArchivosConHallazgos`, hoy 0). El autogate falla si el umbral falta o no es válido, si el análisis no termina, si el reporte no trae el recuento o si no analizó ningún archivo. Su reporte temporal es `.sentinel-autogate-reporte.json` (no versionado).
 
-El CLI compilado vive en `out/cli/index.js`; el LSP en `out/lsp/server.js`. Un release destinado a otros proyectos debe compilarse y probarse desde un staging limpio antes de publicarse o fijarse en un lock.
+El CLI compilado vive en `out/cli/index.js`; el LSP en `out/lsp/server.js`. `npm run compile` borra `out/` antes de compilar, así que nunca se ejecuta código de un archivo que ya no está en `src`. Un release destinado a otros proyectos debe compilarse y probarse desde un staging limpio antes de publicarse o fijarse en un lock.
 
 Pruebas, perfiles y timeouts de Mocha: [docs/pruebas.md](docs/pruebas.md).
 

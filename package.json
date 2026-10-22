@@ -118,7 +118,8 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
+    "clean": "node -e \"require('node:fs').rmSync('out',{recursive:true,force:true})\"",
+    "compile": "npm run clean && tsc -p ./",
     "cli": "npm run compile && node ./out/cli/index.js",
     "install:sentinel": "npm run compile && node ./out/cli/index.js install --source-root . --with-shims --with-path",
     "test:task-coordinator": "npm run compile && mocha out/test/suite/task/taskCoordinator.test.js",
