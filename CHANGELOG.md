@@ -10,6 +10,8 @@
 
 ### Calidad
 
+- `quality:check` incluye `lint`, así que el gate local y el CI ejecutan lo mismo (`check:zed` sigue siendo del CI por requerir Rust); el CI deja de invocar `lint` por separado.
+- `lint` vuelve a estar en verde: el alias `CategoriaRegla.GlorySchema` (compatibilidad S-R1) lleva la excepción explicada de `no-duplicate-enum-values`.
 - El autogate falla si el reporte no trae archivos analizados: un «0 hallazgos» sin cobertura ya no decide.
 - Test de coherencia entre el registro de reglas y la tabla estática (`coherenciaReglas.test.ts`).
 - El README aclara que `doctor` sale 1 con `lock-missing` en un clon del propio Sentinel.

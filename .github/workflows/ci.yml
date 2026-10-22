@@ -21,7 +21,6 @@ jobs:
           targets: wasm32-wasip2
 
       - run: npm ci
-      - run: npm run lint
 
       # Una sola definición de la calidad: compila, checks, smoke LSP, mocha y autogate (ver package.json).
       # Falla en el propio paso; sin continue-on-error ni fallo diferido.

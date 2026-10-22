@@ -34,7 +34,9 @@ export enum CategoriaRegla {
   ReactPatrones = 'react-patrones',
   /* [S-R1] Nombre canónico; el valor es el id persistido en configs, no cambia. */
   EsquemaProyecto = 'glory-schema',
+  /* [S-R1] Alias de compatibilidad para consumidores externos: mismo valor a propósito. */
   /** @deprecated Usa EsquemaProyecto. Mismo valor; se conserva para consumidores externos. */
+  // eslint-disable-next-line @typescript-eslint/no-duplicate-enum-values -- alias de compatibilidad deliberado
   GlorySchema = 'glory-schema',
   RustPatrones = 'rust-patrones',
 }
